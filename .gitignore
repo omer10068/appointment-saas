@@ -8,6 +8,4 @@ build/
 .env.*
 !.env.example
 .DS_Store
-.pnpm-store/
-.turbo/
 apps/api/src/generated/
