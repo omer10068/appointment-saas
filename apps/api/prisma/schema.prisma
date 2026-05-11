@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  BLOCKED
+  DISABLED
+}
+
+enum BusinessStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  CANCELLED
+}
+
+enum BusinessUserRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum BusinessUserStatus {
+  INVITED
+  ACTIVE
+  BLOCKED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  BLOCKED
+  ARCHIVED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CANCELLED_BY_CUSTOMER
+  CANCELLED_BY_BUSINESS
+  COMPLETED
+  NO_SHOW
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String?    @unique
+  phone        String?    @unique
+  passwordHash String?
+  status       UserStatus @default(ACTIVE)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  businessUsers    BusinessUser[]
+  customerProfiles CustomerProfile[]
+}
+
+model Business {
+  id       String         @id @default(uuid())
+  name     String
+  slug     String         @unique
+  status   BusinessStatus @default(TRIAL)
+
+  timezone String         @default("Asia/Jerusalem")
+  locale   String         @default("he-IL")
+  currency String         @default("ILS")
+
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  businessUsers     BusinessUser[]
+  services          Service[]
+  staffMembers      StaffMember[]
+  businessCustomers BusinessCustomer[]
+  appointments      Appointment[]
+}
+
+model BusinessUser {
+  id         String             @id @default(uuid())
+  businessId String
+  userId     String
+
+  role       BusinessUserRole
+  status     BusinessUserStatus @default(INVITED)
+
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  business   Business           @relation(fields: [businessId], references: [id])
+  user       User               @relation(fields: [userId], references: [id])
+
+  @@unique([businessId, userId])
+  @@index([businessId])
+  @@index([userId])
+}
+
+model CustomerProfile {
+  id        String   @id @default(uuid())
+  userId    String?
+
+  fullName  String
+  email     String?
+  phone     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User?              @relation(fields: [userId], references: [id])
+  businessCustomers BusinessCustomer[]
+
+  @@index([userId])
+  @@index([phone])
+}
+
+model BusinessCustomer {
+  id                String         @id @default(uuid())
+  businessId        String
+  customerProfileId String
+
+  status            CustomerStatus @default(ACTIVE)
+  notes             String?
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  business          Business        @relation(fields: [businessId], references: [id])
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+  appointments      Appointment[]
+
+  @@unique([businessId, customerProfileId])
+  @@index([businessId])
+  @@index([customerProfileId])
+}
+
+model Service {
+  id              String   @id @default(uuid())
+  businessId      String
+
+  name            String
+  description     String?
+  durationMinutes Int
+  priceCents      Int?
+  isActive        Boolean  @default(true)
+
+  bufferBeforeMin Int      @default(0)
+  bufferAfterMin  Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  business        Business @relation(fields: [businessId], references: [id])
+  appointments    Appointment[]
+
+  @@index([businessId])
+}
+
+model StaffMember {
+  id             String   @id @default(uuid())
+  businessId     String
+  businessUserId String?
+
+  displayName    String
+  isActive       Boolean  @default(true)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business       Business @relation(fields: [businessId], references: [id])
+  appointments   Appointment[]
+
+  @@index([businessId])
+}
+
+model Appointment {
+  id                 String            @id @default(uuid())
+  businessId         String
+  businessCustomerId String
+  serviceId          String
+  staffMemberId      String?
+
+  startsAt           DateTime
+  endsAt             DateTime
+  status             AppointmentStatus @default(SCHEDULED)
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  business           Business          @relation(fields: [businessId], references: [id])
+  businessCustomer   BusinessCustomer  @relation(fields: [businessCustomerId], references: [id])
+  service            Service           @relation(fields: [serviceId], references: [id])
+  staffMember        StaffMember?      @relation(fields: [staffMemberId], references: [id])
+
+  @@index([businessId])
+  @@index([businessCustomerId])
+  @@index([serviceId])
+  @@index([staffMemberId])
+  @@index([startsAt])
+}
