@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
-import { type Business } from '../generated/prisma/client';
+import { type Business, type BusinessUser } from '../generated/prisma/client';
 import { BusinessesService } from '../businesses/businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
+import { BusinessUsersService } from '../business-users/business-users.service';
+import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { AdminBusinessesService } from './admin-businesses.service';
 
 const mockBusiness: Business = {
@@ -17,9 +19,24 @@ const mockBusiness: Business = {
   updatedAt: new Date('2024-01-01'),
 };
 
+const mockBusinessUser: BusinessUser = {
+  id: 'bu-1',
+  businessId: 'biz-1',
+  userId: 'user-1',
+  role: 'OWNER',
+  status: 'INVITED',
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
 const mockBusinessesService = {
   create: jest.fn<(...args: unknown[]) => Promise<Business>>(),
   findAll: jest.fn<(...args: unknown[]) => Promise<Business[]>>(),
+};
+
+const mockBusinessUsersService = {
+  createOwnerForBusiness:
+    jest.fn<(...args: unknown[]) => Promise<BusinessUser>>(),
 };
 
 describe('AdminBusinessesService', () => {
@@ -32,6 +49,7 @@ describe('AdminBusinessesService', () => {
       providers: [
         AdminBusinessesService,
         { provide: BusinessesService, useValue: mockBusinessesService },
+        { provide: BusinessUsersService, useValue: mockBusinessUsersService },
       ],
     }).compile();
 
@@ -58,6 +76,22 @@ describe('AdminBusinessesService', () => {
 
       expect(mockBusinessesService.findAll).toHaveBeenCalled();
       expect(result).toEqual([mockBusiness]);
+    });
+  });
+
+  describe('createOwner', () => {
+    it('delegates to BusinessUsersService.createOwnerForBusiness', async () => {
+      const dto: CreateBusinessOwnerDto = { email: 'owner@example.com' };
+      mockBusinessUsersService.createOwnerForBusiness.mockResolvedValue(
+        mockBusinessUser,
+      );
+
+      const result = await service.createOwner('biz-1', dto);
+
+      expect(
+        mockBusinessUsersService.createOwnerForBusiness,
+      ).toHaveBeenCalledWith('biz-1', dto);
+      expect(result).toEqual(mockBusinessUser);
     });
   });
 });
