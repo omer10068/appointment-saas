@@ -9,6 +9,9 @@ jobs:
     name: Test, Lint, Build
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/appointment_saas_ci
+
     steps:
       - uses: actions/checkout@v4
 
