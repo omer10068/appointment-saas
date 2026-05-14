@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from './prisma.service';
 
@@ -6,7 +7,13 @@ describe('PrismaService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PrismaService],
+      providers: [
+        PrismaService,
+        {
+          provide: ConfigService,
+          useValue: { get: () => 'postgresql://user:pass@localhost:5432/test' },
+        },
+      ],
     }).compile();
 
     service = module.get<PrismaService>(PrismaService);
