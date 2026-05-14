@@ -1,5 +1,5 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { Business } from '../generated/prisma/client';
+import { Business, BusinessUser } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 
@@ -25,5 +25,14 @@ export class BusinessesService {
 
   async findAll(): Promise<Business[]> {
     return this.prisma.business.findMany({ orderBy: { createdAt: 'desc' } });
+  }
+
+  async findMine(
+    userId: string,
+  ): Promise<(BusinessUser & { business: Business })[]> {
+    return this.prisma.businessUser.findMany({
+      where: { userId },
+      include: { business: true },
+    });
   }
 }

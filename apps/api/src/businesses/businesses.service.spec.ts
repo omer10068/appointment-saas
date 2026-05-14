@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { type Business } from '../generated/prisma/client';
+import { type Business, type BusinessUser } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessesService } from './businesses.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
@@ -18,10 +18,29 @@ const mockBusiness: Business = {
   updatedAt: new Date('2024-01-01'),
 };
 
+const mockBusinessUser: BusinessUser & { business: Business } = {
+  id: 'bu-1',
+  businessId: 'biz-1',
+  userId: 'user-1',
+  role: 'OWNER',
+  status: 'INVITED',
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+  business: mockBusiness,
+};
+
 const mockPrisma = {
   business: {
     create: jest.fn<(...args: unknown[]) => Promise<Business>>(),
     findMany: jest.fn<(...args: unknown[]) => Promise<Business[]>>(),
+  },
+  businessUser: {
+    findMany:
+      jest.fn<
+        (
+          ...args: unknown[]
+        ) => Promise<(BusinessUser & { business: Business })[]>
+      >(),
   },
 };
 
@@ -77,6 +96,38 @@ describe('BusinessesService', () => {
         orderBy: { createdAt: 'desc' },
       });
       expect(result).toEqual([mockBusiness]);
+    });
+  });
+
+  describe('findMine', () => {
+    it('queries businessUser by userId and includes business', async () => {
+      mockPrisma.businessUser.findMany.mockResolvedValue([mockBusinessUser]);
+
+      const result = await service.findMine('user-1');
+
+      expect(mockPrisma.businessUser.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        include: { business: true },
+      });
+      expect(result).toEqual([mockBusinessUser]);
+    });
+
+    it('returns only businesses linked to the given user', async () => {
+      mockPrisma.businessUser.findMany.mockResolvedValue([mockBusinessUser]);
+
+      const result = await service.findMine('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].userId).toBe('user-1');
+      expect(result[0].business).toEqual(mockBusiness);
+    });
+
+    it('returns an empty array when the user has no business memberships', async () => {
+      mockPrisma.businessUser.findMany.mockResolvedValue([]);
+
+      const result = await service.findMine('user-with-no-memberships');
+
+      expect(result).toEqual([]);
     });
   });
 });
