@@ -1,8 +1,6 @@
 name: API CI
 
-on:
-  push:
-  pull_request:
+on: [push, pull_request]
 
 jobs:
   ci:
@@ -13,22 +11,25 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/appointment_saas_ci
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 11.0.9
+          version: '11.0.9'
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
-        run: pnpm --filter api exec prisma generate
+        run: pnpm --filter api run prisma:generate
 
       - name: Test
         run: pnpm test

@@ -1,21 +1,27 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { type Business } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessesService } from './businesses.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 
-const mockBusiness = {
+const mockBusiness: Business = {
   id: 'biz-1',
   name: 'Acme Corp',
   slug: 'acme-corp',
+  status: 'TRIAL',
+  timezone: 'Asia/Jerusalem',
+  locale: 'he-IL',
+  currency: 'ILS',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
 
 const mockPrisma = {
   business: {
-    create: jest.fn(),
-    findMany: jest.fn(),
+    create: jest.fn<(...args: unknown[]) => Promise<Business>>(),
+    findMany: jest.fn<(...args: unknown[]) => Promise<Business[]>>(),
   },
 };
 
