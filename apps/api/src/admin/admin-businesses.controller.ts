@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { AdminBusinessesService } from './admin-businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
+import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 
 @Controller('admin/businesses')
 export class AdminBusinessesController {
@@ -16,5 +17,13 @@ export class AdminBusinessesController {
   @Get()
   findAll() {
     return this.adminBusinessesService.findAll();
+  }
+
+  @Post(':businessId/owner')
+  createOwner(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateBusinessOwnerDto,
+  ) {
+    return this.adminBusinessesService.createOwner(businessId, dto);
   }
 }
