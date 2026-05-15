@@ -15,15 +15,8 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  form: { display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '400px' },
-  label: { display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem', fontWeight: 600 },
-  input: { padding: '0.4rem 0.6rem', fontSize: '1rem', border: '1px solid #ccc', borderRadius: '4px' },
-  btn: { padding: '0.45rem 1rem', fontSize: '0.95rem', cursor: 'pointer' },
-  error: { color: 'crimson', margin: '0.25rem 0' },
-  success: { color: 'green', margin: '0.25rem 0' },
-  fieldError: { color: 'crimson', fontSize: '0.8rem', fontWeight: 400 },
-};
+const inputBase =
+  'w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:bg-gray-50';
 
 export function CreateBusinessForm() {
   const [state, formAction, isPending] = useActionState(createBusinessAction, {});
@@ -52,11 +45,11 @@ export function CreateBusinessForm() {
   const slugInvalid = slug.length > 0 && !SLUG_RE.test(slug);
 
   return (
-    <form action={formAction} style={styles.form} autoComplete="off">
-      <label style={styles.label}>
-        Name
+    <form action={formAction} className="flex flex-col gap-4 max-w-sm" autoComplete="off">
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-gray-700">Name</span>
         <input
-          style={styles.input}
+          className={`${inputBase} border-gray-300`}
           name="name"
           type="text"
           value={name}
@@ -67,10 +60,11 @@ export function CreateBusinessForm() {
           disabled={isPending}
         />
       </label>
-      <label style={styles.label}>
-        Slug
+
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-gray-700">Slug</span>
         <input
-          style={{ ...styles.input, borderColor: slugInvalid ? 'crimson' : undefined }}
+          className={`${inputBase} ${slugInvalid ? 'border-red-400' : 'border-gray-300'}`}
           name="slug"
           type="text"
           value={slug}
@@ -81,16 +75,26 @@ export function CreateBusinessForm() {
           disabled={isPending}
         />
         {slugInvalid && (
-          <span style={styles.fieldError}>
+          <span className="text-xs text-red-600">
             Lowercase letters, numbers, and hyphens only.
           </span>
         )}
       </label>
-      <button type="submit" style={styles.btn} disabled={isPending || slugInvalid}>
-        {isPending ? 'Creating...' : 'Create Business'}
+
+      <button
+        type="submit"
+        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-start"
+        disabled={isPending || slugInvalid}
+      >
+        {isPending ? 'Creating…' : 'Create Business'}
       </button>
-      {state.error && <p style={styles.error}>{state.error}</p>}
-      {state.success && <p style={styles.success}>{state.success}</p>}
+
+      {state.error && (
+        <p className="text-sm text-red-600">{state.error}</p>
+      )}
+      {state.success && (
+        <p className="text-sm text-green-600">{state.success}</p>
+      )}
     </form>
   );
 }

@@ -4,14 +4,8 @@ import { useActionState, useState, useEffect } from 'react';
 import type { BusinessDto } from '@appointment/contracts';
 import { assignOwnerAction } from '../actions';
 
-const styles: Record<string, React.CSSProperties> = {
-  form: { display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '400px' },
-  label: { display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem', fontWeight: 600 },
-  input: { padding: '0.4rem 0.6rem', fontSize: '1rem', border: '1px solid #ccc', borderRadius: '4px' },
-  btn: { padding: '0.45rem 1rem', fontSize: '0.95rem', cursor: 'pointer' },
-  error: { color: 'crimson', margin: '0.25rem 0' },
-  success: { color: 'green', margin: '0.25rem 0' },
-};
+const inputBase =
+  'w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:bg-gray-50';
 
 export function AssignOwnerForm({ businesses }: { businesses: BusinessDto[] }) {
   const [state, formAction, isPending] = useActionState(assignOwnerAction, {});
@@ -26,27 +20,30 @@ export function AssignOwnerForm({ businesses }: { businesses: BusinessDto[] }) {
   }, [state.success]);
 
   return (
-    <form action={formAction} style={styles.form} autoComplete="off">
-      <label style={styles.label}>
-        Business
+    <form action={formAction} className="flex flex-col gap-4 max-w-sm" autoComplete="off">
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-gray-700">Business</span>
         <select
-          style={styles.input}
+          className={inputBase}
           name="businessId"
           value={businessId}
           onChange={(e) => setBusinessId(e.target.value)}
           required
           disabled={isPending || businesses.length === 0}
         >
-          <option value="">Select a business...</option>
+          <option value="">Select a business…</option>
           {businesses.map((b) => (
-            <option key={b.id} value={b.id}>{b.name} ({b.slug})</option>
+            <option key={b.id} value={b.id}>
+              {b.name} ({b.slug})
+            </option>
           ))}
         </select>
       </label>
-      <label style={styles.label}>
-        Owner Email
+
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-gray-700">Owner Email</span>
         <input
-          style={styles.input}
+          className={inputBase}
           name="email"
           type="email"
           value={email}
@@ -56,15 +53,21 @@ export function AssignOwnerForm({ businesses }: { businesses: BusinessDto[] }) {
           disabled={isPending}
         />
       </label>
+
       <button
         type="submit"
-        style={styles.btn}
+        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-start"
         disabled={isPending || businesses.length === 0}
       >
-        {isPending ? 'Assigning...' : 'Assign Owner'}
+        {isPending ? 'Assigning…' : 'Assign Owner'}
       </button>
-      {state.error && <p style={styles.error}>{state.error}</p>}
-      {state.success && <p style={styles.success}>{state.success}</p>}
+
+      {state.error && (
+        <p className="text-sm text-red-600">{state.error}</p>
+      )}
+      {state.success && (
+        <p className="text-sm text-green-600">{state.success}</p>
+      )}
     </form>
   );
 }

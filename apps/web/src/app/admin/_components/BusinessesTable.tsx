@@ -1,36 +1,43 @@
 import type { BusinessDto } from '@appointment/contracts';
-
-const styles: Record<string, React.CSSProperties> = {
-  table: { borderCollapse: 'collapse', width: '100%' },
-  th: { textAlign: 'left', padding: '0.5rem 0.75rem', borderBottom: '2px solid #ddd', fontSize: '0.85rem', color: '#555' },
-  td: { padding: '0.5rem 0.75rem', borderBottom: '1px solid #eee', fontSize: '0.9rem' },
-};
+import { StatusBadge } from './StatusBadge';
 
 export function BusinessesTable({ businesses }: { businesses: BusinessDto[] }) {
   if (businesses.length === 0) {
-    return <p style={{ color: '#888' }}>No businesses yet.</p>;
+    return (
+      <p className="text-sm text-gray-400 py-4">No businesses yet.</p>
+    );
   }
 
   return (
-    <table style={styles.table}>
-      <thead>
-        <tr>
-          <th style={styles.th}>Name</th>
-          <th style={styles.th}>Slug</th>
-          <th style={styles.th}>Status</th>
-          <th style={styles.th}>Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        {businesses.map((b) => (
-          <tr key={b.id}>
-            <td style={styles.td}>{b.name}</td>
-            <td style={styles.td}>{b.slug}</td>
-            <td style={styles.td}>{b.status}</td>
-            <td style={styles.td}>{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : '—'}</td>
+    <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            {['Name', 'Slug', 'Status', 'Created'].map((h) => (
+              <th
+                key={h}
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {h}
+              </th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-100">
+          {businesses.map((b) => (
+            <tr key={b.id} className="hover:bg-gray-50 transition-colors">
+              <td className="px-4 py-3 font-medium text-gray-900">{b.name}</td>
+              <td className="px-4 py-3 text-gray-500 font-mono text-xs">{b.slug}</td>
+              <td className="px-4 py-3">
+                <StatusBadge status={b.status} />
+              </td>
+              <td className="px-4 py-3 text-gray-500">
+                {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
