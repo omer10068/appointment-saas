@@ -3,32 +3,19 @@
 import { useAuth, useUser, SignOutButton } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 import { fetchWithAuth } from '@/lib/api';
-
-interface Business {
-  id: string;
-  name: string;
-  slug: string;
-  status: string;
-}
-
-interface BusinessUser {
-  id: string;
-  role: string;
-  status: string;
-  business: Business;
-}
+import type { BusinessUserWithBusinessDto } from '@appointment/contracts';
 
 export default function DashboardPage() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
-  const [businesses, setBusinesses] = useState<BusinessUser[] | null>(null);
+  const [businesses, setBusinesses] = useState<BusinessUserWithBusinessDto[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
 
-    fetchWithAuth<BusinessUser[]>('/businesses/me', getToken)
+    fetchWithAuth<BusinessUserWithBusinessDto[]>('/businesses/me', getToken)
       .then(setBusinesses)
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Unknown error'),
