@@ -12,5 +12,8 @@
   },
   "devDependencies": {
     "turbo": "^2.9.12"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@clerk/shared"]
   }
 }

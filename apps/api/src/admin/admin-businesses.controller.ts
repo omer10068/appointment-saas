@@ -1,8 +1,11 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
+import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
 import { AdminBusinessesService } from './admin-businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 
+@UseGuards(ClerkAuthGuard, PlatformAdminGuard)
 @Controller('admin/businesses')
 export class AdminBusinessesController {
   constructor(

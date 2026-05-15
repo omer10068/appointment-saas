@@ -8,6 +8,13 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PlatformRole {
+  USER
+  SUPPORT
+  ADMIN
+  SUPER_ADMIN
+}
+
 enum UserStatus {
   ACTIVE
   INVITED
@@ -50,11 +57,13 @@ enum AppointmentStatus {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  email        String?    @unique
-  phone        String?    @unique
-  passwordHash String?
-  status       UserStatus @default(ACTIVE)
+  id           String       @id @default(uuid())
+  clerkUserId  String?      @unique
+
+  email        String?      @unique
+  phone        String?      @unique
+  status       UserStatus   @default(ACTIVE)
+  platformRole PlatformRole @default(USER)
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt

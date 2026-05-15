@@ -26,7 +26,7 @@ const mockUser: User = {
   id: 'user-1',
   email: 'owner@example.com',
   phone: null,
-  passwordHash: null,
+  clerkUserId: null,
   status: 'INVITED',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
