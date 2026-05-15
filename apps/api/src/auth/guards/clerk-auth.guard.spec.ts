@@ -12,6 +12,7 @@ const mockUser: User = {
   email: 'test@example.com',
   phone: null,
   status: 'ACTIVE',
+  platformRole: 'USER',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
