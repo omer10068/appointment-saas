@@ -9,3 +9,5 @@ build/
 !.env.example
 .DS_Store
 apps/api/src/generated/
+
+*.tsbuildinfo
