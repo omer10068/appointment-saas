@@ -1,9 +1,13 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import type { DashboardSummaryDto } from '@appointment/contracts';
 import { useDashboardBusiness } from './_business/useDashboardBusiness';
 import { useDashboardI18n } from './_i18n/useDashboardI18n';
 import { DashboardPageHeader } from './_components/DashboardPageHeader';
 import { DashboardCard } from './_components/DashboardCard';
+import { fetchDashboardSummary } from '../../lib/api';
 
 function StatusBadge({ status }: { status: string }) {
   const isActive = status.toUpperCase() === 'ACTIVE';
@@ -24,6 +28,35 @@ export default function DashboardPage() {
   const { currentBusiness } = useDashboardBusiness();
   const dict = useDashboardI18n();
   const t = dict.overview;
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+
+  const [summary, setSummary] = useState<DashboardSummaryDto | null>(null);
+
+  const businessId = currentBusiness?.business.id;
+
+  useEffect(() => {
+    if (!businessId) {
+      setSummary(null);
+      return;
+    }
+
+    let cancelled = false;
+    setSummary(null);
+
+    fetchDashboardSummary(businessId, () => getTokenRef.current())
+      .then((data) => {
+        if (!cancelled) setSummary(data);
+      })
+      .catch(() => {
+        // summary counts are best-effort; silently ignore errors
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
 
   if (!currentBusiness) {
     return (
@@ -85,7 +118,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Placeholder metric cards */}
+      {/* Metric cards — real counts where available */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <DashboardCard
           title={t.todayAppointments}
@@ -98,8 +131,13 @@ export default function DashboardPage() {
         <DashboardCard
           title={t.activeCustomers}
           description={t.activeCustomersDesc}
+          value={summary?.activeCustomersCount}
         />
-        <DashboardCard title={t.services} description={t.servicesDesc} />
+        <DashboardCard
+          title={t.services}
+          description={t.servicesDesc}
+          value={summary?.servicesCount}
+        />
         <DashboardCard
           title={t.staffMembers}
           description={t.staffMembersDesc}

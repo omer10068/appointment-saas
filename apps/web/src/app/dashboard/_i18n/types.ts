@@ -78,5 +78,33 @@ export interface DashboardDictionary {
     reports: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
   };
 
+  servicesList: {
+    serviceName: string;
+    description: string;
+    duration: string;
+    price: string;
+    active: string;
+    inactive: string;
+    free: string;
+    minutes: string;
+    noServicesYet: string;
+    noServicesDescription: string;
+    bufferBefore: string;
+    bufferAfter: string;
+  };
+
+  customersList: {
+    customerName: string;
+    email: string;
+    phone: string;
+    status: string;
+    notes: string;
+    noCustomersYet: string;
+    noCustomersDescription: string;
+    statusActive: string;
+    statusBlocked: string;
+    statusArchived: string;
+  };
+
   comingSoon: string;
 }

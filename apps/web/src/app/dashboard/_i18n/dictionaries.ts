@@ -139,6 +139,34 @@ const he: DashboardDictionary = {
     },
   },
 
+  servicesList: {
+    serviceName: 'שם השירות',
+    description: 'תיאור',
+    duration: 'משך',
+    price: 'מחיר',
+    active: 'פעיל',
+    inactive: 'לא פעיל',
+    free: 'חינם',
+    minutes: 'דקות',
+    noServicesYet: 'אין שירותים עדיין',
+    noServicesDescription: 'עדיין לא נוספו שירותים לעסק הזה.',
+    bufferBefore: 'חוצץ לפני',
+    bufferAfter: 'חוצץ אחרי',
+  },
+
+  customersList: {
+    customerName: 'שם לקוח',
+    email: 'אימייל',
+    phone: 'טלפון',
+    status: 'סטטוס',
+    notes: 'הערות',
+    noCustomersYet: 'אין לקוחות עדיין',
+    noCustomersDescription: 'עדיין לא נוספו לקוחות לעסק הזה.',
+    statusActive: 'פעיל',
+    statusBlocked: 'חסום',
+    statusArchived: 'ארכיון',
+  },
+
   comingSoon: 'בקרוב',
 };
 
@@ -278,6 +306,34 @@ const en: DashboardDictionary = {
       emptyDescription: 'Track appointments over time, revenue trends, customer retention, and staff utilization.',
       managesFor: 'This section will show reports for',
     },
+  },
+
+  servicesList: {
+    serviceName: 'Service name',
+    description: 'Description',
+    duration: 'Duration',
+    price: 'Price',
+    active: 'Active',
+    inactive: 'Inactive',
+    free: 'Free',
+    minutes: 'min',
+    noServicesYet: 'No services yet',
+    noServicesDescription: 'No services have been added to this business yet.',
+    bufferBefore: 'Buffer before',
+    bufferAfter: 'Buffer after',
+  },
+
+  customersList: {
+    customerName: 'Customer name',
+    email: 'Email',
+    phone: 'Phone',
+    status: 'Status',
+    notes: 'Notes',
+    noCustomersYet: 'No customers yet',
+    noCustomersDescription: 'No customers have been added to this business yet.',
+    statusActive: 'Active',
+    statusBlocked: 'Blocked',
+    statusArchived: 'Archived',
   },
 
   comingSoon: 'Coming soon',
