@@ -91,6 +91,28 @@ export interface DashboardDictionary {
     noServicesDescription: string;
     bufferBefore: string;
     bufferAfter: string;
+    actions: string;
+    addService: string;
+  };
+
+  serviceForm: {
+    addService: string;
+    editService: string;
+    serviceName: string;
+    description: string;
+    durationMinutes: string;
+    priceIls: string;
+    bufferBefore: string;
+    bufferAfter: string;
+    isActive: string;
+    save: string;
+    cancel: string;
+    activate: string;
+    deactivate: string;
+    createdSuccess: string;
+    updatedSuccess: string;
+    saveError: string;
+    loadError: string;
   };
 
   customersList: {

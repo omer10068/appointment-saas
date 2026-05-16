@@ -1,7 +1,9 @@
 import type {
+  CreateServicePayload,
   DashboardCustomerDto,
   DashboardServiceDto,
   DashboardSummaryDto,
+  UpdateServicePayload,
 } from '@appointment/contracts';
 
 const API_URL =
@@ -54,6 +56,8 @@ export async function fetchWithAuth<T>(
   return res.json() as Promise<T>;
 }
 
+// ─── Services (read) ──────────────────────────────────────────────────────────
+
 export function fetchDashboardServices(
   businessId: string,
   getToken: () => Promise<string | null>,
@@ -64,6 +68,48 @@ export function fetchDashboardServices(
   );
 }
 
+// ─── Services (mutations) ─────────────────────────────────────────────────────
+
+export function createDashboardService(
+  businessId: string,
+  payload: CreateServicePayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardServiceDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/services`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
+export function updateDashboardService(
+  businessId: string,
+  serviceId: string,
+  payload: UpdateServicePayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardServiceDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/services/${serviceId}`,
+    getToken,
+    { method: 'PATCH', body: payload },
+  );
+}
+
+export function updateDashboardServiceStatus(
+  businessId: string,
+  serviceId: string,
+  isActive: boolean,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardServiceDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/services/${serviceId}/status`,
+    getToken,
+    { method: 'PATCH', body: { isActive } },
+  );
+}
+
+// ─── Customers ────────────────────────────────────────────────────────────────
+
 export function fetchDashboardCustomers(
   businessId: string,
   getToken: () => Promise<string | null>,
@@ -73,6 +119,8 @@ export function fetchDashboardCustomers(
     getToken,
   );
 }
+
+// ─── Summary ──────────────────────────────────────────────────────────────────
 
 export function fetchDashboardSummary(
   businessId: string,

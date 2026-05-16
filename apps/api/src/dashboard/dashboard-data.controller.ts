@@ -1,12 +1,26 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import type { AuthenticatedRequest } from '../auth/types/authenticated-request';
+import { CreateServiceDto } from './dto/create-service.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
+import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
 import { DashboardDataService } from './dashboard-data.service';
 
 @UseGuards(ClerkAuthGuard)
 @Controller('dashboard/businesses')
 export class DashboardDataController {
   constructor(private readonly dashboardDataService: DashboardDataService) {}
+
+  // ─── Services (read) ─────────────────────────────────────────────────────────
 
   @Get(':businessId/services')
   getServices(
@@ -16,6 +30,53 @@ export class DashboardDataController {
     return this.dashboardDataService.getServices(req.user.id, businessId);
   }
 
+  // ─── Services (mutations) ─────────────────────────────────────────────────────
+
+  @Post(':businessId/services')
+  createService(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateServiceDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.createService(
+      req.user.id,
+      businessId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/services/:serviceId')
+  updateService(
+    @Param('businessId') businessId: string,
+    @Param('serviceId') serviceId: string,
+    @Body() dto: UpdateServiceDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.updateService(
+      req.user.id,
+      businessId,
+      serviceId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/services/:serviceId/status')
+  setServiceStatus(
+    @Param('businessId') businessId: string,
+    @Param('serviceId') serviceId: string,
+    @Body() dto: UpdateServiceStatusDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.setServiceStatus(
+      req.user.id,
+      businessId,
+      serviceId,
+      dto.isActive,
+    );
+  }
+
+  // ─── Customers ────────────────────────────────────────────────────────────────
+
   @Get(':businessId/customers')
   getCustomers(
     @Param('businessId') businessId: string,
@@ -23,6 +84,8 @@ export class DashboardDataController {
   ) {
     return this.dashboardDataService.getCustomers(req.user.id, businessId);
   }
+
+  // ─── Summary ─────────────────────────────────────────────────────────────────
 
   @Get(':businessId/summary')
   getSummary(

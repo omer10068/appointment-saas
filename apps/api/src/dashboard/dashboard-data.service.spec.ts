@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   type BusinessCustomer,
@@ -23,6 +23,18 @@ const mockMembership: BusinessUser = {
   status: 'ACTIVE',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
+};
+
+const mockManagerMembership: BusinessUser = {
+  ...mockMembership,
+  id: 'bu-2',
+  role: 'MANAGER',
+};
+
+const mockStaffMembership: BusinessUser = {
+  ...mockMembership,
+  id: 'bu-3',
+  role: 'STAFF',
 };
 
 const mockService: Service = {
@@ -82,6 +94,9 @@ const mockPrisma = {
   },
   service: {
     findMany: jest.fn<(...args: unknown[]) => Promise<Service[]>>(),
+    findFirst: jest.fn<(...args: unknown[]) => Promise<Service | null>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<Service>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<Service>>(),
     count: jest.fn<(...args: unknown[]) => Promise<number>>(),
   },
   businessCustomer: {
@@ -278,6 +293,212 @@ describe('DashboardDataService', () => {
           where: expect.objectContaining({ businessId: BUSINESS_ID }),
         }),
       );
+    });
+  });
+
+  // ─── createService ─────────────────────────────────────────────────────────
+
+  describe('createService', () => {
+    const createDto = {
+      name: 'Haircut',
+      durationMinutes: 30,
+      priceCents: 8000,
+    };
+
+    it('OWNER can create a service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.create.mockResolvedValue(mockService);
+
+      const result = await service.createService(
+        USER_ID,
+        BUSINESS_ID,
+        createDto,
+      );
+
+      expect(mockPrisma.service.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            businessId: BUSINESS_ID,
+            name: 'Haircut',
+          }),
+        }),
+      );
+      expect(result).toMatchObject({ id: 'svc-1', name: 'Haircut' });
+    });
+
+    it('MANAGER can create a service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockManagerMembership,
+      );
+      mockPrisma.service.create.mockResolvedValue(mockService);
+
+      await expect(
+        service.createService(USER_ID, BUSINESS_ID, createDto),
+      ).resolves.toMatchObject({ id: 'svc-1' });
+    });
+
+    it('STAFF cannot create a service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.createService(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('user not assigned to business cannot create a service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.createService(OTHER_USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('defaults isActive to true when not provided', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.create.mockResolvedValue(mockService);
+
+      await service.createService(USER_ID, BUSINESS_ID, {
+        name: 'New Service',
+        durationMinutes: 60,
+      });
+
+      expect(mockPrisma.service.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isActive: true }),
+        }),
+      );
+    });
+  });
+
+  // ─── updateService ─────────────────────────────────────────────────────────
+
+  describe('updateService', () => {
+    const updateDto = { name: 'Premium Haircut', priceCents: 12000 };
+
+    it('OWNER can update a service in their business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.findFirst.mockResolvedValue(mockService);
+      mockPrisma.service.update.mockResolvedValue({
+        ...mockService,
+        name: 'Premium Haircut',
+        priceCents: 12000,
+      });
+
+      const result = await service.updateService(
+        USER_ID,
+        BUSINESS_ID,
+        'svc-1',
+        updateDto,
+      );
+
+      expect(mockPrisma.service.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'svc-1', businessId: BUSINESS_ID },
+        }),
+      );
+      expect(mockPrisma.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'svc-1' } }),
+      );
+      expect(result).toMatchObject({ name: 'Premium Haircut' });
+    });
+
+    it('cannot update a service that belongs to another business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      // findFirst returns null because svc-2 is not in BUSINESS_ID
+      mockPrisma.service.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateService(
+          USER_ID,
+          BUSINESS_ID,
+          mockServiceOtherBiz.id,
+          updateDto,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('STAFF cannot update a service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.updateService(USER_ID, BUSINESS_ID, 'svc-1', updateDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── setServiceStatus ──────────────────────────────────────────────────────
+
+  describe('setServiceStatus', () => {
+    it('can deactivate a service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.findFirst.mockResolvedValue(mockService);
+      mockPrisma.service.update.mockResolvedValue({
+        ...mockService,
+        isActive: false,
+      });
+
+      const result = await service.setServiceStatus(
+        USER_ID,
+        BUSINESS_ID,
+        'svc-1',
+        false,
+      );
+
+      expect(mockPrisma.service.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'svc-1' },
+          data: { isActive: false },
+        }),
+      );
+      expect(result).toMatchObject({ isActive: false });
+    });
+
+    it('can reactivate a service', async () => {
+      const inactiveService = { ...mockService, isActive: false };
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.findFirst.mockResolvedValue(inactiveService);
+      mockPrisma.service.update.mockResolvedValue(mockService);
+
+      const result = await service.setServiceStatus(
+        USER_ID,
+        BUSINESS_ID,
+        'svc-1',
+        true,
+      );
+
+      expect(result).toMatchObject({ isActive: true });
+    });
+
+    it('cannot deactivate a service from another business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setServiceStatus(
+          USER_ID,
+          BUSINESS_ID,
+          mockServiceOtherBiz.id,
+          false,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('STAFF cannot deactivate a service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.setServiceStatus(USER_ID, BUSINESS_ID, 'svc-1', false),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });
