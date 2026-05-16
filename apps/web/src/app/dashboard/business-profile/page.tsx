@@ -1,5 +1,5 @@
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
-import { EmptyState } from '../_components/EmptyState';
+import { BusinessAwareEmptyState } from '../_components/BusinessAwareEmptyState';
 import { getServerDict } from '../_i18n/getServerDict';
 
 export default async function BusinessProfilePage() {
@@ -8,7 +8,12 @@ export default async function BusinessProfilePage() {
   return (
     <>
       <DashboardPageHeader title={p.title} description={p.description} />
-      <EmptyState title={p.emptyTitle} description={p.emptyDescription} comingSoon={dict.comingSoon} />
+      <BusinessAwareEmptyState
+        title={p.emptyTitle}
+        emptyDescription={p.emptyDescription}
+        managesFor={p.managesFor}
+        comingSoon={dict.comingSoon}
+      />
     </>
   );
 }

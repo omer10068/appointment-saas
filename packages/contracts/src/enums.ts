@@ -14,6 +14,11 @@ export type BusinessUserStatus =
   | 'ACTIVE'
   | 'BLOCKED';
 
+export type CustomerStatus =
+  | 'ACTIVE'
+  | 'BLOCKED'
+  | 'ARCHIVED';
+
 export type PlatformRole =
   | 'USER'
   | 'SUPPORT'

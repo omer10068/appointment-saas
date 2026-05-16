@@ -36,6 +36,12 @@ export interface DashboardDictionary {
     switchToDark: string;
   };
 
+  businessSwitcher: {
+    noActiveBusiness: string;
+    selectBusiness: string;
+    currentBusiness: string;
+  };
+
   overview: {
     title: string;
     description: string;
@@ -51,24 +57,53 @@ export interface DashboardDictionary {
     staffMembersDesc: string;
     monthlyBookings: string;
     monthlyBookingsDesc: string;
-    yourBusinesses: string;
-    noBusinesses: string;
-    goToAdminPanel: string;
-    roleLabel: string;
-    statusLabel: string;
+    selectedBusiness: string;
+    businessStatus: string;
+    yourRole: string;
+    dashboardShowsDataFor: string;
+    noBusinessAssigned: string;
+    contactAdmin: string;
   };
 
   pages: {
-    appointments: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    calendar: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    customers: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    services: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    staff: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    availability: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    businessProfile: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    settings: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    notifications: { title: string; description: string; emptyTitle: string; emptyDescription: string };
-    reports: { title: string; description: string; emptyTitle: string; emptyDescription: string };
+    appointments: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    calendar: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    customers: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    services: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    staff: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    availability: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    businessProfile: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    settings: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    notifications: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+    reports: { title: string; description: string; emptyTitle: string; emptyDescription: string; managesFor: string };
+  };
+
+  servicesList: {
+    serviceName: string;
+    description: string;
+    duration: string;
+    price: string;
+    active: string;
+    inactive: string;
+    free: string;
+    minutes: string;
+    noServicesYet: string;
+    noServicesDescription: string;
+    bufferBefore: string;
+    bufferAfter: string;
+  };
+
+  customersList: {
+    customerName: string;
+    email: string;
+    phone: string;
+    status: string;
+    notes: string;
+    noCustomersYet: string;
+    noCustomersDescription: string;
+    statusActive: string;
+    statusBlocked: string;
+    statusArchived: string;
   };
 
   comingSoon: string;

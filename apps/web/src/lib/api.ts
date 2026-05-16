@@ -1,3 +1,9 @@
+import type {
+  DashboardCustomerDto,
+  DashboardServiceDto,
+  DashboardSummaryDto,
+} from '@appointment/contracts';
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -46,4 +52,34 @@ export async function fetchWithAuth<T>(
   }
 
   return res.json() as Promise<T>;
+}
+
+export function fetchDashboardServices(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardServiceDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/services`,
+    getToken,
+  );
+}
+
+export function fetchDashboardCustomers(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardCustomerDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/customers`,
+    getToken,
+  );
+}
+
+export function fetchDashboardSummary(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardSummaryDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/summary`,
+    getToken,
+  );
 }
