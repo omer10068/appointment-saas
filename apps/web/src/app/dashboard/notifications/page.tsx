@@ -1,17 +1,14 @@
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
 import { EmptyState } from '../_components/EmptyState';
+import { getServerDict } from '../_i18n/getServerDict';
 
-export default function NotificationsPage() {
+export default async function NotificationsPage() {
+  const dict = await getServerDict();
+  const p = dict.pages.notifications;
   return (
     <>
-      <DashboardPageHeader
-        title="Notifications"
-        description="Stay on top of booking requests, reminders, and messages from customers."
-      />
-      <EmptyState
-        title="Notifications coming soon"
-        description="Receive alerts for new bookings, cancellations, and customer messages in one place."
-      />
+      <DashboardPageHeader title={p.title} description={p.description} />
+      <EmptyState title={p.emptyTitle} description={p.emptyDescription} comingSoon={dict.comingSoon} />
     </>
   );
 }

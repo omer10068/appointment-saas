@@ -1,17 +1,14 @@
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
 import { EmptyState } from '../_components/EmptyState';
+import { getServerDict } from '../_i18n/getServerDict';
 
-export default function CustomersPage() {
+export default async function CustomersPage() {
+  const dict = await getServerDict();
+  const p = dict.pages.customers;
   return (
     <>
-      <DashboardPageHeader
-        title="Customers"
-        description="Manage your customers and their booking history."
-      />
-      <EmptyState
-        title="Customer management coming soon"
-        description="Add customers, view their appointment history, and manage their access to your business."
-      />
+      <DashboardPageHeader title={p.title} description={p.description} />
+      <EmptyState title={p.emptyTitle} description={p.emptyDescription} comingSoon={dict.comingSoon} />
     </>
   );
 }

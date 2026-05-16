@@ -1,17 +1,14 @@
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
 import { EmptyState } from '../_components/EmptyState';
+import { getServerDict } from '../_i18n/getServerDict';
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  const dict = await getServerDict();
+  const p = dict.pages.reports;
   return (
     <>
-      <DashboardPageHeader
-        title="Reports"
-        description="View activity summaries, booking trends, and business insights."
-      />
-      <EmptyState
-        title="Reports and insights coming soon"
-        description="Track appointments over time, revenue trends, customer retention, and staff utilization."
-      />
+      <DashboardPageHeader title={p.title} description={p.description} />
+      <EmptyState title={p.emptyTitle} description={p.emptyDescription} comingSoon={dict.comingSoon} />
     </>
   );
 }

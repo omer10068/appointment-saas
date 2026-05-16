@@ -1,17 +1,14 @@
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
 import { EmptyState } from '../_components/EmptyState';
+import { getServerDict } from '../_i18n/getServerDict';
 
-export default function StaffPage() {
+export default async function StaffPage() {
+  const dict = await getServerDict();
+  const p = dict.pages.staff;
   return (
     <>
-      <DashboardPageHeader
-        title="Staff Members"
-        description="Manage your team and their roles within the business."
-      />
-      <EmptyState
-        title="Staff management coming soon"
-        description="Add staff members, assign services they can perform, and manage their profiles."
-      />
+      <DashboardPageHeader title={p.title} description={p.description} />
+      <EmptyState title={p.emptyTitle} description={p.emptyDescription} comingSoon={dict.comingSoon} />
     </>
   );
 }

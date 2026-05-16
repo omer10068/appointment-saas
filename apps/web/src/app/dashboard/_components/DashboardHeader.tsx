@@ -1,6 +1,16 @@
-import { SignOutButton } from '@clerk/nextjs';
+'use client';
 
-export function DashboardHeader({ email }: { email?: string }) {
+import { SignOutButton } from '@clerk/nextjs';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import type { DashboardDictionary } from '../_i18n/types';
+
+export function DashboardHeader({
+  email,
+  dict,
+}: {
+  email?: string;
+  dict: DashboardDictionary;
+}) {
   return (
     <header className="shrink-0 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
       {email ? (
@@ -8,10 +18,11 @@ export function DashboardHeader({ email }: { email?: string }) {
       ) : (
         <span />
       )}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <LanguageSwitcher />
         <SignOutButton>
           <button className="text-sm px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors">
-            Sign out
+            {dict.header.signOut}
           </button>
         </SignOutButton>
       </div>

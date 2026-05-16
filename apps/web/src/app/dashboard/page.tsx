@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import type { BusinessUserWithBusinessDto } from '@appointment/contracts';
 import { DashboardPageHeader } from './_components/DashboardPageHeader';
 import { DashboardCard } from './_components/DashboardCard';
+import { getServerDict } from './_i18n/getServerDict';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -21,36 +22,31 @@ async function fetchMyBusinesses(
 }
 
 export default async function DashboardPage() {
-  const { getToken } = await auth();
+  const [{ getToken }, dict] = await Promise.all([auth(), getServerDict()]);
   const token = await getToken();
   const businesses = await fetchMyBusinesses(token ?? '');
+  const t = dict.overview;
 
   return (
     <>
-      <DashboardPageHeader
-        title="Overview"
-        description="Welcome back. Here's a summary of your business activity."
-      />
+      <DashboardPageHeader title={t.title} description={t.description} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        <DashboardCard title="Today's Appointments" description="Appointments scheduled for today" />
-        <DashboardCard title="Upcoming Appointments" description="Next 7 days" />
-        <DashboardCard title="Active Customers" description="Customers with recent activity" />
-        <DashboardCard title="Services" description="Services you offer" />
-        <DashboardCard title="Staff Members" description="Active staff" />
-        <DashboardCard title="Monthly Bookings" description="Bookings this month" />
+        <DashboardCard title={t.todayAppointments} description={t.todayAppointmentsDesc} />
+        <DashboardCard title={t.upcomingAppointments} description={t.upcomingAppointmentsDesc} />
+        <DashboardCard title={t.activeCustomers} description={t.activeCustomersDesc} />
+        <DashboardCard title={t.services} description={t.servicesDesc} />
+        <DashboardCard title={t.staffMembers} description={t.staffMembersDesc} />
+        <DashboardCard title={t.monthlyBookings} description={t.monthlyBookingsDesc} />
       </div>
 
       <section>
         <h2 className="text-base font-semibold text-gray-900 mb-3">
-          Your Businesses
+          {t.yourBusinesses}
         </h2>
 
         {businesses.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4">
-            No businesses assigned to your account. Contact your platform
-            administrator to get access.
-          </p>
+          <p className="text-sm text-gray-500 py-4">{t.noBusinesses}</p>
         ) : (
           <div className="space-y-3">
             {businesses.map((bu) => (
@@ -63,7 +59,7 @@ export default async function DashboardPage() {
                     {bu.business.name}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {bu.business.slug} &middot; Role: {bu.role} &middot; Status:{' '}
+                    {bu.business.slug} &middot; {t.roleLabel}: {bu.role} &middot; {t.statusLabel}:{' '}
                     {bu.status}
                   </p>
                 </div>

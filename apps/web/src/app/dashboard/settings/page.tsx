@@ -1,17 +1,14 @@
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
 import { EmptyState } from '../_components/EmptyState';
+import { getServerDict } from '../_i18n/getServerDict';
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const dict = await getServerDict();
+  const p = dict.pages.settings;
   return (
     <>
-      <DashboardPageHeader
-        title="Settings"
-        description="Configure your business preferences and account settings."
-      />
-      <EmptyState
-        title="Business settings coming soon"
-        description="Manage booking rules, cancellation policies, notification preferences, and integrations."
-      />
+      <DashboardPageHeader title={p.title} description={p.description} />
+      <EmptyState title={p.emptyTitle} description={p.emptyDescription} comingSoon={dict.comingSoon} />
     </>
   );
 }
