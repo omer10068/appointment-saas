@@ -5,6 +5,7 @@ import { DashboardHeader } from './_components/DashboardHeader';
 import { DashboardI18nProvider } from './_i18n/DashboardI18nProvider';
 import { getDictionary } from './_i18n/dictionaries';
 import { COOKIE_NAME, DEFAULT_LOCALE, isValidLocale } from './_i18n/config';
+import { THEME_COOKIE, DEFAULT_THEME, isValidTheme } from './_theme/config';
 
 export default async function DashboardLayout({
   children,
@@ -18,17 +19,20 @@ export default async function DashboardLayout({
   const locale = isValidLocale(rawLocale) ? rawLocale : DEFAULT_LOCALE;
   const dict = getDictionary(locale);
 
+  const rawTheme = cookieStore.get(THEME_COOKIE)?.value;
+  const theme = isValidTheme(rawTheme) ? rawTheme : DEFAULT_THEME;
+
   return (
     <DashboardI18nProvider dict={dict}>
       <div
-        className="flex h-screen overflow-hidden bg-gray-50"
+        className={`flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950${theme === 'dark' ? ' dark' : ''}`}
         dir={dict.dir}
         lang={dict.lang}
       >
         <DashboardSidebar dict={dict} />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <DashboardHeader email={email} dict={dict} />
-          <main className="flex-1 overflow-y-auto p-6">
+          <DashboardHeader email={email} dict={dict} theme={theme} />
+          <main className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-950">
             {children}
           </main>
         </div>

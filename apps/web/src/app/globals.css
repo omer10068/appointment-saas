@@ -1,1 +1,4 @@
 @import "tailwindcss";
+
+/* Class-based dark mode — ":is()" gives dark: variants higher specificity than regular utilities */
+@variant dark (&:is(.dark, .dark *));

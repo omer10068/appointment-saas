@@ -28,9 +28,9 @@ export function DashboardSidebar({ dict }: { dict: DashboardDictionary }) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-60 shrink-0 bg-white border-e border-gray-200 flex flex-col overflow-y-auto">
-      <div className="px-5 py-4 border-b border-gray-200">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+    <aside className="w-60 shrink-0 bg-white border-e border-gray-200 flex flex-col overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
+      <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest dark:text-gray-500">
           {dict.nav.brand}
         </span>
       </div>
@@ -40,7 +40,7 @@ export function DashboardSidebar({ dict }: { dict: DashboardDictionary }) {
           isActive(pathname, item.href, item.exact) ? (
             <span
               key={item.href}
-              className="flex items-center px-3 py-2 rounded-md text-sm font-semibold bg-indigo-50 text-indigo-700 cursor-default"
+              className="flex items-center px-3 py-2 rounded-md text-sm font-semibold bg-indigo-50 text-indigo-700 cursor-default dark:bg-indigo-950 dark:text-indigo-400"
             >
               {dict.nav[item.labelKey]}
             </span>
@@ -48,7 +48,7 @@ export function DashboardSidebar({ dict }: { dict: DashboardDictionary }) {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
             >
               {dict.nav[item.labelKey]}
             </Link>

@@ -41,29 +41,29 @@ export default async function DashboardPage() {
       </div>
 
       <section>
-        <h2 className="text-base font-semibold text-gray-900 mb-3">
+        <h2 className="text-base font-semibold text-gray-900 mb-3 dark:text-gray-100">
           {t.yourBusinesses}
         </h2>
 
         {businesses.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4">{t.noBusinesses}</p>
+          <p className="text-sm text-gray-500 py-4 dark:text-gray-400">{t.noBusinesses}</p>
         ) : (
           <div className="space-y-3">
             {businesses.map((bu) => (
               <div
                 key={bu.id}
-                className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between"
+                className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between dark:bg-gray-800 dark:border-gray-700"
               >
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {bu.business.name}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-500">
                     {bu.business.slug} &middot; {t.roleLabel}: {bu.role} &middot; {t.statusLabel}:{' '}
                     {bu.status}
                   </p>
                 </div>
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide dark:text-gray-400">
                   {bu.business.status}
                 </span>
               </div>

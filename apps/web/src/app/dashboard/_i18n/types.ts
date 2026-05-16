@@ -30,6 +30,12 @@ export interface DashboardDictionary {
     en: string;
   };
 
+  themeSwitcher: {
+    label: string;
+    switchToLight: string;
+    switchToDark: string;
+  };
+
   overview: {
     title: string;
     description: string;

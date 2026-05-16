@@ -31,6 +31,12 @@ const he: DashboardDictionary = {
     en: 'English',
   },
 
+  themeSwitcher: {
+    label: 'מצב תצוגה',
+    switchToLight: 'החלף למצב בהיר',
+    switchToDark: 'החלף למצב כהה',
+  },
+
   overview: {
     title: 'סקירה כללית',
     description: 'ברוך הבא. הנה סיכום פעילות העסק שלך.',
@@ -146,6 +152,12 @@ const en: DashboardDictionary = {
     label: 'Language',
     he: 'עברית',
     en: 'English',
+  },
+
+  themeSwitcher: {
+    label: 'Theme',
+    switchToLight: 'Switch to light mode',
+    switchToDark: 'Switch to dark mode',
   },
 
   overview: {
