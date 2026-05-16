@@ -6,6 +6,15 @@ import { getServerDict } from './_i18n/getServerDict';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
+type PlatformRole = 'USER' | 'SUPPORT' | 'ADMIN' | 'SUPER_ADMIN';
+
+interface UserProfileDto {
+  id: string;
+  email: string;
+  platformRole: PlatformRole;
+  status: string;
+}
+
 async function fetchMyBusinesses(
   token: string,
 ): Promise<BusinessUserWithBusinessDto[]> {
@@ -21,10 +30,30 @@ async function fetchMyBusinesses(
   }
 }
 
+async function fetchUserProfile(token: string): Promise<UserProfileDto | null> {
+  try {
+    const res = await fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<UserProfileDto>;
+  } catch {
+    return null;
+  }
+}
+
+function isPlatformAdmin(role: PlatformRole | undefined): boolean {
+  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+}
+
 export default async function DashboardPage() {
   const [{ getToken }, dict] = await Promise.all([auth(), getServerDict()]);
   const token = await getToken();
-  const businesses = await fetchMyBusinesses(token ?? '');
+  const [businesses, userProfile] = await Promise.all([
+    fetchMyBusinesses(token ?? ''),
+    fetchUserProfile(token ?? ''),
+  ]);
   const t = dict.overview;
 
   return (
@@ -46,7 +75,17 @@ export default async function DashboardPage() {
         </h2>
 
         {businesses.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4 dark:text-gray-400">{t.noBusinesses}</p>
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t.noBusinesses}</p>
+            {isPlatformAdmin(userProfile?.platformRole) && (
+              <a
+                href="/admin"
+                className="inline-block text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                {t.goToAdminPanel} →
+              </a>
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
             {businesses.map((bu) => (

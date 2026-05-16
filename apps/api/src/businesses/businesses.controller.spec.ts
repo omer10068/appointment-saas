@@ -21,6 +21,17 @@ const mockUser: User = {
   updatedAt: new Date('2024-01-01'),
 };
 
+const mockSuperAdmin: User = {
+  id: 'super-admin-1',
+  clerkUserId: 'clerk_admin_456',
+  email: 'admin@example.com',
+  phone: null,
+  status: 'ACTIVE',
+  platformRole: 'SUPER_ADMIN',
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
 const mockBusiness: Business = {
   id: 'biz-1',
   name: 'Acme Corp',
@@ -79,6 +90,51 @@ describe('BusinessesController', () => {
 
       expect(mockBusinessesService.findMine).toHaveBeenCalledWith('user-1');
       expect(result).toEqual([mockBusinessUser]);
+    });
+
+    it('returns empty array for a Super Admin with no BusinessUser records', async () => {
+      mockBusinessesService.findMine.mockResolvedValue([]);
+
+      const req = { user: mockSuperAdmin } as unknown as AuthenticatedRequest;
+      const result = await controller.findMine(req);
+
+      expect(mockBusinessesService.findMine).toHaveBeenCalledWith(
+        'super-admin-1',
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('returns only the linked business for a Super Admin assigned to one business', async () => {
+      const superAdminBusinessUser: BusinessUser & { business: Business } = {
+        ...mockBusinessUser,
+        id: 'bu-admin',
+        userId: 'super-admin-1',
+      };
+      mockBusinessesService.findMine.mockResolvedValue([
+        superAdminBusinessUser,
+      ]);
+
+      const req = { user: mockSuperAdmin } as unknown as AuthenticatedRequest;
+      const result = await controller.findMine(req);
+
+      expect(mockBusinessesService.findMine).toHaveBeenCalledWith(
+        'super-admin-1',
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].userId).toBe('super-admin-1');
+    });
+
+    it('passes user id — not platformRole — to the service, ensuring no admin bypass', async () => {
+      mockBusinessesService.findMine.mockResolvedValue([]);
+
+      const req = { user: mockSuperAdmin } as unknown as AuthenticatedRequest;
+      await controller.findMine(req);
+
+      const [calledWithId] = mockBusinessesService.findMine.mock.calls[0] as [
+        string,
+      ];
+      expect(calledWithId).toBe(mockSuperAdmin.id);
+      expect(calledWithId).not.toBe(mockSuperAdmin.platformRole);
     });
   });
 });

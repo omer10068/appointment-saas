@@ -53,6 +53,7 @@ export interface DashboardDictionary {
     monthlyBookingsDesc: string;
     yourBusinesses: string;
     noBusinesses: string;
+    goToAdminPanel: string;
     roleLabel: string;
     statusLabel: string;
   };
