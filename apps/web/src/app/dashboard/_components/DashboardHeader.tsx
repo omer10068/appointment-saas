@@ -3,25 +3,20 @@
 import { SignOutButton } from '@clerk/nextjs';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { BusinessSwitcher } from './BusinessSwitcher';
 import type { DashboardDictionary } from '../_i18n/types';
 import type { Theme } from '../_theme/config';
 
 export function DashboardHeader({
-  email,
   dict,
   theme,
 }: {
-  email?: string;
   dict: DashboardDictionary;
   theme: Theme;
 }) {
   return (
     <header className="shrink-0 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between dark:bg-gray-900 dark:border-gray-800">
-      {email ? (
-        <span className="text-sm text-gray-500 dark:text-gray-400">{email}</span>
-      ) : (
-        <span />
-      )}
+      <BusinessSwitcher />
       <div className="flex items-center gap-2">
         <LanguageSwitcher />
         <ThemeSwitcher theme={theme} />
