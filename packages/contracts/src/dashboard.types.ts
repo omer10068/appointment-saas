@@ -27,3 +27,23 @@ export interface DashboardSummaryDto {
   customersCount: number;
   activeCustomersCount: number;
 }
+
+export interface CreateServicePayload {
+  name: string;
+  description?: string | null;
+  durationMinutes: number;
+  priceCents?: number | null;
+  bufferBeforeMin?: number;
+  bufferAfterMin?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateServicePayload {
+  name?: string;
+  description?: string | null;
+  durationMinutes?: number;
+  priceCents?: number | null;
+  bufferBeforeMin?: number;
+  bufferAfterMin?: number;
+  isActive?: boolean;
+}
