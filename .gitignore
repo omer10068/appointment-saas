@@ -11,5 +11,3 @@ build/
 apps/api/src/generated/
 
 *.tsbuildinfo
-
-_reference/

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, type ElementType, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, type ElementType, type ReactNode } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,41 +17,167 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// ─── Public types ───────────────────────────────────────────────────────────────
 
 type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "no-show";
 type ViewMode = "day" | "week" | "month";
 
-interface Appointment {
-  id: string;
+export type CalendarAppointment = {
+  id:           string;
   customerName: string;
-  serviceName: string;
-  staffMember: string;
-  startTime: string; // "HH:mm"
-  endTime: string;   // "HH:mm"
-  status: AppointmentStatus;
-  date: Date;
-}
+  serviceName:  string;
+  staffMember:  string;
+  startTime:    string; // "HH:mm" local time
+  endTime:      string; // "HH:mm" local time
+  status:       AppointmentStatus;
+  date:         Date;   // local-midnight
+};
 
-interface StaffMember {
-  id: string;
-  name: string;
-  avatar: string;
-}
+export type CalendarLabels = {
+  today:                   string;
+  thisWeek:                string;
+  day:                     string;
+  week:                    string;
+  month:                   string;
+  newAppointment:          string;
+  filters:                 string;
+  upcoming:                string;
+  staff:                   string;
+  status:                  string;
+  allStaff:                string;
+  allStatuses:             string;
+  clearAll:                string;
+  noAppointments:          string;
+  noAppointmentsScheduled: string;
+  noUpcomingAppointments:  string;
+  failedToLoadCalendar:    string;
+  loadErrorDescription:    string;
+  tryAgain:                string;
+  appointment:             string;
+  appointments:            string;
+  scheduledText:           string;
+  statuses: {
+    scheduled: string;
+    completed: string;
+    cancelled: string;
+    noShow:    string;
+  };
+};
 
-// ─── Local utility ─────────────────────────────────────────────────────────────
+export type CalendarViewProps = {
+  appointments?:  CalendarAppointment[];
+  isLoading?:     boolean;
+  error?:         string | null;
+  onRetry?:       () => void;
+  onRangeChange?: (from: Date, to: Date) => void;
+  showHeader?:    boolean;
+  locale?:        string;
+  dir?:           "ltr" | "rtl";
+  labels?:        Partial<CalendarLabels>;
+};
+
+// Private alias
+type Appointment = CalendarAppointment;
+
+interface StaffMember { id: string; name: string; avatar: string; }
+
+// ─── Default labels ─────────────────────────────────────────────────────────────
+
+const DEFAULT_LABELS_EN: CalendarLabels = {
+  today:                   "Today",
+  thisWeek:                "This Week",
+  day:                     "Day",
+  week:                    "Week",
+  month:                   "Month",
+  newAppointment:          "New Appointment",
+  filters:                 "Filters",
+  upcoming:                "Upcoming",
+  staff:                   "Staff",
+  status:                  "Status",
+  allStaff:                "All Staff",
+  allStatuses:             "All Statuses",
+  clearAll:                "Clear all",
+  noAppointments:          "No appointments",
+  noAppointmentsScheduled: "No appointments scheduled",
+  noUpcomingAppointments:  "No upcoming appointments",
+  failedToLoadCalendar:    "Failed to load calendar",
+  loadErrorDescription:    "There was an error loading your appointments.",
+  tryAgain:                "Try again",
+  appointment:             "appointment",
+  appointments:            "appointments",
+  scheduledText:           "scheduled",
+  statuses: {
+    scheduled: "Scheduled",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    noShow:    "No-show",
+  },
+};
+
+const DEFAULT_LABELS_HE: CalendarLabels = {
+  today:                   "היום",
+  thisWeek:                "השבוע",
+  day:                     "יום",
+  week:                    "שבוע",
+  month:                   "חודש",
+  newAppointment:          "פגישה חדשה",
+  filters:                 "סינון",
+  upcoming:                "קרוב",
+  staff:                   "צוות",
+  status:                  "סטטוס",
+  allStaff:                "כל הצוות",
+  allStatuses:             "כל הסטטוסים",
+  clearAll:                "נקה הכל",
+  noAppointments:          "אין פגישות",
+  noAppointmentsScheduled: "אין פגישות מתוכננות",
+  noUpcomingAppointments:  "אין פגישות קרובות",
+  failedToLoadCalendar:    "טעינת היומן נכשלה",
+  loadErrorDescription:    "אירעה שגיאה בטעינת הפגישות.",
+  tryAgain:                "נסה שוב",
+  appointment:             "פגישה",
+  appointments:            "פגישות",
+  scheduledText:           "מתוכנן",
+  statuses: {
+    scheduled: "מתוכנן",
+    completed: "הושלם",
+    cancelled: "בוטל",
+    noShow:    "לא הגיע",
+  },
+};
+
+// ─── Local utilities ────────────────────────────────────────────────────────────
 
 function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
+function getStatusLabel(status: AppointmentStatus, L: CalendarLabels): string {
+  switch (status) {
+    case "scheduled": return L.statuses.scheduled;
+    case "completed": return L.statuses.completed;
+    case "cancelled": return L.statuses.cancelled;
+    case "no-show":   return L.statuses.noShow;
+  }
+}
+
+// ─── TimeRange ─────────────────────────────────────────────────────────────────
+// Wraps start–end in an LTR-isolated span so the separator never reverses in RTL.
+
+function TimeRange({ start, end, className }: { start: string; end: string; className?: string }) {
+  return (
+    <span dir="ltr" style={{ unicodeBidi: "isolate" }} className={className}>
+      {start} – {end}
+    </span>
+  );
+}
+
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
 const STAFF: StaffMember[] = [
-  { id: "1", name: "Sarah Chen",       avatar: "SC" },
-  { id: "2", name: "Marcus Johnson",   avatar: "MJ" },
-  { id: "3", name: "Emily Rodriguez",  avatar: "ER" },
-  { id: "4", name: "David Kim",        avatar: "DK" },
+  { id: "1", name: "Sarah Chen",      avatar: "SC" },
+  { id: "2", name: "Marcus Johnson",  avatar: "MJ" },
+  { id: "3", name: "Emily Rodriguez", avatar: "ER" },
+  { id: "4", name: "David Kim",       avatar: "DK" },
 ];
 
 const SERVICES = [
@@ -76,21 +202,21 @@ function generateMockAppointments(weekStart: Date): Appointment[] {
     const count = Math.floor(Math.random() * 4) + 2;
     for (let i = 0; i < count; i++) {
       const startHour = Math.floor(Math.random() * 10) + 8;
-      const startMin = Math.random() > 0.5 ? 0 : 30;
-      const duration = ([30, 60, 90] as const)[Math.floor(Math.random() * 3)];
-      const totalEnd = startHour * 60 + startMin + duration;
-      const endHour = Math.floor(totalEnd / 60);
-      const endMin = totalEnd % 60;
+      const startMin  = Math.random() > 0.5 ? 0 : 30;
+      const duration  = ([30, 60, 90] as const)[Math.floor(Math.random() * 3)];
+      const totalEnd  = startHour * 60 + startMin + duration;
+      const endHour   = Math.floor(totalEnd / 60);
+      const endMin    = totalEnd % 60;
       if (endHour > 20) continue;
       result.push({
-        id: `${day}-${i}`,
+        id:           `${day}-${i}`,
         customerName: CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)],
         serviceName:  SERVICES[Math.floor(Math.random() * SERVICES.length)],
         staffMember:  STAFF[Math.floor(Math.random() * STAFF.length)].name,
         startTime: `${String(startHour).padStart(2, "0")}:${String(startMin).padStart(2, "0")}`,
         endTime:   `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`,
         status: STATUS_POOL[Math.floor(Math.random() * STATUS_POOL.length)],
-        date: new Date(date),
+        date: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
       });
     }
   }
@@ -116,71 +242,77 @@ function getMonthStart(date: Date): Date {
 function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
+    a.getMonth()    === b.getMonth()    &&
+    a.getDate()     === b.getDate()
   );
 }
 
-function formatDateRange(date: Date, mode: ViewMode): string {
+function formatDateRange(date: Date, mode: ViewMode, locale = "en-US"): string {
   if (mode === "day") {
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(locale, {
       weekday: "long", month: "short", day: "numeric", year: "numeric",
     });
   }
   if (mode === "month") {
-    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return date.toLocaleDateString(locale, { month: "long", year: "numeric" });
   }
   const end = new Date(date);
   end.setDate(date.getDate() + 6);
-  const s = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const e = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const s = date.toLocaleDateString(locale, { month: "short", day: "numeric" });
+  const e = end.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" });
   return `${s} – ${e}`;
+}
+
+// Known Sunday for locale-aware day-name generation
+const SUNDAY_REF = new Date(2024, 0, 7);
+
+function getLocaleDayNames(locale: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(SUNDAY_REF);
+    d.setDate(SUNDAY_REF.getDate() + i);
+    return d.toLocaleDateString(locale, { weekday: "short" });
+  });
 }
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   AppointmentStatus,
-  { label: string; badgeCls: string; cardCls: string }
+  { badgeCls: string; cardCls: string; monthChipCls: string }
 > = {
   scheduled: {
-    label: "Scheduled",
-    badgeCls: "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30",
-    cardCls:  "bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-500/10 dark:border-blue-500/20 dark:hover:bg-blue-500/15",
+    badgeCls:     "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
+    cardCls:      "bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:border-blue-500/30 dark:hover:bg-blue-950/60",
+    monthChipCls: "bg-blue-50 border border-blue-200 dark:bg-blue-900/60 dark:border-blue-700/60",
   },
   completed: {
-    label: "Completed",
-    badgeCls: "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-    cardCls:  "bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:hover:bg-emerald-500/15",
+    badgeCls:     "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    cardCls:      "bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:hover:bg-emerald-950/60",
+    monthChipCls: "bg-emerald-50 border border-emerald-200 dark:bg-emerald-900/60 dark:border-emerald-700/60",
   },
   cancelled: {
-    label: "Cancelled",
-    badgeCls: "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30",
-    cardCls:  "bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:border-red-500/20 dark:hover:bg-red-500/15",
+    badgeCls:     "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30",
+    cardCls:      "bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950/40 dark:border-red-500/30 dark:hover:bg-red-950/60",
+    monthChipCls: "bg-red-50 border border-red-200 dark:bg-red-900/60 dark:border-red-700/60",
   },
   "no-show": {
-    label: "No-show",
-    badgeCls: "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30",
-    cardCls:  "bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20 dark:hover:bg-amber-500/15",
+    badgeCls:     "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
+    cardCls:      "bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-500/30 dark:hover:bg-amber-950/60",
+    monthChipCls: "bg-amber-50 border border-amber-200 dark:bg-amber-900/60 dark:border-amber-700/60",
   },
 };
 
 const STATUS_ICONS: Record<AppointmentStatus, ElementType> = {
-  scheduled: Clock,
-  completed: CheckCircle2,
-  cancelled: XCircle,
+  scheduled:  Clock,
+  completed:  CheckCircle2,
+  cancelled:  XCircle,
   "no-show":  UserX,
 };
 
 // ─── SummaryCard ───────────────────────────────────────────────────────────────
 
-function SummaryCard({
-  title, value, icon: Icon, trend,
-}: {
-  title: string;
-  value: number;
-  icon: ElementType;
-  trend?: string;
+function SummaryCard({ title, value, icon: Icon }: {
+  title: string; value: number; icon: ElementType;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm py-2 sm:py-4">
@@ -190,11 +322,6 @@ function SummaryCard({
           <p className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
             {value}
           </p>
-          {trend && (
-            <p className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 truncate hidden sm:block">
-              {trend}
-            </p>
-          )}
         </div>
         <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
           <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />
@@ -207,12 +334,13 @@ function SummaryCard({
 // ─── AppointmentCard ───────────────────────────────────────────────────────────
 
 function AppointmentCard({
-  appointment, compact = false, weekView = false, mobile = false,
+  appointment, compact = false, weekView = false, mobile = false, statusLabel,
 }: {
   appointment: Appointment;
-  compact?: boolean;
-  weekView?: boolean;
-  mobile?: boolean;
+  compact?:    boolean;
+  weekView?:   boolean;
+  mobile?:     boolean;
+  statusLabel: string;
 }) {
   const cfg = STATUS_CONFIG[appointment.status];
 
@@ -228,9 +356,11 @@ function AppointmentCard({
               {appointment.serviceName}
             </p>
           </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-            {appointment.startTime} – {appointment.endTime}
-          </span>
+          <TimeRange
+            start={appointment.startTime}
+            end={appointment.endTime}
+            className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0"
+          />
         </div>
       </div>
     );
@@ -240,15 +370,11 @@ function AppointmentCard({
     return (
       <div className={cn("p-2 rounded-md border transition-all cursor-pointer group", cfg.cardCls)}>
         <div className="space-y-0.5">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
-              {appointment.startTime}
-            </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">–</span>
-            <span className="text-[10px] text-gray-500 dark:text-gray-400">
-              {appointment.endTime}
-            </span>
-          </div>
+          <TimeRange
+            start={appointment.startTime}
+            end={appointment.endTime}
+            className="text-[10px] font-medium text-gray-500 dark:text-gray-400"
+          />
           <p className="font-medium text-xs leading-tight line-clamp-1 text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
             {appointment.customerName}
           </p>
@@ -264,7 +390,7 @@ function AppointmentCard({
     return (
       <div className={cn("p-3 rounded-lg border transition-all cursor-pointer active:scale-[0.98]", cfg.cardCls)}>
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 text-center min-w-[48px]">
+          <div className="flex-shrink-0 text-center min-w-[48px]" dir="ltr">
             <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
               {appointment.startTime}
             </p>
@@ -279,7 +405,7 @@ function AppointmentCard({
                 "inline-flex items-center rounded border px-1.5 py-0 text-[10px] font-medium flex-shrink-0",
                 cfg.badgeCls,
               )}>
-                {cfg.label}
+                {statusLabel}
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -295,18 +421,21 @@ function AppointmentCard({
     );
   }
 
+  // Full card (default)
   return (
     <div className={cn("p-3 rounded-lg border transition-all cursor-pointer group", cfg.cardCls)}>
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            {appointment.startTime} – {appointment.endTime}
-          </span>
+          <TimeRange
+            start={appointment.startTime}
+            end={appointment.endTime}
+            className="text-xs font-medium text-gray-500 dark:text-gray-400"
+          />
           <span className={cn(
             "inline-flex items-center rounded border px-1.5 py-0 text-[10px] font-medium",
             cfg.badgeCls,
           )}>
-            {cfg.label}
+            {statusLabel}
           </span>
         </div>
         <p className="font-medium text-sm truncate text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -354,56 +483,74 @@ function CalendarSkeleton() {
 
 // ─── EmptyDayState ─────────────────────────────────────────────────────────────
 
-function EmptyDayState() {
+function EmptyDayState({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
       <CalendarDays className="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
-      <p className="text-xs text-gray-400 dark:text-gray-500">No appointments</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
     </div>
   );
 }
 
 // ─── ErrorState ────────────────────────────────────────────────────────────────
 
-function ErrorState({ onRetry }: { onRetry: () => void }) {
+function ErrorState({
+  title, description, retryLabel, onRetry,
+}: {
+  title: string; description: string; retryLabel: string; onRetry: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <AlertCircle className="h-12 w-12 text-red-500 dark:text-red-400 mb-4" />
-      <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">
-        Failed to load calendar
-      </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        There was an error loading your appointments.
-      </p>
+      <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">{title}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{description}</p>
       <button
         onClick={onRetry}
         className="h-8 px-3 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
       >
-        Try again
+        {retryLabel}
       </button>
     </div>
   );
 }
 
 // ─── DayView ───────────────────────────────────────────────────────────────────
+// Timeline is forced dir="ltr" so absolute-position math stays correct in RTL layouts.
+// Appointment content restores the page's dir for text rendering.
 
 function DayView({
-  appointments, selectedDate, today,
+  appointments, selectedDate, today, locale = "en-US", dir, L,
 }: {
   appointments: Appointment[];
   selectedDate: Date;
-  today: Date;
+  today:        Date;
+  locale?:      string;
+  dir?:         "ltr" | "rtl";
+  L:            CalendarLabels;
 }) {
-  const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 8–20
   const HOUR_HEIGHT = 80;
-  const START_HOUR = 8;
-  const isToday = isSameDay(selectedDate, today);
-  const dayAppts = appointments.filter((a) => isSameDay(a.date, selectedDate));
+  const isToday   = isSameDay(selectedDate, today);
+  const dayAppts  = appointments.filter((a) => isSameDay(a.date, selectedDate));
+
+  // Compute visible hour range dynamically so out-of-hours appointments are never clipped.
+  const DEFAULT_START = 8;
+  const DEFAULT_END   = 20;
+  const startHour = dayAppts.length > 0
+    ? Math.min(DEFAULT_START, Math.min(...dayAppts.map((a) => parseInt(a.startTime.split(":")[0], 10))))
+    : DEFAULT_START;
+  const endHour = dayAppts.length > 0
+    ? Math.max(DEFAULT_END, Math.max(...dayAppts.map((a) => {
+        const [h, m] = a.endTime.split(":").map(Number);
+        return m > 0 ? h + 1 : h;
+      })))
+    : DEFAULT_END;
+  const HOURS      = Array.from({ length: endHour - startHour }, (_, i) => i + startHour);
+  const START_HOUR = startHour;
 
   function getStyle(apt: Appointment) {
     const [sh, sm] = apt.startTime.split(":").map(Number);
     const [eh, em] = apt.endTime.split(":").map(Number);
-    const top = ((sh - START_HOUR) + sm / 60) * HOUR_HEIGHT;
+    const top    = ((sh - START_HOUR) + sm / 60) * HOUR_HEIGHT;
     const height = Math.max(((eh - START_HOUR) + em / 60) * HOUR_HEIGHT - top - 4, 32);
     return { top, height };
   }
@@ -442,38 +589,38 @@ function DayView({
   return (
     <div className="hidden lg:block">
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-        {/* Day header */}
+        {/* Day header — follows page direction */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
           <div className="flex items-center gap-3">
             <div className={cn(
-              "h-12 w-12 rounded-lg flex flex-col items-center justify-center",
+              "h-12 w-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0",
               isToday
                 ? "bg-blue-600 text-white"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100",
             )}>
               <span className="text-xs font-medium uppercase">
-                {selectedDate.toLocaleDateString("en-US", { weekday: "short" })}
+                {selectedDate.toLocaleDateString(locale, { weekday: "short" })}
               </span>
               <span className="text-lg font-bold">{selectedDate.getDate()}</span>
             </div>
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                {selectedDate.toLocaleDateString("en-US", { weekday: "long" })}
+                {selectedDate.toLocaleDateString(locale, { weekday: "long" })}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""} scheduled
+                {dayAppts.length} {dayAppts.length === 1 ? L.appointment : L.appointments} {L.scheduledText}
               </p>
             </div>
             {isToday && (
-              <span className="ml-auto inline-flex items-center rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
-                Today
+              <span className="ms-auto inline-flex items-center rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                {L.today}
               </span>
             )}
           </div>
         </div>
 
-        {/* Timeline */}
-        <div className="relative">
+        {/* Timeline — forced LTR so left/right positioning math is always correct */}
+        <div className="relative" dir="ltr">
           {HOURS.map((h) => (
             <div key={h} className="flex" style={{ height: HOUR_HEIGHT }}>
               <div className="w-20 p-3 text-sm text-gray-500 dark:text-gray-400 border-r border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/20 flex-shrink-0">
@@ -487,13 +634,13 @@ function DayView({
           <div className="absolute top-0 left-20 right-0 bottom-0 px-1">
             {groups.flatMap((group) =>
               group.map((apt) => {
-                const style = getStyle(apt);
-                const cfg = STATUS_CONFIG[apt.status];
-                const isCompact = getDuration(apt) < 45;
-                const idx = group.findIndex((a) => a.id === apt.id);
-                const pct = 100 / group.length;
-                const hasOverlap = group.length > 1;
-                const StatusIcon = STATUS_ICONS[apt.status];
+                const style       = getStyle(apt);
+                const cfg         = STATUS_CONFIG[apt.status];
+                const isCompact   = getDuration(apt) < 45;
+                const idx         = group.findIndex((a) => a.id === apt.id);
+                const pct         = 100 / group.length;
+                const hasOverlap  = group.length > 1;
+                const StatusIcon  = STATUS_ICONS[apt.status];
 
                 if (isCompact) {
                   return (
@@ -504,23 +651,26 @@ function DayView({
                         cfg.cardCls,
                       )}
                       style={{
-                        top: style.top,
+                        top:    style.top,
                         height: style.height,
-                        left: hasOverlap ? `calc(${idx * pct}% + 4px)` : "4px",
-                        width: hasOverlap ? `calc(${pct}% - 8px)` : "calc(100% - 8px)",
+                        left:   hasOverlap ? `calc(${idx * pct}% + 4px)` : "4px",
+                        width:  hasOverlap ? `calc(${pct}% - 8px)` : "calc(100% - 8px)",
                       }}
                     >
-                      <div className="h-full flex items-center px-2 py-1 gap-2">
+                      {/* Restore page dir for text content */}
+                      <div className="h-full flex items-center px-2 py-1 gap-2" dir={dir}>
                         <StatusIcon className={cn(
                           "h-3 w-3 flex-shrink-0",
-                          apt.status === "scheduled"  && "text-blue-500",
-                          apt.status === "completed"  && "text-emerald-500",
-                          apt.status === "cancelled"  && "text-red-500",
-                          apt.status === "no-show"    && "text-amber-500",
+                          apt.status === "scheduled" && "text-blue-500",
+                          apt.status === "completed" && "text-emerald-500",
+                          apt.status === "cancelled" && "text-red-500",
+                          apt.status === "no-show"   && "text-amber-500",
                         )} />
-                        <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {apt.startTime} – {apt.endTime}
-                        </span>
+                        <TimeRange
+                          start={apt.startTime}
+                          end={apt.endTime}
+                          className="text-[11px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0"
+                        />
                         <span className="font-medium text-xs truncate flex-1 text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {apt.customerName}
                         </span>
@@ -542,22 +692,25 @@ function DayView({
                       cfg.cardCls,
                     )}
                     style={{
-                      top: style.top,
+                      top:    style.top,
                       height: style.height,
-                      left: hasOverlap ? `calc(${idx * pct}% + 4px)` : "4px",
-                      width: hasOverlap ? `calc(${pct}% - 8px)` : "calc(100% - 8px)",
+                      left:   hasOverlap ? `calc(${idx * pct}% + 4px)` : "4px",
+                      width:  hasOverlap ? `calc(${pct}% - 8px)` : "calc(100% - 8px)",
                     }}
                   >
-                    <div className="h-full flex flex-col p-2 overflow-hidden">
+                    {/* Restore page dir for text content */}
+                    <div className="h-full flex flex-col p-2 overflow-hidden" dir={dir}>
                       <div className="flex items-center justify-between gap-1 flex-shrink-0">
-                        <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {apt.startTime} – {apt.endTime}
-                        </span>
+                        <TimeRange
+                          start={apt.startTime}
+                          end={apt.endTime}
+                          className="text-[11px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                        />
                         <span className={cn(
                           "inline-flex items-center rounded border text-[9px] px-1 py-0 h-4 flex-shrink-0",
                           cfg.badgeCls,
                         )}>
-                          {cfg.label}
+                          {getStatusLabel(apt.status, L)}
                         </span>
                       </div>
                       <p className="font-medium text-sm truncate mt-1 text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -587,20 +740,22 @@ function DayView({
 // ─── MonthView ─────────────────────────────────────────────────────────────────
 
 function MonthView({
-  appointments, selectedDate, today, onDayClick,
+  appointments, selectedDate, today, onDayClick, locale = "en-US", L,
 }: {
   appointments: Appointment[];
   selectedDate: Date;
-  today: Date;
-  onDayClick: (date: Date) => void;
+  today:        Date;
+  onDayClick:   (date: Date) => void;
+  locale?:      string;
+  L:            CalendarLabels;
 }) {
-  const ms = getMonthStart(selectedDate);
-  const year = ms.getFullYear();
-  const month = ms.getMonth();
-  const firstDow = new Date(year, month, 1).getDay();
+  const ms          = getMonthStart(selectedDate);
+  const year        = ms.getFullYear();
+  const month       = ms.getMonth();
+  const firstDow    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrev = new Date(year, month, 0).getDate();
-  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const daysInPrev  = new Date(year, month, 0).getDate();
+  const DAY_HEADERS = getLocaleDayNames(locale);
 
   const cells: { date: Date; current: boolean }[] = [];
   for (let i = firstDow - 1; i >= 0; i--) {
@@ -618,19 +773,16 @@ function MonthView({
     <div className="hidden lg:block">
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
         <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
-          {DAY_NAMES.map((d) => (
-            <div
-              key={d}
-              className="p-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-            >
+          {DAY_HEADERS.map((d) => (
+            <div key={d} className="p-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               {d}
             </div>
           ))}
         </div>
         <div className="grid grid-cols-7">
           {cells.map(({ date, current }, idx) => {
-            const isToday = isSameDay(date, today);
-            const dayAppts = appointments.filter((a) => isSameDay(a.date, date));
+            const isToday   = isSameDay(date, today);
+            const dayAppts  = appointments.filter((a) => isSameDay(a.date, date));
             return (
               <button
                 key={idx}
@@ -638,34 +790,46 @@ function MonthView({
                 className={cn(
                   "p-2 min-h-[100px] border-b border-r border-gray-200 dark:border-gray-700 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500",
                   !current && "bg-gray-50/50 dark:bg-gray-800/20",
-                  isToday && "bg-blue-50/50 dark:bg-blue-950/20",
+                  isToday  && "bg-blue-50/50 dark:bg-blue-950/20",
                 )}
               >
                 <div className="flex flex-col h-full">
                   <span className={cn(
                     "text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full",
-                    !current && "text-gray-400 dark:text-gray-600",
-                    isToday  && "bg-blue-600 text-white",
-                    current && !isToday && "text-gray-900 dark:text-gray-100",
+                    !current             && "text-gray-400 dark:text-gray-600",
+                    isToday              && "bg-blue-600 text-white",
+                    current && !isToday  && "text-gray-900 dark:text-gray-100",
                   )}>
                     {date.getDate()}
                   </span>
                   {current && dayAppts.length > 0 && (
-                    <div className="mt-1 space-y-1">
+                    <div className="mt-1 space-y-0.5">
                       {dayAppts.length <= 3 ? (
                         dayAppts.slice(0, 3).map((apt) => (
                           <div
                             key={apt.id}
-                            className={cn("text-xs px-1.5 py-0.5 rounded truncate", STATUS_CONFIG[apt.status].cardCls)}
+                            className={cn(
+                              "flex items-baseline gap-1.5 min-w-0 px-1.5 py-0.5 rounded",
+                              STATUS_CONFIG[apt.status].monthChipCls,
+                            )}
                           >
-                            {apt.startTime} {apt.customerName}
+                            <span
+                              dir="ltr"
+                              style={{ unicodeBidi: "isolate" }}
+                              className="flex-shrink-0 tabular-nums text-[10px] font-medium text-gray-500 dark:text-gray-300"
+                            >
+                              {apt.startTime}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-start text-[11px] font-medium text-gray-900 dark:text-gray-100">
+                              {apt.customerName}
+                            </span>
                           </div>
                         ))
                       ) : (
                         <div className="flex items-center gap-1">
                           <div className="h-2 w-2 rounded-full bg-blue-600" />
                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {dayAppts.length} appointments
+                            {dayAppts.length} {L.appointments}
                           </span>
                         </div>
                       )}
@@ -684,13 +848,15 @@ function MonthView({
 // ─── MobileAgendaView ──────────────────────────────────────────────────────────
 
 function MobileAgendaView({
-  appointments, weekStart, today, viewMode, selectedDate,
+  appointments, weekStart, today, viewMode, selectedDate, locale = "en-US", L,
 }: {
   appointments: Appointment[];
-  weekStart: Date;
-  today: Date;
-  viewMode: ViewMode;
+  weekStart:    Date;
+  today:        Date;
+  viewMode:     ViewMode;
   selectedDate: Date;
+  locale?:      string;
+  L:            CalendarLabels;
 }) {
   let days: Date[] = [];
   if (viewMode === "day") {
@@ -702,7 +868,7 @@ function MobileAgendaView({
       return d;
     });
   } else {
-    const ms = getMonthStart(selectedDate);
+    const ms          = getMonthStart(selectedDate);
     const daysInMonth = new Date(ms.getFullYear(), ms.getMonth() + 1, 0).getDate();
     days = Array.from({ length: daysInMonth }, (_, i) => {
       const d = new Date(ms);
@@ -731,7 +897,7 @@ function MobileAgendaView({
                   : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100",
               )}>
                 <span className="text-[10px] font-medium uppercase leading-none">
-                  {date.toLocaleDateString("en-US", { weekday: "short" })}
+                  {date.toLocaleDateString(locale, { weekday: "short" })}
                 </span>
                 <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
               </div>
@@ -740,26 +906,31 @@ function MobileAgendaView({
                   "text-sm font-medium text-gray-900 dark:text-gray-100",
                   isToday && "text-blue-600 dark:text-blue-400",
                 )}>
-                  {date.toLocaleDateString("en-US", { weekday: "long" })}
+                  {date.toLocaleDateString(locale, { weekday: "long" })}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""}
+                  {dayAppts.length} {dayAppts.length === 1 ? L.appointment : L.appointments}
                 </p>
               </div>
               {isToday && (
                 <span className="inline-flex items-center rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-gray-300">
-                  Today
+                  {L.today}
                 </span>
               )}
             </div>
-            <div className="space-y-2 pl-1">
+            <div className="space-y-2 ps-1">
               {dayAppts.length > 0 ? (
                 dayAppts.map((apt) => (
-                  <AppointmentCard key={apt.id} appointment={apt} mobile />
+                  <AppointmentCard
+                    key={apt.id}
+                    appointment={apt}
+                    mobile
+                    statusLabel={getStatusLabel(apt.status, L)}
+                  />
                 ))
               ) : (
                 <p className="text-xs text-gray-400 dark:text-gray-500 py-3 px-2 text-center bg-gray-50 dark:bg-gray-800/30 rounded-lg">
-                  No appointments scheduled
+                  {L.noAppointmentsScheduled}
                 </p>
               )}
             </div>
@@ -773,13 +944,14 @@ function MobileAgendaView({
 // ─── WeeklyCalendarGrid ────────────────────────────────────────────────────────
 
 function WeeklyCalendarGrid({
-  appointments, weekStart, today,
+  appointments, weekStart, today, locale = "en-US", L,
 }: {
   appointments: Appointment[];
-  weekStart: Date;
-  today: Date;
+  weekStart:    Date;
+  today:        Date;
+  locale?:      string;
+  L:            CalendarLabels;
 }) {
-  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
@@ -807,7 +979,7 @@ function WeeklyCalendarGrid({
                 isToday && "bg-blue-50 dark:bg-blue-950/20",
               )}>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  {DAY_NAMES[idx]}
+                  {date.toLocaleDateString(locale, { weekday: "short" })}
                 </p>
                 <p className={cn(
                   "text-xl font-semibold mt-1",
@@ -821,10 +993,15 @@ function WeeklyCalendarGrid({
               <div className="flex-1 p-1.5 space-y-1.5 overflow-y-auto">
                 {dayAppts.length > 0 ? (
                   dayAppts.map((apt) => (
-                    <AppointmentCard key={apt.id} appointment={apt} weekView />
+                    <AppointmentCard
+                      key={apt.id}
+                      appointment={apt}
+                      weekView
+                      statusLabel={getStatusLabel(apt.status, L)}
+                    />
                   ))
                 ) : (
-                  <EmptyDayState />
+                  <EmptyDayState label={L.noAppointments} />
                 )}
               </div>
             </div>
@@ -838,14 +1015,15 @@ function WeeklyCalendarGrid({
 // ─── MobileFiltersPanel ────────────────────────────────────────────────────────
 
 function MobileFiltersPanel({
-  show, staffMembers, selectedStaff, setSelectedStaff, selectedStatus, setSelectedStatus,
+  show, staffMembers, selectedStaff, setSelectedStaff, selectedStatus, setSelectedStatus, L,
 }: {
-  show: boolean;
-  staffMembers: StaffMember[];
-  selectedStaff: string | null;
+  show:             boolean;
+  staffMembers:     StaffMember[];
+  selectedStaff:    string | null;
   setSelectedStaff: (id: string | null) => void;
-  selectedStatus: AppointmentStatus | null;
-  setSelectedStatus: (s: AppointmentStatus | null) => void;
+  selectedStatus:   AppointmentStatus | null;
+  setSelectedStatus:(s: AppointmentStatus | null) => void;
+  L:                CalendarLabels;
 }) {
   if (!show) return null;
 
@@ -857,23 +1035,22 @@ function MobileFiltersPanel({
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <Filter className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-          Filters
+          {L.filters}
         </span>
         {activeFilters > 0 && (
           <button
             onClick={() => { setSelectedStaff(null); setSelectedStatus(null); }}
             className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
-            Clear all
+            {L.clearAll}
           </button>
         )}
       </div>
 
-      {/* Staff */}
       <div>
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1.5">
           <User className="h-3.5 w-3.5" />
-          Staff
+          {L.staff}
         </p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -885,7 +1062,7 @@ function MobileFiltersPanel({
                 : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800",
             )}
           >
-            All Staff
+            {L.allStaff}
           </button>
           {staffMembers.map((s) => (
             <button
@@ -904,9 +1081,8 @@ function MobileFiltersPanel({
         </div>
       </div>
 
-      {/* Status */}
       <div>
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Status</p>
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{L.status}</p>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedStatus(null)}
@@ -917,7 +1093,7 @@ function MobileFiltersPanel({
                 : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800",
             )}
           >
-            All Statuses
+            {L.allStatuses}
           </button>
           {statuses.map((status) => (
             <button
@@ -930,7 +1106,7 @@ function MobileFiltersPanel({
                   : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800",
               )}
             >
-              {STATUS_CONFIG[status].label}
+              {getStatusLabel(status, L)}
             </button>
           ))}
         </div>
@@ -941,12 +1117,8 @@ function MobileFiltersPanel({
 
 // ─── Sidebar ───────────────────────────────────────────────────────────────────
 
-function SidebarCard({
-  title, icon: Icon, children,
-}: {
-  title: string;
-  icon: ElementType;
-  children: ReactNode;
+function SidebarCard({ title, icon: Icon, children }: {
+  title: string; icon: ElementType; children: ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
@@ -961,18 +1133,14 @@ function SidebarCard({
   );
 }
 
-function SidebarFilterBtn({
-  active, onClick, children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
+function SidebarFilterBtn({ active, onClick, children }: {
+  active: boolean; onClick: () => void; children: ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors",
+        "w-full text-start px-3 py-1.5 rounded-lg text-sm transition-colors",
         active
           ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium"
           : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50",
@@ -985,25 +1153,25 @@ function SidebarFilterBtn({
 
 function Sidebar({
   appointments, staffMembers, selectedStaff, setSelectedStaff,
-  selectedStatus, setSelectedStatus, today,
+  selectedStatus, setSelectedStatus, today, L,
 }: {
-  appointments: Appointment[];
-  staffMembers: StaffMember[];
-  selectedStaff: string | null;
+  appointments:     Appointment[];
+  staffMembers:     StaffMember[];
+  selectedStaff:    string | null;
   setSelectedStaff: (id: string | null) => void;
-  selectedStatus: AppointmentStatus | null;
-  setSelectedStatus: (s: AppointmentStatus | null) => void;
-  today: Date;
+  selectedStatus:   AppointmentStatus | null;
+  setSelectedStatus:(s: AppointmentStatus | null) => void;
+  today:            Date;
+  L:                CalendarLabels;
 }) {
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // Upcoming: scheduled appointments from the already-filtered list, on or after today
   const upcoming = appointments
     .filter((a) => {
       if (a.status !== "scheduled") return false;
-      if (a.date < today && !isSameDay(a.date, today)) return false;
-      if (selectedStaff) {
-        const s = staffMembers.find((m) => m.id === selectedStaff);
-        if (s && a.staffMember !== s.name) return false;
-      }
-      return true;
+      const aptMidnight = new Date(a.date.getFullYear(), a.date.getMonth(), a.date.getDate());
+      return aptMidnight >= todayMidnight;
     })
     .sort((a, b) => a.date.getTime() - b.date.getTime() || a.startTime.localeCompare(b.startTime))
     .slice(0, 3);
@@ -1012,21 +1180,26 @@ function Sidebar({
 
   return (
     <div className="space-y-4">
-      <SidebarCard title="Upcoming" icon={Clock}>
+      <SidebarCard title={L.upcoming} icon={Clock}>
         {upcoming.length > 0 ? (
           upcoming.map((apt) => (
-            <AppointmentCard key={apt.id} appointment={apt} compact />
+            <AppointmentCard
+              key={apt.id}
+              appointment={apt}
+              compact
+              statusLabel={getStatusLabel(apt.status, L)}
+            />
           ))
         ) : (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-            No upcoming appointments
+            {L.noUpcomingAppointments}
           </p>
         )}
       </SidebarCard>
 
-      <SidebarCard title="Staff" icon={User}>
+      <SidebarCard title={L.staff} icon={User}>
         <SidebarFilterBtn active={selectedStaff === null} onClick={() => setSelectedStaff(null)}>
-          All Staff
+          {L.allStaff}
         </SidebarFilterBtn>
         {staffMembers.map((s) => (
           <SidebarFilterBtn
@@ -1044,9 +1217,9 @@ function Sidebar({
         ))}
       </SidebarCard>
 
-      <SidebarCard title="Status" icon={Filter}>
+      <SidebarCard title={L.status} icon={Filter}>
         <SidebarFilterBtn active={selectedStatus === null} onClick={() => setSelectedStatus(null)}>
-          All Statuses
+          {L.allStatuses}
         </SidebarFilterBtn>
         {statuses.map((status) => (
           <SidebarFilterBtn
@@ -1054,7 +1227,7 @@ function Sidebar({
             active={selectedStatus === status}
             onClick={() => setSelectedStatus(selectedStatus === status ? null : status)}
           >
-            {STATUS_CONFIG[status].label}
+            {getStatusLabel(status, L)}
           </SidebarFilterBtn>
         ))}
       </SidebarCard>
@@ -1064,22 +1237,51 @@ function Sidebar({
 
 // ─── CalendarView (main export) ────────────────────────────────────────────────
 
-export function CalendarView() {
-  const [isLoading,         setIsLoading]         = useState(true);
-  const [hasError,          setHasError]           = useState(false);
-  const [currentWeek,       setCurrentWeek]        = useState(() => getWeekStart(new Date()));
-  const [selectedDate,      setSelectedDate]       = useState(() => new Date());
-  const [viewMode,          setViewMode]           = useState<ViewMode>("week");
-  const [appointments,      setAppointments]       = useState<Appointment[]>([]);
-  const [selectedStaff,     setSelectedStaff]      = useState<string | null>(null);
-  const [selectedStatus,    setSelectedStatus]     = useState<AppointmentStatus | null>(null);
-  const [showMobileFilters, setShowMobileFilters]  = useState(false);
+export function CalendarView({
+  appointments: externalAppointments,
+  isLoading:    externalLoading,
+  error:        externalError,
+  onRetry,
+  onRangeChange,
+  showHeader = true,
+  locale     = "en-US",
+  dir,
+  labels,
+}: CalendarViewProps = {}) {
+  // Stable at mount — determines data source for the component's lifetime
+  const isExternalMode = useRef(externalAppointments !== undefined).current;
+
+  // Internal state (mock mode only)
+  const [mockLoading,      setMockLoading]      = useState(!isExternalMode);
+  const [mockError,        setMockError]        = useState<string | null>(null);
+  const [mockAppointments, setMockAppointments] = useState<Appointment[]>([]);
+  const [mockRetryKey,     setMockRetryKey]     = useState(0);
+
+  // UI state
+  const [currentWeek,       setCurrentWeek]       = useState(() => getWeekStart(new Date()));
+  const [selectedDate,      setSelectedDate]      = useState(() => new Date());
+  const [viewMode,          setViewMode]          = useState<ViewMode>("week");
+  const [selectedStaff,     setSelectedStaff]     = useState<string | null>(null);
+  const [selectedStatus,    setSelectedStatus]    = useState<AppointmentStatus | null>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const today = useMemo(() => new Date(), []);
 
+  // Resolved labels — base defaults from locale, merged with any caller overrides
+  const L = useMemo((): CalendarLabels => {
+    const base = locale.startsWith("he") ? DEFAULT_LABELS_HE : DEFAULT_LABELS_EN;
+    return {
+      ...base,
+      ...labels,
+      statuses: { ...base.statuses, ...labels?.statuses },
+    } as CalendarLabels;
+  }, [locale, labels]);
+
+  // Mock data — only when no external appointments are provided
   useEffect(() => {
-    setIsLoading(true);
-    setHasError(false);
+    if (isExternalMode) return;
+    setMockLoading(true);
+    setMockError(null);
     const timer = setTimeout(() => {
       try {
         const dataStart = viewMode === "month" ? getMonthStart(selectedDate) : currentWeek;
@@ -1091,24 +1293,81 @@ export function CalendarView() {
             data.push(...generateMockAppointments(ws));
           }
         }
-        setAppointments(data);
-        setIsLoading(false);
+        setMockAppointments(data);
+        setMockLoading(false);
       } catch {
-        setHasError(true);
-        setIsLoading(false);
+        setMockError("Failed to generate mock data");
+        setMockLoading(false);
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [currentWeek, viewMode, selectedDate]);
+  }, [isExternalMode, currentWeek, viewMode, selectedDate, mockRetryKey]);
+
+  // Range change notification — tells parent which dates to fetch
+  useEffect(() => {
+    if (!onRangeChange) return;
+    let from: Date, to: Date;
+    if (viewMode === "day") {
+      from = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      to   = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999);
+    } else if (viewMode === "week") {
+      from = new Date(currentWeek);
+      to   = new Date(currentWeek);
+      to.setDate(currentWeek.getDate() + 6);
+      to.setHours(23, 59, 59, 999);
+    } else {
+      const ms = getMonthStart(selectedDate);
+      from = new Date(ms);
+      to   = new Date(ms.getFullYear(), ms.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+    onRangeChange(from, to);
+  }, [viewMode, currentWeek, selectedDate, onRangeChange]);
+
+  // Effective data
+  const appointments = useMemo(
+    () => isExternalMode ? (externalAppointments ?? []) : mockAppointments,
+    [isExternalMode, externalAppointments, mockAppointments],
+  );
+  const isLoading = isExternalMode ? (externalLoading ?? false) : mockLoading;
+  const hasError  = isExternalMode ? !!externalError            : !!mockError;
+
+  // Derive staff list from real appointments in external mode; use mock STAFF otherwise
+  const effectiveStaffMembers = useMemo((): StaffMember[] => {
+    if (!isExternalMode) return STAFF;
+    const seen    = new Set<string>();
+    const members: StaffMember[] = [];
+    for (const apt of appointments) {
+      if (!apt.staffMember || seen.has(apt.staffMember)) continue;
+      seen.add(apt.staffMember);
+      const words   = apt.staffMember.trim().split(/\s+/);
+      const initials = words.length >= 2
+        ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+        : apt.staffMember.slice(0, 2).toUpperCase();
+      members.push({ id: apt.staffMember, name: apt.staffMember, avatar: initials });
+    }
+    return members;
+  }, [isExternalMode, appointments]);
+
+  // Reset staff selection when the selected staff no longer exists in the current data
+  useEffect(() => {
+    if (selectedStaff !== null && !effectiveStaffMembers.some((m) => m.id === selectedStaff)) {
+      setSelectedStaff(null);
+    }
+  }, [selectedStaff, effectiveStaffMembers]);
+
+  function handleRetry() {
+    if (isExternalMode) { onRetry?.(); }
+    else { setMockError(null); setMockRetryKey((k) => k + 1); }
+  }
 
   const filtered = useMemo(() => appointments.filter((a) => {
     if (selectedStaff) {
-      const s = STAFF.find((m) => m.id === selectedStaff);
+      const s = effectiveStaffMembers.find((m) => m.id === selectedStaff);
       if (s && a.staffMember !== s.name) return false;
     }
     if (selectedStatus && a.status !== selectedStatus) return false;
     return true;
-  }), [appointments, selectedStaff, selectedStatus]);
+  }), [appointments, selectedStaff, selectedStatus, effectiveStaffMembers]);
 
   const stats = useMemo(() => ({
     today:     appointments.filter((a) => isSameDay(a.date, today)).length,
@@ -1165,47 +1424,44 @@ export function CalendarView() {
     setViewMode("day");
   }
 
-  function handleRetry() {
-    setIsLoading(true);
-    setHasError(false);
-    setTimeout(() => {
-      setAppointments(generateMockAppointments(currentWeek));
-      setIsLoading(false);
-    }, 800);
-  }
-
-  const displayDate = viewMode === "week" ? currentWeek : selectedDate;
+  const displayDate   = viewMode === "week" ? currentWeek : selectedDate;
   const activeFilters = (selectedStaff ? 1 : 0) + (selectedStatus ? 1 : 0);
 
+  const VIEW_MODES: { mode: ViewMode; label: string }[] = [
+    { mode: "day",   label: L.day   },
+    { mode: "week",  label: L.week  },
+    { mode: "month", label: L.month },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Internal header — will be replaced by DashboardPageHeader when wired to page.tsx */}
-      <header className="space-y-1">
-        <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-          Calendar
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Manage appointments and view your schedule at a glance.
-        </p>
-      </header>
+    <div className="space-y-6" dir={dir}>
+      {showHeader && (
+        <header className="space-y-1">
+          <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+            Calendar
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Manage appointments and view your schedule at a glance.
+          </p>
+        </header>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-        <SummaryCard title="Today"     value={stats.today}     icon={CalendarIcon} trend="+2 from yesterday" />
-        <SummaryCard title="This Week" value={stats.thisWeek}  icon={CalendarDays} />
-        <SummaryCard title="Completed" value={stats.completed} icon={CheckCircle2} />
-        <SummaryCard title="Cancelled" value={stats.cancelled} icon={XCircle} />
+        <SummaryCard title={L.today}                  value={stats.today}     icon={CalendarIcon} />
+        <SummaryCard title={L.thisWeek}               value={stats.thisWeek}  icon={CalendarDays} />
+        <SummaryCard title={L.statuses.completed}     value={stats.completed} icon={CheckCircle2} />
+        <SummaryCard title={L.statuses.cancelled}     value={stats.cancelled} icon={XCircle} />
       </div>
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Date navigation */}
         <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={goToToday}
             className="h-8 px-2 sm:px-3 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
-            Today
+            {L.today}
           </button>
           <button
             onClick={goToPrevious}
@@ -1222,26 +1478,25 @@ export function CalendarView() {
             <ChevronRight className="h-4 w-4" />
           </button>
           <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[140px] sm:max-w-none">
-            {formatDateRange(displayDate, viewMode)}
+            {formatDateRange(displayDate, viewMode, locale)}
           </span>
         </div>
 
-        {/* Controls */}
         <div className="flex items-center gap-2">
           {/* View switcher */}
           <div className="flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-0.5 sm:p-1">
-            {(["day", "week", "month"] as const).map((mode) => (
+            {VIEW_MODES.map(({ mode, label }) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 className={cn(
-                  "capitalize text-xs px-2 sm:px-3 h-7 rounded-md transition-colors",
+                  "text-xs px-2 sm:px-3 h-7 rounded-md transition-colors",
                   viewMode === mode
                     ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium"
                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50",
                 )}
               >
-                {mode}
+                {label}
               </button>
             ))}
           </div>
@@ -1257,7 +1512,7 @@ export function CalendarView() {
             )}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            <span className="hidden sm:inline">Filters</span>
+            <span className="hidden sm:inline">{L.filters}</span>
             {activeFilters > 0 && (
               <span className="h-4 w-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-medium">
                 {activeFilters}
@@ -1268,20 +1523,20 @@ export function CalendarView() {
           {/* New appointment */}
           <button className="h-8 px-3 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1.5">
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Appointment</span>
-            <span className="sm:hidden">New</span>
+            <span>{L.newAppointment}</span>
           </button>
         </div>
       </div>
 
-      {/* Mobile filters panel (inline, not Sheet) */}
+      {/* Inline mobile filters — no Sheet, no Drawer, no Radix */}
       <MobileFiltersPanel
         show={showMobileFilters}
-        staffMembers={STAFF}
+        staffMembers={effectiveStaffMembers}
         selectedStaff={selectedStaff}
         setSelectedStaff={setSelectedStaff}
         selectedStatus={selectedStatus}
         setSelectedStatus={setSelectedStatus}
+        L={L}
       />
 
       {/* Main layout: calendar + sidebar */}
@@ -1289,7 +1544,12 @@ export function CalendarView() {
         <div>
           {hasError ? (
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm p-6">
-              <ErrorState onRetry={handleRetry} />
+              <ErrorState
+                title={L.failedToLoadCalendar}
+                description={L.loadErrorDescription}
+                retryLabel={L.tryAgain}
+                onRetry={handleRetry}
+              />
             </div>
           ) : isLoading ? (
             <CalendarSkeleton />
@@ -1300,6 +1560,8 @@ export function CalendarView() {
                   appointments={filtered}
                   weekStart={currentWeek}
                   today={today}
+                  locale={locale}
+                  L={L}
                 />
               )}
               {viewMode === "day" && (
@@ -1307,6 +1569,9 @@ export function CalendarView() {
                   appointments={filtered}
                   selectedDate={selectedDate}
                   today={today}
+                  locale={locale}
+                  dir={dir}
+                  L={L}
                 />
               )}
               {viewMode === "month" && (
@@ -1315,6 +1580,8 @@ export function CalendarView() {
                   selectedDate={selectedDate}
                   today={today}
                   onDayClick={handleDayClick}
+                  locale={locale}
+                  L={L}
                 />
               )}
               <MobileAgendaView
@@ -1323,21 +1590,24 @@ export function CalendarView() {
                 today={today}
                 viewMode={viewMode}
                 selectedDate={selectedDate}
+                locale={locale}
+                L={L}
               />
             </>
           )}
         </div>
 
-        {/* Desktop sidebar */}
+        {/* Desktop sidebar — receives filtered appointments for the Upcoming section */}
         <div className="hidden xl:block">
           <Sidebar
-            appointments={appointments}
-            staffMembers={STAFF}
+            appointments={filtered}
+            staffMembers={effectiveStaffMembers}
             selectedStaff={selectedStaff}
             setSelectedStaff={setSelectedStaff}
             selectedStatus={selectedStatus}
             setSelectedStatus={setSelectedStatus}
             today={today}
+            L={L}
           />
         </div>
       </div>
