@@ -22,7 +22,9 @@ const he: DashboardDictionary = {
   },
 
   header: {
-    signOut: 'התנתקות',
+    signOut:   'התנתקות',
+    openMenu:  'פתח תפריט ניווט',
+    closeMenu: 'סגור תפריט ניווט',
   },
 
   languageSwitcher: {
@@ -342,7 +344,9 @@ const en: DashboardDictionary = {
   },
 
   header: {
-    signOut: 'Sign out',
+    signOut:   'Sign out',
+    openMenu:  'Open navigation menu',
+    closeMenu: 'Close navigation menu',
   },
 
   languageSwitcher: {

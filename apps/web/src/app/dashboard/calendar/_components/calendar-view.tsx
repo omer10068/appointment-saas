@@ -278,27 +278,27 @@ function getLocaleDayNames(locale: string): string[] {
 
 const STATUS_CONFIG: Record<
   AppointmentStatus,
-  { badgeCls: string; cardCls: string; monthChipCls: string }
+  { badgeCls: string; cardCls: string; chipCls: string }
 > = {
   scheduled: {
-    badgeCls:     "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
-    cardCls:      "bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:border-blue-500/30 dark:hover:bg-blue-950/60",
-    monthChipCls: "bg-blue-50 border border-blue-200 dark:bg-blue-900/60 dark:border-blue-700/60",
+    badgeCls: "bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30",
+    cardCls:  "bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:border-blue-500/30 dark:hover:bg-blue-950/60",
+    chipCls:  "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/60 dark:border-blue-700/60 dark:text-blue-100",
   },
   completed: {
-    badgeCls:     "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-    cardCls:      "bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:hover:bg-emerald-950/60",
-    monthChipCls: "bg-emerald-50 border border-emerald-200 dark:bg-emerald-900/60 dark:border-emerald-700/60",
+    badgeCls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    cardCls:  "bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:hover:bg-emerald-950/60",
+    chipCls:  "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/60 dark:border-emerald-700/60 dark:text-emerald-100",
   },
   cancelled: {
-    badgeCls:     "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30",
-    cardCls:      "bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950/40 dark:border-red-500/30 dark:hover:bg-red-950/60",
-    monthChipCls: "bg-red-50 border border-red-200 dark:bg-red-900/60 dark:border-red-700/60",
+    badgeCls: "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30",
+    cardCls:  "bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950/40 dark:border-red-500/30 dark:hover:bg-red-950/60",
+    chipCls:  "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/60 dark:border-red-700/60 dark:text-red-100",
   },
   "no-show": {
-    badgeCls:     "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
-    cardCls:      "bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-500/30 dark:hover:bg-amber-950/60",
-    monthChipCls: "bg-amber-50 border border-amber-200 dark:bg-amber-900/60 dark:border-amber-700/60",
+    badgeCls: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
+    cardCls:  "bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-500/30 dark:hover:bg-amber-950/60",
+    chipCls:  "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/60 dark:border-amber-700/60 dark:text-amber-100",
   },
 };
 
@@ -809,20 +809,16 @@ function MonthView({
                           <div
                             key={apt.id}
                             className={cn(
-                              "flex items-baseline gap-1.5 min-w-0 px-1.5 py-0.5 rounded",
-                              STATUS_CONFIG[apt.status].monthChipCls,
+                              "text-xs px-1.5 py-0.5 rounded border truncate",
+                              STATUS_CONFIG[apt.status].chipCls,
                             )}
                           >
-                            <span
-                              dir="ltr"
-                              style={{ unicodeBidi: "isolate" }}
-                              className="flex-shrink-0 tabular-nums text-[10px] font-medium text-gray-500 dark:text-gray-300"
-                            >
-                              {apt.startTime}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-start text-[11px] font-medium text-gray-900 dark:text-gray-100">
-                              {apt.customerName}
-                            </span>
+                            <TimeRange
+                              start={apt.startTime}
+                              end={apt.endTime}
+                              className="me-1"
+                            />
+                            <span className="truncate">{apt.customerName}</span>
                           </div>
                         ))
                       ) : (
@@ -1277,6 +1273,10 @@ export function CalendarView({
     } as CalendarLabels;
   }, [locale, labels]);
 
+  // RTL-aware nav icons: arrow direction mirrors semantics (previous = back, next = forward)
+  const PreviousIcon = dir === "rtl" ? ChevronRight : ChevronLeft;
+  const NextIcon     = dir === "rtl" ? ChevronLeft  : ChevronRight;
+
   // Mock data — only when no external appointments are provided
   useEffect(() => {
     if (isExternalMode) return;
@@ -1466,16 +1466,16 @@ export function CalendarView({
           <button
             onClick={goToPrevious}
             aria-label="Previous"
-            className="h-8 w-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <PreviousIcon className="h-4 w-4" />
           </button>
           <button
             onClick={goToNext}
             aria-label="Next"
-            className="h-8 w-8 flex items-center justify-center rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           >
-            <ChevronRight className="h-4 w-4" />
+            <NextIcon className="h-4 w-4" />
           </button>
           <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[140px] sm:max-w-none">
             {formatDateRange(displayDate, viewMode, locale)}
