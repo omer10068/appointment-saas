@@ -1,14 +1,18 @@
 import type {
+  CreateAppointmentPayload,
   CreateAvailabilityExceptionPayload,
   CreateCustomerPayload,
   CreateServicePayload,
   CreateStaffMemberPayload,
+  DashboardAppointmentDto,
   DashboardAvailabilityExceptionDto,
   DashboardCustomerDto,
   DashboardServiceDto,
   DashboardStaffMemberDto,
   DashboardSummaryDto,
   DashboardWorkingHourDto,
+  UpdateAppointmentPayload,
+  UpdateAppointmentStatusPayload,
   UpdateAvailabilityExceptionPayload,
   UpdateCustomerPayload,
   UpdateCustomerStatusPayload,
@@ -320,6 +324,62 @@ export function deleteAvailabilityException(
     `/dashboard/businesses/${businessId}/availability-exceptions/${exceptionId}`,
     getToken,
     { method: 'DELETE' },
+  );
+}
+
+// ─── Appointments ─────────────────────────────────────────────────────────────
+
+export function fetchDashboardAppointments(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+  query?: { from?: string; to?: string; status?: string },
+): Promise<DashboardAppointmentDto[]> {
+  const params = new URLSearchParams();
+  if (query?.from) params.set('from', query.from);
+  if (query?.to) params.set('to', query.to);
+  if (query?.status) params.set('status', query.status);
+  const qs = params.toString();
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/appointments${qs ? `?${qs}` : ''}`,
+    getToken,
+  );
+}
+
+export function createDashboardAppointment(
+  businessId: string,
+  payload: CreateAppointmentPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardAppointmentDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/appointments`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
+export function updateDashboardAppointment(
+  businessId: string,
+  appointmentId: string,
+  payload: UpdateAppointmentPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardAppointmentDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/appointments/${appointmentId}`,
+    getToken,
+    { method: 'PATCH', body: payload },
+  );
+}
+
+export function updateDashboardAppointmentStatus(
+  businessId: string,
+  appointmentId: string,
+  payload: UpdateAppointmentStatusPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardAppointmentDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/appointments/${appointmentId}/status`,
+    getToken,
+    { method: 'PATCH', body: payload },
   );
 }
 

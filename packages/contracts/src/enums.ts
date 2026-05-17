@@ -24,3 +24,11 @@ export type PlatformRole =
   | 'SUPPORT'
   | 'ADMIN'
   | 'SUPER_ADMIN';
+
+export type AppointmentStatus =
+  | 'SCHEDULED'
+  | 'CONFIRMED'
+  | 'CANCELLED_BY_CUSTOMER'
+  | 'CANCELLED_BY_BUSINESS'
+  | 'COMPLETED'
+  | 'NO_SHOW';

@@ -207,5 +207,45 @@ export interface DashboardDictionary {
     days: [string, string, string, string, string, string, string];
   };
 
+  appointmentsList: {
+    customer: string;
+    service: string;
+    staff: string;
+    date: string;
+    status: string;
+    actions: string;
+    noAppointmentsYet: string;
+    noAppointmentsDescription: string;
+    addAppointment: string;
+    statusScheduled: string;
+    statusConfirmed: string;
+    statusCancelledByCustomer: string;
+    statusCancelledByBusiness: string;
+    statusCompleted: string;
+    statusNoShow: string;
+  };
+
+  appointmentForm: {
+    addAppointment: string;
+    editAppointment: string;
+    customer: string;
+    service: string;
+    staff: string;
+    startsAt: string;
+    save: string;
+    cancel: string;
+    confirm: string;
+    complete: string;
+    cancelAppointment: string;
+    createdSuccess: string;
+    updatedSuccess: string;
+    statusUpdatedSuccess: string;
+    saveError: string;
+    loadError: string;
+    noStaff: string;
+    noCustomers: string;
+    noServices: string;
+  };
+
   comingSoon: string;
 }

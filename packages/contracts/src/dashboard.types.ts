@@ -1,4 +1,4 @@
-import type { CustomerStatus } from './enums';
+import type { AppointmentStatus, CustomerStatus } from './enums';
 
 export interface DashboardServiceDto {
   id: string;
@@ -149,4 +149,39 @@ export interface UpdateAvailabilityExceptionPayload {
   startTime?: string | null;
   endTime?: string | null;
   reason?: string | null;
+}
+
+// ─── Appointments ─────────────────────────────────────────────────────────────
+
+export interface DashboardAppointmentDto {
+  id: string;
+  businessId: string;
+  businessCustomerId: string;
+  customerName: string;
+  serviceId: string;
+  serviceName: string;
+  staffMemberId: string | null;
+  staffMemberName: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAppointmentPayload {
+  businessCustomerId: string;
+  serviceId: string;
+  staffMemberId?: string | null;
+  startsAt: string;
+}
+
+export interface UpdateAppointmentPayload {
+  serviceId?: string;
+  staffMemberId?: string | null;
+  startsAt?: string;
+}
+
+export interface UpdateAppointmentStatusPayload {
+  status: AppointmentStatus;
 }
