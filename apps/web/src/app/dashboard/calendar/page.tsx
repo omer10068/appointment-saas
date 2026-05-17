@@ -273,8 +273,8 @@ export default function CalendarPage() {
   const weekRangeLabel = formatWeekRange(weekStart, weekEnd, dict.lang);
   const dayNames = dict.availability.days;
 
-  const prevChevron = isRtl ? '›' : '‹';
-  const nextChevron = isRtl ? '‹' : '›';
+  const prevChevron = '‹';
+  const nextChevron = '›';
 
   return (
     <>
