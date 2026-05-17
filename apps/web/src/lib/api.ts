@@ -1,16 +1,21 @@
 import type {
+  CreateAvailabilityExceptionPayload,
   CreateCustomerPayload,
   CreateServicePayload,
   CreateStaffMemberPayload,
+  DashboardAvailabilityExceptionDto,
   DashboardCustomerDto,
   DashboardServiceDto,
   DashboardStaffMemberDto,
   DashboardSummaryDto,
+  DashboardWorkingHourDto,
+  UpdateAvailabilityExceptionPayload,
   UpdateCustomerPayload,
   UpdateCustomerStatusPayload,
   UpdateServicePayload,
   UpdateStaffMemberPayload,
   UpdateStaffMemberStatusPayload,
+  UpdateWorkingHoursPayload,
 } from '@appointment/contracts';
 
 const API_URL =
@@ -216,6 +221,105 @@ export function updateDashboardStaffMemberStatus(
     `/dashboard/businesses/${businessId}/staff/${staffMemberId}/status`,
     getToken,
     { method: 'PATCH', body: payload },
+  );
+}
+
+// ─── Working hours (business) ─────────────────────────────────────────────────
+
+export function fetchBusinessWorkingHours(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardWorkingHourDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/working-hours`,
+    getToken,
+  );
+}
+
+export function updateBusinessWorkingHours(
+  businessId: string,
+  payload: UpdateWorkingHoursPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardWorkingHourDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/working-hours`,
+    getToken,
+    { method: 'PUT', body: payload },
+  );
+}
+
+// ─── Working hours (staff) ────────────────────────────────────────────────────
+
+export function fetchStaffWorkingHours(
+  businessId: string,
+  staffMemberId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardWorkingHourDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/staff/${staffMemberId}/working-hours`,
+    getToken,
+  );
+}
+
+export function updateStaffWorkingHours(
+  businessId: string,
+  staffMemberId: string,
+  payload: UpdateWorkingHoursPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardWorkingHourDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/staff/${staffMemberId}/working-hours`,
+    getToken,
+    { method: 'PUT', body: payload },
+  );
+}
+
+// ─── Availability exceptions ──────────────────────────────────────────────────
+
+export function fetchAvailabilityExceptions(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardAvailabilityExceptionDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/availability-exceptions`,
+    getToken,
+  );
+}
+
+export function createAvailabilityException(
+  businessId: string,
+  payload: CreateAvailabilityExceptionPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardAvailabilityExceptionDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/availability-exceptions`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
+export function updateAvailabilityException(
+  businessId: string,
+  exceptionId: string,
+  payload: UpdateAvailabilityExceptionPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardAvailabilityExceptionDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/availability-exceptions/${exceptionId}`,
+    getToken,
+    { method: 'PATCH', body: payload },
+  );
+}
+
+export function deleteAvailabilityException(
+  businessId: string,
+  exceptionId: string,
+  getToken: () => Promise<string | null>,
+): Promise<void> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/availability-exceptions/${exceptionId}`,
+    getToken,
+    { method: 'DELETE' },
   );
 }
 

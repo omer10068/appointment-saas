@@ -173,5 +173,39 @@ export interface DashboardDictionary {
     loadError: string;
   };
 
+  availability: {
+    title: string;
+    description: string;
+    businessHoursTitle: string;
+    staffHoursTitle: string;
+    exceptionsTitle: string;
+    day: string;
+    open: string;
+    closed: string;
+    startTime: string;
+    endTime: string;
+    saveHours: string;
+    hoursSavedSuccess: string;
+    hoursLoadError: string;
+    hoursSaveError: string;
+    addException: string;
+    date: string;
+    reason: string;
+    entireBusiness: string;
+    staffMemberLabel: string;
+    deleteException: string;
+    noExceptionsYet: string;
+    noExceptionsDescription: string;
+    exceptionCreatedSuccess: string;
+    exceptionDeletedSuccess: string;
+    exceptionLoadError: string;
+    exceptionSaveError: string;
+    exceptionDeleteError: string;
+    selectStaffMember: string;
+    noStaffForHours: string;
+    cancel: string;
+    days: [string, string, string, string, string, string, string];
+  };
+
   comingSoon: string;
 }

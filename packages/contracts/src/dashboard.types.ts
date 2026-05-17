@@ -98,3 +98,55 @@ export interface UpdateStaffMemberPayload {
 export interface UpdateStaffMemberStatusPayload {
   isActive: boolean;
 }
+
+// ─── Working hours ────────────────────────────────────────────────────────────
+
+export interface DashboardWorkingHourDto {
+  id: string;
+  dayOfWeek: number;
+  startTime: string | null;
+  endTime: string | null;
+  isClosed: boolean;
+}
+
+export interface WorkingHourItemPayload {
+  dayOfWeek: number;
+  isClosed: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+}
+
+export interface UpdateWorkingHoursPayload {
+  hours: WorkingHourItemPayload[];
+}
+
+// ─── Availability exceptions ──────────────────────────────────────────────────
+
+export interface DashboardAvailabilityExceptionDto {
+  id: string;
+  businessId: string;
+  staffMemberId: string | null;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  isClosed: boolean;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface CreateAvailabilityExceptionPayload {
+  date: string;
+  staffMemberId?: string | null;
+  isClosed: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  reason?: string | null;
+}
+
+export interface UpdateAvailabilityExceptionPayload {
+  staffMemberId?: string | null;
+  isClosed?: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  reason?: string | null;
+}
