@@ -126,6 +126,125 @@ export interface DashboardDictionary {
     statusActive: string;
     statusBlocked: string;
     statusArchived: string;
+    actions: string;
+    addCustomer: string;
+  };
+
+  customerForm: {
+    addCustomer: string;
+    editCustomer: string;
+    customerName: string;
+    email: string;
+    phone: string;
+    notes: string;
+    save: string;
+    cancel: string;
+    blockCustomer: string;
+    activateCustomer: string;
+    archiveCustomer: string;
+    createdSuccess: string;
+    updatedSuccess: string;
+    saveError: string;
+    loadError: string;
+  };
+
+  staffList: {
+    staffName: string;
+    active: string;
+    inactive: string;
+    noStaffYet: string;
+    noStaffDescription: string;
+    actions: string;
+    addStaffMember: string;
+  };
+
+  staffForm: {
+    addStaffMember: string;
+    editStaffMember: string;
+    staffName: string;
+    isActive: string;
+    save: string;
+    cancel: string;
+    activate: string;
+    deactivate: string;
+    createdSuccess: string;
+    updatedSuccess: string;
+    saveError: string;
+    loadError: string;
+  };
+
+  availability: {
+    title: string;
+    description: string;
+    businessHoursTitle: string;
+    staffHoursTitle: string;
+    exceptionsTitle: string;
+    day: string;
+    open: string;
+    closed: string;
+    startTime: string;
+    endTime: string;
+    saveHours: string;
+    hoursSavedSuccess: string;
+    hoursLoadError: string;
+    hoursSaveError: string;
+    addException: string;
+    date: string;
+    reason: string;
+    entireBusiness: string;
+    staffMemberLabel: string;
+    deleteException: string;
+    noExceptionsYet: string;
+    noExceptionsDescription: string;
+    exceptionCreatedSuccess: string;
+    exceptionDeletedSuccess: string;
+    exceptionLoadError: string;
+    exceptionSaveError: string;
+    exceptionDeleteError: string;
+    selectStaffMember: string;
+    noStaffForHours: string;
+    cancel: string;
+    days: [string, string, string, string, string, string, string];
+  };
+
+  appointmentsList: {
+    customer: string;
+    service: string;
+    staff: string;
+    date: string;
+    status: string;
+    actions: string;
+    noAppointmentsYet: string;
+    noAppointmentsDescription: string;
+    addAppointment: string;
+    statusScheduled: string;
+    statusConfirmed: string;
+    statusCancelledByCustomer: string;
+    statusCancelledByBusiness: string;
+    statusCompleted: string;
+    statusNoShow: string;
+  };
+
+  appointmentForm: {
+    addAppointment: string;
+    editAppointment: string;
+    customer: string;
+    service: string;
+    staff: string;
+    startsAt: string;
+    save: string;
+    cancel: string;
+    confirm: string;
+    complete: string;
+    cancelAppointment: string;
+    createdSuccess: string;
+    updatedSuccess: string;
+    statusUpdatedSuccess: string;
+    saveError: string;
+    loadError: string;
+    noStaff: string;
+    noCustomers: string;
+    noServices: string;
   };
 
   comingSoon: string;

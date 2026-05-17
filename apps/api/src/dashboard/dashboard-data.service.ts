@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -6,6 +7,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateServiceDto } from './dto/create-service.dto';
 import type { UpdateServiceDto } from './dto/update-service.dto';
+import type { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
+import type { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
+import type { CreateStaffMemberDto } from './dto/create-staff-member.dto';
+import type { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
 
 export interface ServiceDto {
   id: string;
@@ -28,6 +33,15 @@ export interface CustomerDto {
   notes: string | null;
 }
 
+export interface StaffMemberDto {
+  id: string;
+  displayName: string;
+  isActive: boolean;
+  businessUserId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface SummaryDto {
   servicesCount: number;
   activeServicesCount: number;
@@ -44,6 +58,15 @@ const SERVICE_SELECT = {
   isActive: true,
   bufferBeforeMin: true,
   bufferAfterMin: true,
+} as const;
+
+const STAFF_SELECT = {
+  id: true,
+  displayName: true,
+  isActive: true,
+  businessUserId: true,
+  createdAt: true,
+  updatedAt: true,
 } as const;
 
 @Injectable()
@@ -71,15 +94,19 @@ export class DashboardDataService {
       include: { customerProfile: true },
       orderBy: { createdAt: 'desc' },
     });
-    return records.map((bc) => ({
-      businessCustomerId: bc.id,
-      customerProfileId: bc.customerProfileId,
-      fullName: bc.customerProfile.fullName,
-      email: bc.customerProfile.email,
-      phone: bc.customerProfile.phone,
-      status: bc.status,
-      notes: bc.notes,
-    }));
+    return records.map(mapToCustomerDto);
+  }
+
+  async getStaff(
+    userId: string,
+    businessId: string,
+  ): Promise<StaffMemberDto[]> {
+    await this.assertAccess(userId, businessId);
+    return this.prisma.staffMember.findMany({
+      where: { businessId },
+      orderBy: { displayName: 'asc' },
+      select: STAFF_SELECT,
+    });
   }
 
   async getSummary(userId: string, businessId: string): Promise<SummaryDto> {
@@ -105,7 +132,7 @@ export class DashboardDataService {
     };
   }
 
-  // ─── Mutations ───────────────────────────────────────────────────────────────
+  // ─── Service mutations ────────────────────────────────────────────────────────
 
   async createService(
     userId: string,
@@ -172,6 +199,173 @@ export class DashboardDataService {
     });
   }
 
+  // ─── Customer mutations ───────────────────────────────────────────────────────
+
+  async createCustomer(
+    userId: string,
+    businessId: string,
+    dto: CreateDashboardCustomerDto,
+  ): Promise<CustomerDto> {
+    await this.assertMutationAccess(userId, businessId);
+    return this.prisma.$transaction(async (tx) => {
+      const profile = await tx.customerProfile.create({
+        data: {
+          fullName: dto.fullName,
+          email: dto.email ?? null,
+          phone: dto.phone ?? null,
+        },
+      });
+      const bc = await tx.businessCustomer.create({
+        data: {
+          businessId,
+          customerProfileId: profile.id,
+          status: dto.status ?? 'ACTIVE',
+          notes: dto.notes ?? null,
+        },
+      });
+      return {
+        businessCustomerId: bc.id,
+        customerProfileId: profile.id,
+        fullName: profile.fullName,
+        email: profile.email,
+        phone: profile.phone,
+        status: bc.status,
+        notes: bc.notes,
+      };
+    });
+  }
+
+  async updateCustomer(
+    userId: string,
+    businessId: string,
+    businessCustomerId: string,
+    dto: UpdateDashboardCustomerDto,
+  ): Promise<CustomerDto> {
+    await this.assertMutationAccess(userId, businessId);
+    const existing = await this.prisma.businessCustomer.findFirst({
+      where: { id: businessCustomerId, businessId },
+      include: { customerProfile: true },
+    });
+    if (!existing) throw new NotFoundException('Customer not found');
+
+    return this.prisma.$transaction(async (tx) => {
+      const [updatedProfile, updatedBc] = await Promise.all([
+        tx.customerProfile.update({
+          where: { id: existing.customerProfileId },
+          data: {
+            ...(dto.fullName !== undefined && { fullName: dto.fullName }),
+            ...(dto.email !== undefined && { email: dto.email }),
+            ...(dto.phone !== undefined && { phone: dto.phone }),
+          },
+        }),
+        tx.businessCustomer.update({
+          where: { id: businessCustomerId },
+          data: {
+            ...(dto.notes !== undefined && { notes: dto.notes }),
+            ...(dto.status !== undefined && { status: dto.status }),
+          },
+        }),
+      ]);
+      return {
+        businessCustomerId: updatedBc.id,
+        customerProfileId: updatedProfile.id,
+        fullName: updatedProfile.fullName,
+        email: updatedProfile.email,
+        phone: updatedProfile.phone,
+        status: updatedBc.status,
+        notes: updatedBc.notes,
+      };
+    });
+  }
+
+  async setCustomerStatus(
+    userId: string,
+    businessId: string,
+    businessCustomerId: string,
+    status: 'ACTIVE' | 'BLOCKED' | 'ARCHIVED',
+  ): Promise<CustomerDto> {
+    await this.assertMutationAccess(userId, businessId);
+    const existing = await this.prisma.businessCustomer.findFirst({
+      where: { id: businessCustomerId, businessId },
+      include: { customerProfile: true },
+    });
+    if (!existing) throw new NotFoundException('Customer not found');
+    const updated = await this.prisma.businessCustomer.update({
+      where: { id: businessCustomerId },
+      data: { status },
+    });
+    return {
+      businessCustomerId: updated.id,
+      customerProfileId: existing.customerProfileId,
+      fullName: existing.customerProfile.fullName,
+      email: existing.customerProfile.email,
+      phone: existing.customerProfile.phone,
+      status: updated.status,
+      notes: updated.notes,
+    };
+  }
+
+  // ─── Staff mutations ──────────────────────────────────────────────────────────
+
+  async createStaffMember(
+    userId: string,
+    businessId: string,
+    dto: CreateStaffMemberDto,
+  ): Promise<StaffMemberDto> {
+    await this.assertMutationAccess(userId, businessId);
+    if (dto.businessUserId) {
+      await this.assertBusinessUserInBusiness(dto.businessUserId, businessId);
+    }
+    return this.prisma.staffMember.create({
+      data: {
+        businessId,
+        displayName: dto.displayName,
+        businessUserId: dto.businessUserId ?? null,
+        isActive: dto.isActive ?? true,
+      },
+      select: STAFF_SELECT,
+    });
+  }
+
+  async updateStaffMember(
+    userId: string,
+    businessId: string,
+    staffMemberId: string,
+    dto: UpdateStaffMemberDto,
+  ): Promise<StaffMemberDto> {
+    await this.assertMutationAccess(userId, businessId);
+    await this.assertStaffInBusiness(staffMemberId, businessId);
+    if (dto.businessUserId !== undefined && dto.businessUserId !== null) {
+      await this.assertBusinessUserInBusiness(dto.businessUserId, businessId);
+    }
+    return this.prisma.staffMember.update({
+      where: { id: staffMemberId },
+      data: {
+        ...(dto.displayName !== undefined && { displayName: dto.displayName }),
+        ...(dto.businessUserId !== undefined && {
+          businessUserId: dto.businessUserId,
+        }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+      select: STAFF_SELECT,
+    });
+  }
+
+  async setStaffMemberStatus(
+    userId: string,
+    businessId: string,
+    staffMemberId: string,
+    isActive: boolean,
+  ): Promise<StaffMemberDto> {
+    await this.assertMutationAccess(userId, businessId);
+    await this.assertStaffInBusiness(staffMemberId, businessId);
+    return this.prisma.staffMember.update({
+      where: { id: staffMemberId },
+      data: { isActive },
+      select: STAFF_SELECT,
+    });
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private async assertAccess(
@@ -209,4 +403,53 @@ export class DashboardDataService {
     });
     if (!service) throw new NotFoundException('Service not found');
   }
+
+  private async assertStaffInBusiness(
+    staffMemberId: string,
+    businessId: string,
+  ): Promise<void> {
+    const staff = await this.prisma.staffMember.findFirst({
+      where: { id: staffMemberId, businessId },
+      select: { id: true },
+    });
+    if (!staff) throw new NotFoundException('Staff member not found');
+  }
+
+  private async assertBusinessUserInBusiness(
+    businessUserId: string,
+    businessId: string,
+  ): Promise<void> {
+    const bu = await this.prisma.businessUser.findFirst({
+      where: { id: businessUserId, businessId },
+      select: { id: true },
+    });
+    if (!bu)
+      throw new BadRequestException(
+        'BusinessUser does not belong to this business',
+      );
+  }
+}
+
+// ─── Shared mapper ────────────────────────────────────────────────────────────
+
+function mapToCustomerDto(bc: {
+  id: string;
+  customerProfileId: string;
+  status: 'ACTIVE' | 'BLOCKED' | 'ARCHIVED';
+  notes: string | null;
+  customerProfile: {
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+  };
+}): CustomerDto {
+  return {
+    businessCustomerId: bc.id,
+    customerProfileId: bc.customerProfileId,
+    fullName: bc.customerProfile.fullName,
+    email: bc.customerProfile.email,
+    phone: bc.customerProfile.phone,
+    status: bc.status,
+    notes: bc.notes,
+  };
 }

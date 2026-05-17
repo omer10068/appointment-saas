@@ -85,11 +85,14 @@ model Business {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  businessUsers     BusinessUser[]
-  services          Service[]
-  staffMembers      StaffMember[]
-  businessCustomers BusinessCustomer[]
-  appointments      Appointment[]
+  businessUsers          BusinessUser[]
+  services               Service[]
+  staffMembers           StaffMember[]
+  businessCustomers      BusinessCustomer[]
+  appointments           Appointment[]
+  businessWorkingHours   BusinessWorkingHour[]
+  staffWorkingHours      StaffWorkingHour[]
+  availabilityExceptions AvailabilityException[]
 }
 
 model BusinessUser {
@@ -182,8 +185,10 @@ model StaffMember {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  business       Business @relation(fields: [businessId], references: [id])
-  appointments   Appointment[]
+  business               Business               @relation(fields: [businessId], references: [id])
+  appointments           Appointment[]
+  staffWorkingHours      StaffWorkingHour[]
+  availabilityExceptions AvailabilityException[]
 
   @@index([businessId])
 }
@@ -212,4 +217,59 @@ model Appointment {
   @@index([serviceId])
   @@index([staffMemberId])
   @@index([startsAt])
+}
+
+model BusinessWorkingHour {
+  id         String   @id @default(uuid())
+  businessId String
+  dayOfWeek  Int
+  startTime  String?
+  endTime    String?
+  isClosed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business   Business @relation(fields: [businessId], references: [id])
+
+  @@unique([businessId, dayOfWeek])
+  @@index([businessId])
+}
+
+model StaffWorkingHour {
+  id            String      @id @default(uuid())
+  businessId    String
+  staffMemberId String
+  dayOfWeek     Int
+  startTime     String?
+  endTime       String?
+  isClosed      Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  business    Business    @relation(fields: [businessId], references: [id])
+  staffMember StaffMember @relation(fields: [staffMemberId], references: [id])
+
+  @@unique([staffMemberId, dayOfWeek])
+  @@index([businessId])
+  @@index([staffMemberId])
+}
+
+model AvailabilityException {
+  id            String      @id @default(uuid())
+  businessId    String
+  staffMemberId String?
+  date          DateTime
+  startTime     String?
+  endTime       String?
+  isClosed      Boolean     @default(false)
+  reason        String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  business    Business     @relation(fields: [businessId], references: [id])
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id])
+
+  @@index([businessId])
+  @@index([staffMemberId])
+  @@index([date])
 }
