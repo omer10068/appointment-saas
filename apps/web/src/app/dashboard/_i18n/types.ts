@@ -247,5 +247,15 @@ export interface DashboardDictionary {
     noServices: string;
   };
 
+  calendar: {
+    today: string;
+    prevWeek: string;
+    nextWeek: string;
+    noAppointmentsThisWeek: string;
+    viewAllAppointments: string;
+    addAppointment: string;
+    loadError: string;
+  };
+
   comingSoon: string;
 }
