@@ -16,6 +16,9 @@ import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
 import { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
 import { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
 import { UpdateDashboardCustomerStatusDto } from './dto/update-dashboard-customer-status.dto';
+import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
+import { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
+import { UpdateStaffMemberStatusDto } from './dto/update-staff-member-status.dto';
 import { DashboardDataService } from './dashboard-data.service';
 
 @UseGuards(ClerkAuthGuard)
@@ -130,6 +133,61 @@ export class DashboardDataController {
       businessId,
       businessCustomerId,
       dto.status,
+    );
+  }
+
+  // ─── Staff (read) ────────────────────────────────────────────────────────────
+
+  @Get(':businessId/staff')
+  getStaff(
+    @Param('businessId') businessId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.getStaff(req.user.id, businessId);
+  }
+
+  // ─── Staff (mutations) ────────────────────────────────────────────────────────
+
+  @Post(':businessId/staff')
+  createStaffMember(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateStaffMemberDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.createStaffMember(
+      req.user.id,
+      businessId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/staff/:staffMemberId')
+  updateStaffMember(
+    @Param('businessId') businessId: string,
+    @Param('staffMemberId') staffMemberId: string,
+    @Body() dto: UpdateStaffMemberDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.updateStaffMember(
+      req.user.id,
+      businessId,
+      staffMemberId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/staff/:staffMemberId/status')
+  setStaffMemberStatus(
+    @Param('businessId') businessId: string,
+    @Param('staffMemberId') staffMemberId: string,
+    @Body() dto: UpdateStaffMemberStatusDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.setStaffMemberStatus(
+      req.user.id,
+      businessId,
+      staffMemberId,
+      dto.isActive,
     );
   }
 

@@ -209,6 +209,31 @@ const he: DashboardDictionary = {
     loadError: 'לא ניתן לטעון לקוחות',
   },
 
+  staffList: {
+    staffName: 'שם איש הצוות',
+    active: 'פעיל',
+    inactive: 'לא פעיל',
+    noStaffYet: 'אין אנשי צוות עדיין',
+    noStaffDescription: 'עדיין לא נוספו אנשי צוות לעסק הזה.',
+    actions: 'פעולות',
+    addStaffMember: 'הוסף איש צוות',
+  },
+
+  staffForm: {
+    addStaffMember: 'הוסף איש צוות',
+    editStaffMember: 'ערוך איש צוות',
+    staffName: 'שם תצוגה',
+    isActive: 'איש צוות פעיל',
+    save: 'שמור',
+    cancel: 'ביטול',
+    activate: 'הפעל',
+    deactivate: 'השבת',
+    createdSuccess: 'איש הצוות נוסף בהצלחה',
+    updatedSuccess: 'איש הצוות עודכן בהצלחה',
+    saveError: 'לא ניתן לשמור את איש הצוות',
+    loadError: 'לא ניתן לטעון אנשי צוות',
+  },
+
   comingSoon: 'בקרוב',
 };
 
@@ -418,6 +443,31 @@ const en: DashboardDictionary = {
     updatedSuccess: 'Customer updated successfully',
     saveError: 'Unable to save customer',
     loadError: 'Unable to load customers',
+  },
+
+  staffList: {
+    staffName: 'Staff name',
+    active: 'Active',
+    inactive: 'Inactive',
+    noStaffYet: 'No staff members yet',
+    noStaffDescription: 'No staff members have been added to this business yet.',
+    actions: 'Actions',
+    addStaffMember: 'Add staff member',
+  },
+
+  staffForm: {
+    addStaffMember: 'Add staff member',
+    editStaffMember: 'Edit staff member',
+    staffName: 'Display name',
+    isActive: 'Staff member is active',
+    save: 'Save',
+    cancel: 'Cancel',
+    activate: 'Activate',
+    deactivate: 'Deactivate',
+    createdSuccess: 'Staff member created successfully',
+    updatedSuccess: 'Staff member updated successfully',
+    saveError: 'Unable to save staff member',
+    loadError: 'Unable to load staff members',
   },
 
   comingSoon: 'Coming soon',

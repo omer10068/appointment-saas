@@ -6,6 +6,7 @@ import {
   type BusinessUser,
   type CustomerProfile,
   type Service,
+  type StaffMember,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardDataService } from './dashboard-data.service';
@@ -98,9 +99,30 @@ const mockBusinessCustomerOtherBiz: BusinessCustomer = {
   updatedAt: new Date('2024-01-01'),
 };
 
+const mockStaffMember: StaffMember = {
+  id: 'sm-1',
+  businessId: BUSINESS_ID,
+  displayName: 'Alice',
+  isActive: true,
+  businessUserId: null,
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
+const mockStaffMemberOtherBiz: StaffMember = {
+  id: 'sm-2',
+  businessId: OTHER_BUSINESS_ID,
+  displayName: 'Bob',
+  isActive: true,
+  businessUserId: null,
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
 const mockPrisma = {
   businessUser: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
+    findFirst: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
   },
   service: {
     findMany: jest.fn<(...args: unknown[]) => Promise<Service[]>>(),
@@ -133,6 +155,12 @@ const mockPrisma = {
   customerProfile: {
     create: jest.fn<(...args: unknown[]) => Promise<CustomerProfile>>(),
     update: jest.fn<(...args: unknown[]) => Promise<CustomerProfile>>(),
+  },
+  staffMember: {
+    findMany: jest.fn<(...args: unknown[]) => Promise<StaffMember[]>>(),
+    findFirst: jest.fn<(...args: unknown[]) => Promise<StaffMember | null>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<StaffMember>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<StaffMember>>(),
   },
   $transaction: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
 };
@@ -813,6 +841,215 @@ describe('DashboardDataService', () => {
           where: { businessId: OTHER_BUSINESS_ID },
         }),
       );
+    });
+  });
+
+  // ─── getStaff ──────────────────────────────────────────────────────────────
+
+  describe('getStaff', () => {
+    it('returns staff when user is a member of the business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.staffMember.findMany.mockResolvedValue([mockStaffMember]);
+
+      const result = await service.getStaff(USER_ID, BUSINESS_ID);
+
+      expect(mockPrisma.staffMember.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { businessId: BUSINESS_ID } }),
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id: 'sm-1', displayName: 'Alice' });
+    });
+
+    it('throws ForbiddenException when user is not assigned to the business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getStaff(OTHER_USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.staffMember.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── createStaffMember ─────────────────────────────────────────────────────
+
+  describe('createStaffMember', () => {
+    const createDto = { displayName: 'Alice' };
+
+    it('OWNER can create a staff member', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.staffMember.create.mockResolvedValue(mockStaffMember);
+
+      const result = await service.createStaffMember(
+        USER_ID,
+        BUSINESS_ID,
+        createDto,
+      );
+
+      expect(mockPrisma.staffMember.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            businessId: BUSINESS_ID,
+            displayName: 'Alice',
+          }),
+        }),
+      );
+      expect(result).toMatchObject({ id: 'sm-1', displayName: 'Alice' });
+    });
+
+    it('MANAGER can create a staff member', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockManagerMembership,
+      );
+      mockPrisma.staffMember.create.mockResolvedValue(mockStaffMember);
+
+      await expect(
+        service.createStaffMember(USER_ID, BUSINESS_ID, createDto),
+      ).resolves.toMatchObject({ id: 'sm-1' });
+    });
+
+    it('STAFF cannot create a staff member', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.createStaffMember(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.staffMember.create).not.toHaveBeenCalled();
+    });
+
+    it('defaults isActive to true when not provided', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.staffMember.create.mockResolvedValue(mockStaffMember);
+
+      await service.createStaffMember(USER_ID, BUSINESS_ID, createDto);
+
+      expect(mockPrisma.staffMember.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isActive: true }),
+        }),
+      );
+    });
+
+    it('validates businessUserId belongs to the same business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createStaffMember(USER_ID, BUSINESS_ID, {
+          displayName: 'Alice',
+          businessUserId: 'bu-other',
+        }),
+      ).rejects.toThrow();
+
+      expect(mockPrisma.staffMember.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── updateStaffMember ─────────────────────────────────────────────────────
+
+  describe('updateStaffMember', () => {
+    const updateDto = { displayName: 'Alice Updated' };
+
+    it('OWNER can update a staff member in their business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffMember);
+      mockPrisma.staffMember.update.mockResolvedValue({
+        ...mockStaffMember,
+        displayName: 'Alice Updated',
+      });
+
+      const result = await service.updateStaffMember(
+        USER_ID,
+        BUSINESS_ID,
+        'sm-1',
+        updateDto,
+      );
+
+      expect(mockPrisma.staffMember.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'sm-1', businessId: BUSINESS_ID },
+        }),
+      );
+      expect(result).toMatchObject({ displayName: 'Alice Updated' });
+    });
+
+    it('cannot update a staff member from another business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.staffMember.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStaffMember(
+          USER_ID,
+          BUSINESS_ID,
+          mockStaffMemberOtherBiz.id,
+          updateDto,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.staffMember.update).not.toHaveBeenCalled();
+    });
+
+    it('STAFF cannot update a staff member', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.updateStaffMember(USER_ID, BUSINESS_ID, 'sm-1', updateDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.staffMember.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── setStaffMemberStatus ──────────────────────────────────────────────────
+
+  describe('setStaffMemberStatus', () => {
+    it('can deactivate a staff member', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffMember);
+      mockPrisma.staffMember.update.mockResolvedValue({
+        ...mockStaffMember,
+        isActive: false,
+      });
+
+      const result = await service.setStaffMemberStatus(
+        USER_ID,
+        BUSINESS_ID,
+        'sm-1',
+        false,
+      );
+
+      expect(mockPrisma.staffMember.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'sm-1' },
+          data: { isActive: false },
+        }),
+      );
+      expect(result).toMatchObject({ isActive: false });
+    });
+
+    it('cannot change status of a staff member from another business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.staffMember.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setStaffMemberStatus(
+          USER_ID,
+          BUSINESS_ID,
+          mockStaffMemberOtherBiz.id,
+          false,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.staffMember.update).not.toHaveBeenCalled();
+    });
+
+    it('STAFF cannot change staff member status', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.setStaffMemberStatus(USER_ID, BUSINESS_ID, 'sm-1', false),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

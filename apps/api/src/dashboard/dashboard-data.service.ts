@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,6 +9,8 @@ import type { CreateServiceDto } from './dto/create-service.dto';
 import type { UpdateServiceDto } from './dto/update-service.dto';
 import type { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
 import type { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
+import type { CreateStaffMemberDto } from './dto/create-staff-member.dto';
+import type { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
 
 export interface ServiceDto {
   id: string;
@@ -30,6 +33,15 @@ export interface CustomerDto {
   notes: string | null;
 }
 
+export interface StaffMemberDto {
+  id: string;
+  displayName: string;
+  isActive: boolean;
+  businessUserId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface SummaryDto {
   servicesCount: number;
   activeServicesCount: number;
@@ -46,6 +58,15 @@ const SERVICE_SELECT = {
   isActive: true,
   bufferBeforeMin: true,
   bufferAfterMin: true,
+} as const;
+
+const STAFF_SELECT = {
+  id: true,
+  displayName: true,
+  isActive: true,
+  businessUserId: true,
+  createdAt: true,
+  updatedAt: true,
 } as const;
 
 @Injectable()
@@ -74,6 +95,18 @@ export class DashboardDataService {
       orderBy: { createdAt: 'desc' },
     });
     return records.map(mapToCustomerDto);
+  }
+
+  async getStaff(
+    userId: string,
+    businessId: string,
+  ): Promise<StaffMemberDto[]> {
+    await this.assertAccess(userId, businessId);
+    return this.prisma.staffMember.findMany({
+      where: { businessId },
+      orderBy: { displayName: 'asc' },
+      select: STAFF_SELECT,
+    });
   }
 
   async getSummary(userId: string, businessId: string): Promise<SummaryDto> {
@@ -272,6 +305,67 @@ export class DashboardDataService {
     };
   }
 
+  // ─── Staff mutations ──────────────────────────────────────────────────────────
+
+  async createStaffMember(
+    userId: string,
+    businessId: string,
+    dto: CreateStaffMemberDto,
+  ): Promise<StaffMemberDto> {
+    await this.assertMutationAccess(userId, businessId);
+    if (dto.businessUserId) {
+      await this.assertBusinessUserInBusiness(dto.businessUserId, businessId);
+    }
+    return this.prisma.staffMember.create({
+      data: {
+        businessId,
+        displayName: dto.displayName,
+        businessUserId: dto.businessUserId ?? null,
+        isActive: dto.isActive ?? true,
+      },
+      select: STAFF_SELECT,
+    });
+  }
+
+  async updateStaffMember(
+    userId: string,
+    businessId: string,
+    staffMemberId: string,
+    dto: UpdateStaffMemberDto,
+  ): Promise<StaffMemberDto> {
+    await this.assertMutationAccess(userId, businessId);
+    await this.assertStaffInBusiness(staffMemberId, businessId);
+    if (dto.businessUserId !== undefined && dto.businessUserId !== null) {
+      await this.assertBusinessUserInBusiness(dto.businessUserId, businessId);
+    }
+    return this.prisma.staffMember.update({
+      where: { id: staffMemberId },
+      data: {
+        ...(dto.displayName !== undefined && { displayName: dto.displayName }),
+        ...(dto.businessUserId !== undefined && {
+          businessUserId: dto.businessUserId,
+        }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+      select: STAFF_SELECT,
+    });
+  }
+
+  async setStaffMemberStatus(
+    userId: string,
+    businessId: string,
+    staffMemberId: string,
+    isActive: boolean,
+  ): Promise<StaffMemberDto> {
+    await this.assertMutationAccess(userId, businessId);
+    await this.assertStaffInBusiness(staffMemberId, businessId);
+    return this.prisma.staffMember.update({
+      where: { id: staffMemberId },
+      data: { isActive },
+      select: STAFF_SELECT,
+    });
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private async assertAccess(
@@ -308,6 +402,31 @@ export class DashboardDataService {
       select: { id: true },
     });
     if (!service) throw new NotFoundException('Service not found');
+  }
+
+  private async assertStaffInBusiness(
+    staffMemberId: string,
+    businessId: string,
+  ): Promise<void> {
+    const staff = await this.prisma.staffMember.findFirst({
+      where: { id: staffMemberId, businessId },
+      select: { id: true },
+    });
+    if (!staff) throw new NotFoundException('Staff member not found');
+  }
+
+  private async assertBusinessUserInBusiness(
+    businessUserId: string,
+    businessId: string,
+  ): Promise<void> {
+    const bu = await this.prisma.businessUser.findFirst({
+      where: { id: businessUserId, businessId },
+      select: { id: true },
+    });
+    if (!bu)
+      throw new BadRequestException(
+        'BusinessUser does not belong to this business',
+      );
   }
 }
 

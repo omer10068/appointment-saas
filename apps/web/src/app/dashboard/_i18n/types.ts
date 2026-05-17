@@ -148,5 +148,30 @@ export interface DashboardDictionary {
     loadError: string;
   };
 
+  staffList: {
+    staffName: string;
+    active: string;
+    inactive: string;
+    noStaffYet: string;
+    noStaffDescription: string;
+    actions: string;
+    addStaffMember: string;
+  };
+
+  staffForm: {
+    addStaffMember: string;
+    editStaffMember: string;
+    staffName: string;
+    isActive: string;
+    save: string;
+    cancel: string;
+    activate: string;
+    deactivate: string;
+    createdSuccess: string;
+    updatedSuccess: string;
+    saveError: string;
+    loadError: string;
+  };
+
   comingSoon: string;
 }

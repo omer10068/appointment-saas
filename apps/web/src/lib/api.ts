@@ -1,12 +1,16 @@
 import type {
   CreateCustomerPayload,
   CreateServicePayload,
+  CreateStaffMemberPayload,
   DashboardCustomerDto,
   DashboardServiceDto,
+  DashboardStaffMemberDto,
   DashboardSummaryDto,
   UpdateCustomerPayload,
   UpdateCustomerStatusPayload,
   UpdateServicePayload,
+  UpdateStaffMemberPayload,
+  UpdateStaffMemberStatusPayload,
 } from '@appointment/contracts';
 
 const API_URL =
@@ -158,6 +162,58 @@ export function updateDashboardCustomerStatus(
 ): Promise<DashboardCustomerDto> {
   return fetchWithAuth(
     `/dashboard/businesses/${businessId}/customers/${businessCustomerId}/status`,
+    getToken,
+    { method: 'PATCH', body: payload },
+  );
+}
+
+// ─── Staff (read) ─────────────────────────────────────────────────────────────
+
+export function fetchDashboardStaff(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardStaffMemberDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/staff`,
+    getToken,
+  );
+}
+
+// ─── Staff (mutations) ────────────────────────────────────────────────────────
+
+export function createDashboardStaffMember(
+  businessId: string,
+  payload: CreateStaffMemberPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardStaffMemberDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/staff`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
+export function updateDashboardStaffMember(
+  businessId: string,
+  staffMemberId: string,
+  payload: UpdateStaffMemberPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardStaffMemberDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/staff/${staffMemberId}`,
+    getToken,
+    { method: 'PATCH', body: payload },
+  );
+}
+
+export function updateDashboardStaffMemberStatus(
+  businessId: string,
+  staffMemberId: string,
+  payload: UpdateStaffMemberStatusPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardStaffMemberDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/staff/${staffMemberId}/status`,
     getToken,
     { method: 'PATCH', body: payload },
   );

@@ -71,3 +71,30 @@ export interface UpdateCustomerPayload {
 export interface UpdateCustomerStatusPayload {
   status: CustomerStatus;
 }
+
+// ─── Staff payloads ───────────────────────────────────────────────────────────
+
+export interface DashboardStaffMemberDto {
+  id: string;
+  displayName: string;
+  isActive: boolean;
+  businessUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStaffMemberPayload {
+  displayName: string;
+  businessUserId?: string | null;
+  isActive?: boolean;
+}
+
+export interface UpdateStaffMemberPayload {
+  displayName?: string;
+  businessUserId?: string | null;
+  isActive?: boolean;
+}
+
+export interface UpdateStaffMemberStatusPayload {
+  isActive: boolean;
+}
