@@ -308,6 +308,16 @@ const he: DashboardDictionary = {
     noServices: 'אין שירותים פעילים',
   },
 
+  calendar: {
+    today: 'היום',
+    prevWeek: 'שבוע קודם',
+    nextWeek: 'שבוע הבא',
+    noAppointmentsThisWeek: 'אין תורים בשבוע הזה',
+    viewAllAppointments: 'הצג את כל התורים',
+    addAppointment: 'הוסף תור',
+    loadError: 'לא ניתן לטעון את לוח השנה',
+  },
+
   comingSoon: 'בקרוב',
 };
 
@@ -616,6 +626,16 @@ const en: DashboardDictionary = {
     noStaff: 'No staff assigned',
     noCustomers: 'No customers available',
     noServices: 'No active services',
+  },
+
+  calendar: {
+    today: 'Today',
+    prevWeek: 'Previous week',
+    nextWeek: 'Next week',
+    noAppointmentsThisWeek: 'No appointments this week',
+    viewAllAppointments: 'View all appointments',
+    addAppointment: 'Add appointment',
+    loadError: 'Unable to load calendar',
   },
 
   comingSoon: 'Coming soon',
