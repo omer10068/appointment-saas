@@ -1,8 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { cookies } from 'next/headers';
 import type { BusinessUserWithBusinessDto } from '@appointment/contracts';
-import { DashboardSidebar } from './_components/DashboardSidebar';
-import { DashboardHeader } from './_components/DashboardHeader';
+import { DashboardShell } from './_components/DashboardShell';
 import { DashboardI18nProvider } from './_i18n/DashboardI18nProvider';
 import { getDictionary } from './_i18n/dictionaries';
 import { COOKIE_NAME, DEFAULT_LOCALE, isValidLocale } from './_i18n/config';
@@ -55,19 +54,9 @@ export default async function DashboardLayout({
         initialBusinesses={businesses}
         initialSelectedId={rawBusinessId}
       >
-        <div
-          className={`flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950${theme === 'dark' ? ' dark' : ''}`}
-          dir={dict.dir}
-          lang={dict.lang}
-        >
-          <DashboardSidebar dict={dict} />
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-            <DashboardHeader dict={dict} theme={theme} />
-            <main className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-950">
-              {children}
-            </main>
-          </div>
-        </div>
+        <DashboardShell dict={dict} theme={theme}>
+          {children}
+        </DashboardShell>
       </DashboardBusinessProvider>
     </DashboardI18nProvider>
   );

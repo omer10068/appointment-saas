@@ -21,7 +21,9 @@ export interface DashboardDictionary {
   };
 
   header: {
-    signOut: string;
+    signOut:   string;
+    openMenu:  string;
+    closeMenu: string;
   };
 
   languageSwitcher: {
