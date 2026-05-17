@@ -1,8 +1,11 @@
 import type {
+  CreateCustomerPayload,
   CreateServicePayload,
   DashboardCustomerDto,
   DashboardServiceDto,
   DashboardSummaryDto,
+  UpdateCustomerPayload,
+  UpdateCustomerStatusPayload,
   UpdateServicePayload,
 } from '@appointment/contracts';
 
@@ -108,7 +111,7 @@ export function updateDashboardServiceStatus(
   );
 }
 
-// ─── Customers ────────────────────────────────────────────────────────────────
+// ─── Customers (read) ─────────────────────────────────────────────────────────
 
 export function fetchDashboardCustomers(
   businessId: string,
@@ -117,6 +120,46 @@ export function fetchDashboardCustomers(
   return fetchWithAuth(
     `/dashboard/businesses/${businessId}/customers`,
     getToken,
+  );
+}
+
+// ─── Customers (mutations) ────────────────────────────────────────────────────
+
+export function createDashboardCustomer(
+  businessId: string,
+  payload: CreateCustomerPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardCustomerDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/customers`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
+export function updateDashboardCustomer(
+  businessId: string,
+  businessCustomerId: string,
+  payload: UpdateCustomerPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardCustomerDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/customers/${businessCustomerId}`,
+    getToken,
+    { method: 'PATCH', body: payload },
+  );
+}
+
+export function updateDashboardCustomerStatus(
+  businessId: string,
+  businessCustomerId: string,
+  payload: UpdateCustomerStatusPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardCustomerDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/customers/${businessCustomerId}/status`,
+    getToken,
+    { method: 'PATCH', body: payload },
   );
 }
 

@@ -6,6 +6,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateServiceDto } from './dto/create-service.dto';
 import type { UpdateServiceDto } from './dto/update-service.dto';
+import type { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
+import type { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
 
 export interface ServiceDto {
   id: string;
@@ -71,15 +73,7 @@ export class DashboardDataService {
       include: { customerProfile: true },
       orderBy: { createdAt: 'desc' },
     });
-    return records.map((bc) => ({
-      businessCustomerId: bc.id,
-      customerProfileId: bc.customerProfileId,
-      fullName: bc.customerProfile.fullName,
-      email: bc.customerProfile.email,
-      phone: bc.customerProfile.phone,
-      status: bc.status,
-      notes: bc.notes,
-    }));
+    return records.map(mapToCustomerDto);
   }
 
   async getSummary(userId: string, businessId: string): Promise<SummaryDto> {
@@ -105,7 +99,7 @@ export class DashboardDataService {
     };
   }
 
-  // ─── Mutations ───────────────────────────────────────────────────────────────
+  // ─── Service mutations ────────────────────────────────────────────────────────
 
   async createService(
     userId: string,
@@ -172,6 +166,112 @@ export class DashboardDataService {
     });
   }
 
+  // ─── Customer mutations ───────────────────────────────────────────────────────
+
+  async createCustomer(
+    userId: string,
+    businessId: string,
+    dto: CreateDashboardCustomerDto,
+  ): Promise<CustomerDto> {
+    await this.assertMutationAccess(userId, businessId);
+    return this.prisma.$transaction(async (tx) => {
+      const profile = await tx.customerProfile.create({
+        data: {
+          fullName: dto.fullName,
+          email: dto.email ?? null,
+          phone: dto.phone ?? null,
+        },
+      });
+      const bc = await tx.businessCustomer.create({
+        data: {
+          businessId,
+          customerProfileId: profile.id,
+          status: dto.status ?? 'ACTIVE',
+          notes: dto.notes ?? null,
+        },
+      });
+      return {
+        businessCustomerId: bc.id,
+        customerProfileId: profile.id,
+        fullName: profile.fullName,
+        email: profile.email,
+        phone: profile.phone,
+        status: bc.status,
+        notes: bc.notes,
+      };
+    });
+  }
+
+  async updateCustomer(
+    userId: string,
+    businessId: string,
+    businessCustomerId: string,
+    dto: UpdateDashboardCustomerDto,
+  ): Promise<CustomerDto> {
+    await this.assertMutationAccess(userId, businessId);
+    const existing = await this.prisma.businessCustomer.findFirst({
+      where: { id: businessCustomerId, businessId },
+      include: { customerProfile: true },
+    });
+    if (!existing) throw new NotFoundException('Customer not found');
+
+    return this.prisma.$transaction(async (tx) => {
+      const [updatedProfile, updatedBc] = await Promise.all([
+        tx.customerProfile.update({
+          where: { id: existing.customerProfileId },
+          data: {
+            ...(dto.fullName !== undefined && { fullName: dto.fullName }),
+            ...(dto.email !== undefined && { email: dto.email }),
+            ...(dto.phone !== undefined && { phone: dto.phone }),
+          },
+        }),
+        tx.businessCustomer.update({
+          where: { id: businessCustomerId },
+          data: {
+            ...(dto.notes !== undefined && { notes: dto.notes }),
+            ...(dto.status !== undefined && { status: dto.status }),
+          },
+        }),
+      ]);
+      return {
+        businessCustomerId: updatedBc.id,
+        customerProfileId: updatedProfile.id,
+        fullName: updatedProfile.fullName,
+        email: updatedProfile.email,
+        phone: updatedProfile.phone,
+        status: updatedBc.status,
+        notes: updatedBc.notes,
+      };
+    });
+  }
+
+  async setCustomerStatus(
+    userId: string,
+    businessId: string,
+    businessCustomerId: string,
+    status: 'ACTIVE' | 'BLOCKED' | 'ARCHIVED',
+  ): Promise<CustomerDto> {
+    await this.assertMutationAccess(userId, businessId);
+    const existing = await this.prisma.businessCustomer.findFirst({
+      where: { id: businessCustomerId, businessId },
+      include: { customerProfile: true },
+    });
+    if (!existing) throw new NotFoundException('Customer not found');
+    const updated = await this.prisma.businessCustomer.update({
+      where: { id: businessCustomerId },
+      data: { status },
+    });
+    return {
+      businessCustomerId: updated.id,
+      customerProfileId: existing.customerProfileId,
+      fullName: existing.customerProfile.fullName,
+      email: existing.customerProfile.email,
+      phone: existing.customerProfile.phone,
+      status: updated.status,
+      notes: updated.notes,
+    };
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private async assertAccess(
@@ -209,4 +309,28 @@ export class DashboardDataService {
     });
     if (!service) throw new NotFoundException('Service not found');
   }
+}
+
+// ─── Shared mapper ────────────────────────────────────────────────────────────
+
+function mapToCustomerDto(bc: {
+  id: string;
+  customerProfileId: string;
+  status: 'ACTIVE' | 'BLOCKED' | 'ARCHIVED';
+  notes: string | null;
+  customerProfile: {
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+  };
+}): CustomerDto {
+  return {
+    businessCustomerId: bc.id,
+    customerProfileId: bc.customerProfileId,
+    fullName: bc.customerProfile.fullName,
+    email: bc.customerProfile.email,
+    phone: bc.customerProfile.phone,
+    status: bc.status,
+    notes: bc.notes,
+  };
 }

@@ -88,6 +88,16 @@ const mockBusinessCustomer: BusinessCustomer & {
   customerProfile: mockProfile,
 };
 
+const mockBusinessCustomerOtherBiz: BusinessCustomer = {
+  id: 'bc-2',
+  businessId: OTHER_BUSINESS_ID,
+  customerProfileId: 'cp-2',
+  status: 'ACTIVE',
+  notes: null,
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
 const mockPrisma = {
   businessUser: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
@@ -108,8 +118,23 @@ const mockPrisma = {
           (BusinessCustomer & { customerProfile: CustomerProfile })[]
         >
       >(),
+    findFirst:
+      jest.fn<
+        (
+          ...args: unknown[]
+        ) => Promise<
+          (BusinessCustomer & { customerProfile: CustomerProfile }) | null
+        >
+      >(),
+    create: jest.fn<(...args: unknown[]) => Promise<BusinessCustomer>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<BusinessCustomer>>(),
     count: jest.fn<(...args: unknown[]) => Promise<number>>(),
   },
+  customerProfile: {
+    create: jest.fn<(...args: unknown[]) => Promise<CustomerProfile>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<CustomerProfile>>(),
+  },
+  $transaction: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
 };
 
 describe('DashboardDataService', () => {
@@ -117,6 +142,12 @@ describe('DashboardDataService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    // Default $transaction implementation: run callback with mockPrisma as tx
+    mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
+      const cb = args[0] as (tx: typeof mockPrisma) => Promise<unknown>;
+      return cb(mockPrisma);
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -168,7 +199,6 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.service.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { businessId: BUSINESS_ID } }),
       );
-      // Result should not contain the other-business service
       expect(mockPrisma.service.findMany).not.toHaveBeenCalledWith(
         expect.objectContaining({
           where: { businessId: mockServiceOtherBiz.businessId },
@@ -408,7 +438,6 @@ describe('DashboardDataService', () => {
 
     it('cannot update a service that belongs to another business', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      // findFirst returns null because svc-2 is not in BUSINESS_ID
       mockPrisma.service.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -499,6 +528,291 @@ describe('DashboardDataService', () => {
       await expect(
         service.setServiceStatus(USER_ID, BUSINESS_ID, 'svc-1', false),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── createCustomer ────────────────────────────────────────────────────────
+
+  describe('createCustomer', () => {
+    const createDto = {
+      fullName: 'New Customer',
+      email: 'new@example.com',
+      phone: '050-9999999',
+    };
+
+    it('OWNER can create a customer', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.customerProfile.create.mockResolvedValue({
+        ...mockProfile,
+        id: 'cp-new',
+        fullName: 'New Customer',
+        email: 'new@example.com',
+        phone: '050-9999999',
+      });
+      mockPrisma.businessCustomer.create.mockResolvedValue({
+        id: 'bc-new',
+        businessId: BUSINESS_ID,
+        customerProfileId: 'cp-new',
+        status: 'ACTIVE',
+        notes: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await service.createCustomer(
+        USER_ID,
+        BUSINESS_ID,
+        createDto,
+      );
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.customerProfile.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ fullName: 'New Customer' }),
+        }),
+      );
+      expect(mockPrisma.businessCustomer.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ businessId: BUSINESS_ID }),
+        }),
+      );
+      expect(result).toMatchObject({
+        fullName: 'New Customer',
+        email: 'new@example.com',
+        status: 'ACTIVE',
+      });
+    });
+
+    it('MANAGER can create a customer', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockManagerMembership,
+      );
+      mockPrisma.customerProfile.create.mockResolvedValue({
+        ...mockProfile,
+        id: 'cp-new',
+        fullName: 'New Customer',
+      });
+      mockPrisma.businessCustomer.create.mockResolvedValue({
+        id: 'bc-new',
+        businessId: BUSINESS_ID,
+        customerProfileId: 'cp-new',
+        status: 'ACTIVE',
+        notes: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await expect(
+        service.createCustomer(USER_ID, BUSINESS_ID, createDto),
+      ).resolves.toMatchObject({ fullName: 'New Customer' });
+    });
+
+    it('STAFF cannot create a customer', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.createCustomer(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('user not assigned to business cannot create a customer', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.createCustomer(OTHER_USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('defaults status to ACTIVE when not provided', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.customerProfile.create.mockResolvedValue({
+        ...mockProfile,
+        id: 'cp-new',
+        fullName: 'New Customer',
+      });
+      mockPrisma.businessCustomer.create.mockResolvedValue({
+        id: 'bc-new',
+        businessId: BUSINESS_ID,
+        customerProfileId: 'cp-new',
+        status: 'ACTIVE',
+        notes: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await service.createCustomer(USER_ID, BUSINESS_ID, {
+        fullName: 'New Customer',
+      });
+
+      expect(mockPrisma.businessCustomer.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'ACTIVE' }),
+        }),
+      );
+    });
+  });
+
+  // ─── updateCustomer ────────────────────────────────────────────────────────
+
+  describe('updateCustomer', () => {
+    const updateDto = {
+      fullName: 'Updated Name',
+      notes: 'Updated notes',
+    };
+
+    it('OWNER can update a customer in their business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessCustomer.findFirst.mockResolvedValue(
+        mockBusinessCustomer,
+      );
+      mockPrisma.customerProfile.update.mockResolvedValue({
+        ...mockProfile,
+        fullName: 'Updated Name',
+      });
+      mockPrisma.businessCustomer.update.mockResolvedValue({
+        ...mockBusinessCustomer,
+        notes: 'Updated notes',
+      });
+
+      const result = await service.updateCustomer(
+        USER_ID,
+        BUSINESS_ID,
+        'bc-1',
+        updateDto,
+      );
+
+      expect(mockPrisma.businessCustomer.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'bc-1', businessId: BUSINESS_ID },
+        }),
+      );
+      expect(result).toMatchObject({
+        fullName: 'Updated Name',
+        notes: 'Updated notes',
+      });
+    });
+
+    it('cannot update a customer that belongs to another business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      // findFirst returns null because bc-2 does not belong to BUSINESS_ID
+      mockPrisma.businessCustomer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateCustomer(
+          USER_ID,
+          BUSINESS_ID,
+          mockBusinessCustomerOtherBiz.id,
+          updateDto,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('STAFF cannot update a customer', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.updateCustomer(USER_ID, BUSINESS_ID, 'bc-1', updateDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessCustomer.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── setCustomerStatus ─────────────────────────────────────────────────────
+
+  describe('setCustomerStatus', () => {
+    it('can block a customer', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessCustomer.findFirst.mockResolvedValue(
+        mockBusinessCustomer,
+      );
+      mockPrisma.businessCustomer.update.mockResolvedValue({
+        ...mockBusinessCustomer,
+        status: 'BLOCKED',
+      });
+
+      const result = await service.setCustomerStatus(
+        USER_ID,
+        BUSINESS_ID,
+        'bc-1',
+        'BLOCKED',
+      );
+
+      expect(mockPrisma.businessCustomer.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'bc-1' },
+          data: { status: 'BLOCKED' },
+        }),
+      );
+      expect(result).toMatchObject({ status: 'BLOCKED' });
+    });
+
+    it('can archive a customer', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessCustomer.findFirst.mockResolvedValue(
+        mockBusinessCustomer,
+      );
+      mockPrisma.businessCustomer.update.mockResolvedValue({
+        ...mockBusinessCustomer,
+        status: 'ARCHIVED',
+      });
+
+      const result = await service.setCustomerStatus(
+        USER_ID,
+        BUSINESS_ID,
+        'bc-1',
+        'ARCHIVED',
+      );
+
+      expect(result).toMatchObject({ status: 'ARCHIVED' });
+    });
+
+    it('cannot change status of a customer from another business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessCustomer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setCustomerStatus(
+          USER_ID,
+          BUSINESS_ID,
+          mockBusinessCustomerOtherBiz.id,
+          'BLOCKED',
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.businessCustomer.update).not.toHaveBeenCalled();
+    });
+
+    it('STAFF cannot change customer status', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.setCustomerStatus(USER_ID, BUSINESS_ID, 'bc-1', 'BLOCKED'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('read endpoint still returns customers scoped to businessId', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessCustomer.findMany.mockResolvedValue([
+        mockBusinessCustomer,
+      ]);
+
+      await service.getCustomers(USER_ID, BUSINESS_ID);
+
+      expect(mockPrisma.businessCustomer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { businessId: BUSINESS_ID } }),
+      );
+      expect(mockPrisma.businessCustomer.findMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { businessId: OTHER_BUSINESS_ID },
+        }),
+      );
     });
   });
 });

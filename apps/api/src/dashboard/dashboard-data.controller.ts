@@ -13,6 +13,9 @@ import type { AuthenticatedRequest } from '../auth/types/authenticated-request';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
+import { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
+import { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
+import { UpdateDashboardCustomerStatusDto } from './dto/update-dashboard-customer-status.dto';
 import { DashboardDataService } from './dashboard-data.service';
 
 @UseGuards(ClerkAuthGuard)
@@ -75,7 +78,7 @@ export class DashboardDataController {
     );
   }
 
-  // ─── Customers ────────────────────────────────────────────────────────────────
+  // ─── Customers (read) ─────────────────────────────────────────────────────────
 
   @Get(':businessId/customers')
   getCustomers(
@@ -83,6 +86,51 @@ export class DashboardDataController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.dashboardDataService.getCustomers(req.user.id, businessId);
+  }
+
+  // ─── Customers (mutations) ────────────────────────────────────────────────────
+
+  @Post(':businessId/customers')
+  createCustomer(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateDashboardCustomerDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.createCustomer(
+      req.user.id,
+      businessId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/customers/:businessCustomerId')
+  updateCustomer(
+    @Param('businessId') businessId: string,
+    @Param('businessCustomerId') businessCustomerId: string,
+    @Body() dto: UpdateDashboardCustomerDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.updateCustomer(
+      req.user.id,
+      businessId,
+      businessCustomerId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/customers/:businessCustomerId/status')
+  setCustomerStatus(
+    @Param('businessId') businessId: string,
+    @Param('businessCustomerId') businessCustomerId: string,
+    @Body() dto: UpdateDashboardCustomerStatusDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.setCustomerStatus(
+      req.user.id,
+      businessId,
+      businessCustomerId,
+      dto.status,
+    );
   }
 
   // ─── Summary ─────────────────────────────────────────────────────────────────

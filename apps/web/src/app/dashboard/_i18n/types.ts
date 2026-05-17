@@ -126,6 +126,26 @@ export interface DashboardDictionary {
     statusActive: string;
     statusBlocked: string;
     statusArchived: string;
+    actions: string;
+    addCustomer: string;
+  };
+
+  customerForm: {
+    addCustomer: string;
+    editCustomer: string;
+    customerName: string;
+    email: string;
+    phone: string;
+    notes: string;
+    save: string;
+    cancel: string;
+    blockCustomer: string;
+    activateCustomer: string;
+    archiveCustomer: string;
+    createdSuccess: string;
+    updatedSuccess: string;
+    saveError: string;
+    loadError: string;
   };
 
   comingSoon: string;

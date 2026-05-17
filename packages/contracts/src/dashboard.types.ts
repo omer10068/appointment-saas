@@ -28,6 +28,8 @@ export interface DashboardSummaryDto {
   activeCustomersCount: number;
 }
 
+// ─── Service payloads ─────────────────────────────────────────────────────────
+
 export interface CreateServicePayload {
   name: string;
   description?: string | null;
@@ -46,4 +48,26 @@ export interface UpdateServicePayload {
   bufferBeforeMin?: number;
   bufferAfterMin?: number;
   isActive?: boolean;
+}
+
+// ─── Customer payloads ────────────────────────────────────────────────────────
+
+export interface CreateCustomerPayload {
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  status?: CustomerStatus;
+}
+
+export interface UpdateCustomerPayload {
+  fullName?: string;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  status?: CustomerStatus;
+}
+
+export interface UpdateCustomerStatusPayload {
+  status: CustomerStatus;
 }
