@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X } from 'lucide-react';
+import { SignOutButton } from '@clerk/nextjs';
+import { BusinessSwitcher } from './BusinessSwitcher';
 import type { DashboardDictionary } from '../_i18n/types';
 
 type NavItem = { href: string; labelKey: keyof DashboardDictionary['nav']; exact?: boolean };
@@ -36,7 +38,9 @@ function NavLinks({
   onNavClick?: () => void;
 }) {
   return (
-    <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+    // min-h-0 lets this flex-1 child shrink below its content height so
+    // overflow-y-auto actually scrolls rather than expanding the container.
+    <nav className="flex-1 min-h-0 px-3 py-4 space-y-0.5 overflow-y-auto">
       {navItems.map((item) =>
         isActive(pathname, item.href, item.exact) ? (
           <span
@@ -60,6 +64,18 @@ function NavLinks({
   );
 }
 
+function SidebarSignOut({ label }: { label: string }) {
+  return (
+    <div className="shrink-0 border-t border-gray-200 dark:border-gray-800 px-4 py-4">
+      <SignOutButton>
+        <button className="w-full text-sm px-3 py-1.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+          {label}
+        </button>
+      </SignOutButton>
+    </div>
+  );
+}
+
 export function DashboardSidebar({
   dict,
   mobileOpen,
@@ -71,7 +87,6 @@ export function DashboardSidebar({
 }) {
   const pathname = usePathname();
 
-  // Close on Escape key while the mobile drawer is open
   useEffect(() => {
     if (!mobileOpen) return;
     function handleKeyDown(e: KeyboardEvent) {
@@ -81,25 +96,36 @@ export function DashboardSidebar({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [mobileOpen, onMobileClose]);
 
-  // In RTL the panel sits at inline-start = right, so it must slide off to the right to hide.
+  // In RTL the panel sits at inline-start = right and slides off to the right.
   // In LTR it sits at inline-start = left and slides off to the left.
   const hiddenTranslate = dict.dir === 'rtl' ? 'translate-x-full' : '-translate-x-full';
 
   return (
     <>
       {/* ── Desktop sidebar ── always in layout flow on lg+ ──────────────────── */}
-      <aside className="hidden lg:flex lg:w-60 lg:shrink-0 flex-col bg-white border-e border-gray-200 overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+      <aside className="hidden lg:flex lg:w-60 lg:shrink-0 flex-col bg-white border-e border-gray-200 dark:bg-gray-900 dark:border-gray-800">
+        {/* Brand */}
+        <div className="shrink-0 px-5 py-4 border-b border-gray-200 dark:border-gray-800">
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest dark:text-gray-500">
             {dict.nav.brand}
           </span>
         </div>
+
+        {/* Business switcher */}
+        <div className="shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+          <BusinessSwitcher />
+        </div>
+
+        {/* Navigation — scrollable */}
         <NavLinks dict={dict} pathname={pathname} />
+
+        {/* Sign out */}
+        <SidebarSignOut label={dict.header.signOut} />
       </aside>
 
       {/* ── Mobile overlay ── below lg only ──────────────────────────────────── */}
 
-      {/* Backdrop — always in DOM so opacity transitions smoothly */}
+      {/* Backdrop */}
       <div
         aria-hidden="true"
         onClick={onMobileClose}
@@ -108,7 +134,7 @@ export function DashboardSidebar({
         }`}
       />
 
-      {/* Drawer panel — always in DOM so slide transition works */}
+      {/* Drawer panel */}
       <aside
         id="dashboard-mobile-nav"
         className={`fixed inset-y-0 inset-s-0 z-50 flex w-72 flex-col bg-white shadow-xl border-e border-gray-200 transition-transform duration-300 ease-in-out lg:hidden dark:bg-gray-900 dark:border-gray-800 ${
@@ -116,8 +142,8 @@ export function DashboardSidebar({
         }`}
         aria-label={dict.nav.brand}
       >
-        {/* Drawer header: brand + close button */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+        {/* Drawer header: brand + close */}
+        <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest dark:text-gray-500">
             {dict.nav.brand}
           </span>
@@ -130,7 +156,16 @@ export function DashboardSidebar({
           </button>
         </div>
 
+        {/* Business switcher */}
+        <div className="shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+          <BusinessSwitcher />
+        </div>
+
+        {/* Navigation — scrollable, min-h-0 keeps footer pinned */}
         <NavLinks dict={dict} pathname={pathname} onNavClick={onMobileClose} />
+
+        {/* Sign out */}
+        <SidebarSignOut label={dict.header.signOut} />
       </aside>
     </>
   );
