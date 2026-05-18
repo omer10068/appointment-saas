@@ -20,10 +20,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "ts-node --project tsconfig.spec.json prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "prisma": {
-    "seed": "ts-node --project tsconfig.spec.json prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.7",
@@ -66,6 +66,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.22.1",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
