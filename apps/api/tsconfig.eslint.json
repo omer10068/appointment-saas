@@ -2,11 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "resolvePackageJsonExports": false,
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "prisma/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/generated/**"]
 }

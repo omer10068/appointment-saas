@@ -42,6 +42,25 @@ export interface DashboardSummaryDto {
   activeCustomersCount: number;
 }
 
+// ─── Business user payloads ───────────────────────────────────────────────────
+
+export interface CreateBusinessUserPayload {
+  phone: string;
+  email?: string | null;
+  role: 'STAFF' | 'MANAGER';
+}
+
+export interface DashboardBusinessUserCreatedDto {
+  id: string;
+  userId: string;
+  businessId: string;
+  role: string;
+  status: string;
+  phoneNormalized: string;
+  email: string | null;
+  staffMemberId: string | null;
+}
+
 // ─── Service payloads ─────────────────────────────────────────────────────────
 
 export interface CreateServicePayload {

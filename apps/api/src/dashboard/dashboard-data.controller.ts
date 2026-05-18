@@ -19,6 +19,7 @@ import { UpdateDashboardCustomerStatusDto } from './dto/update-dashboard-custome
 import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
 import { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
 import { UpdateStaffMemberStatusDto } from './dto/update-staff-member-status.dto';
+import { CreateBusinessUserDto } from './dto/create-business-user.dto';
 import { DashboardDataService } from './dashboard-data.service';
 
 @UseGuards(ClerkAuthGuard)
@@ -199,6 +200,21 @@ export class DashboardDataController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.dashboardDataService.getBusinessUsers(req.user.id, businessId);
+  }
+
+  // ─── Business users (mutations) ───────────────────────────────────────────────
+
+  @Post(':businessId/users')
+  createBusinessUser(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateBusinessUserDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.createBusinessUser(
+      req.user.id,
+      businessId,
+      dto,
+    );
   }
 
   // ─── Business readiness ───────────────────────────────────────────────────────

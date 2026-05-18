@@ -1,18 +1,51 @@
 import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../src/generated/prisma/client';
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error('DATABASE_URL is not defined');
+
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
+
+const SUPER_ADMIN_ID = 'd8ccc07a-e315-40d6-a4c1-d6e227590c5b';
+const SVC_CONSULT_ID = 'seed-svc-consult';
+const SVC_LASER_FACE_ID = 'seed-svc-laser-face';
+const SVC_LASER_LEGS_ID = 'seed-svc-laser-legs';
 
 async function main() {
   console.log('Seeding dev data...');
 
-  // Business
+  // Platform SUPER_ADMIN — fixed ID, preserved across resets
+  const superAdmin = await prisma.user.upsert({
+    where: { id: SUPER_ADMIN_ID },
+    update: {
+      clerkUserId: 'user_3DlLgMQ6Ni2Hr21fsmuWYXdlnHc',
+      email: 'omer10068@gmail.com',
+      phoneNormalized: '+97299000001',
+      phoneVerifiedAt: new Date('2024-01-01T00:00:00.000Z'),
+      status: 'ACTIVE',
+      platformRole: 'SUPER_ADMIN',
+    },
+    create: {
+      id: SUPER_ADMIN_ID,
+      clerkUserId: 'user_3DlLgMQ6Ni2Hr21fsmuWYXdlnHc',
+      email: 'omer10068@gmail.com',
+      phoneNormalized: '+97299000001',
+      phoneVerifiedAt: new Date('2024-01-01T00:00:00.000Z'),
+      status: 'ACTIVE',
+      platformRole: 'SUPER_ADMIN',
+    },
+  });
+  console.log('SUPER_ADMIN:', superAdmin.id);
+
+  // Business: Yuval Turgeman
   const business = await prisma.business.upsert({
-    where: { slug: 'demo-barbershop' },
+    where: { slug: 'yuval-turgeman' },
     update: {},
     create: {
-      name: 'Demo Barbershop',
-      slug: 'demo-barbershop',
+      name: 'Yuval Turgeman',
+      slug: 'yuval-turgeman',
       status: 'ACTIVE',
       timezone: 'Asia/Jerusalem',
       locale: 'he-IL',
@@ -21,167 +54,166 @@ async function main() {
   });
   console.log('Business:', business.id);
 
-  // Owner User
-  const ownerUser = await prisma.user.upsert({
-    where: { phoneNormalized: '+972501111111' },
+  // Services
+  const svcConsult = await prisma.service.upsert({
+    where: { id: SVC_CONSULT_ID },
     update: {},
     create: {
-      phoneNormalized: '+972501111111',
-      email: 'owner@demo.local',
+      id: SVC_CONSULT_ID,
+      businessId: business.id,
+      name: 'פגישת ייעוץ',
+      durationMinutes: 20,
+      priceCents: 0,
+      isActive: true,
+    },
+  });
+
+  const svcLaserFace = await prisma.service.upsert({
+    where: { id: SVC_LASER_FACE_ID },
+    update: {},
+    create: {
+      id: SVC_LASER_FACE_ID,
+      businessId: business.id,
+      name: 'הסרת שיער בלייזר - פנים',
+      durationMinutes: 30,
+      priceCents: 12000,
+      isActive: true,
+    },
+  });
+
+  const svcLaserLegs = await prisma.service.upsert({
+    where: { id: SVC_LASER_LEGS_ID },
+    update: {},
+    create: {
+      id: SVC_LASER_LEGS_ID,
+      businessId: business.id,
+      name: 'הסרת שיער בלייזר - רגליים',
+      durationMinutes: 60,
+      priceCents: 25000,
+      isActive: true,
+    },
+  });
+  console.log('Services:', svcConsult.id, svcLaserFace.id, svcLaserLegs.id);
+
+  // Owner: Yuval Turgeman
+  const yuvalUser = await prisma.user.upsert({
+    where: { phoneNormalized: '+972529900001' },
+    update: {},
+    create: {
+      phoneNormalized: '+972529900001',
+      email: 'yuval.turgeman@example.com',
       status: 'ACTIVE',
       platformRole: 'USER',
     },
   });
-  console.log('Owner user:', ownerUser.id);
+  console.log('Yuval user:', yuvalUser.id);
 
-  // Owner BusinessUser
-  const ownerBu = await prisma.businessUser.upsert({
-    where: { businessId_userId: { businessId: business.id, userId: ownerUser.id } },
+  const yuvalBu = await prisma.businessUser.upsert({
+    where: {
+      businessId_userId: { businessId: business.id, userId: yuvalUser.id },
+    },
     update: {},
     create: {
       businessId: business.id,
-      userId: ownerUser.id,
+      userId: yuvalUser.id,
       role: 'OWNER',
       status: 'ACTIVE',
     },
   });
-  console.log('Owner BusinessUser:', ownerBu.id);
 
-  // Staff User
-  const staffUser = await prisma.user.upsert({
-    where: { phoneNormalized: '+972502222222' },
+  const yuvalStaff = await prisma.staffMember.upsert({
+    where: { businessUserId: yuvalBu.id },
     update: {},
     create: {
-      phoneNormalized: '+972502222222',
-      email: 'staff@demo.local',
+      businessId: business.id,
+      businessUserId: yuvalBu.id,
+      displayName: 'Yuval Turgeman',
+      isActive: true,
+    },
+  });
+  console.log('Yuval StaffMember:', yuvalStaff.id);
+
+  await prisma.staffMemberService.createMany({
+    data: [
+      { staffMemberId: yuvalStaff.id, serviceId: svcConsult.id },
+      { staffMemberId: yuvalStaff.id, serviceId: svcLaserFace.id },
+    ],
+    skipDuplicates: true,
+  });
+
+  // Staff: Avivit Turgeman
+  const avivitUser = await prisma.user.upsert({
+    where: { phoneNormalized: '+972529900002' },
+    update: {},
+    create: {
+      phoneNormalized: '+972529900002',
+      email: 'avivit.turgeman@example.com',
       status: 'ACTIVE',
       platformRole: 'USER',
     },
   });
-  console.log('Staff user:', staffUser.id);
+  console.log('Avivit user:', avivitUser.id);
 
-  // Staff BusinessUser
-  const staffBu = await prisma.businessUser.upsert({
-    where: { businessId_userId: { businessId: business.id, userId: staffUser.id } },
+  const avivitBu = await prisma.businessUser.upsert({
+    where: {
+      businessId_userId: { businessId: business.id, userId: avivitUser.id },
+    },
     update: {},
     create: {
       businessId: business.id,
-      userId: staffUser.id,
+      userId: avivitUser.id,
       role: 'STAFF',
       status: 'ACTIVE',
     },
   });
-  console.log('Staff BusinessUser:', staffBu.id);
 
-  // Services
-  const haircut = await prisma.service.upsert({
-    where: { id: 'seed-svc-haircut' },
-    update: {},
-    create: {
-      id: 'seed-svc-haircut',
-      businessId: business.id,
-      name: 'Haircut',
-      durationMinutes: 30,
-      priceCents: 8000,
-      isActive: true,
-    },
-  });
-
-  const beard = await prisma.service.upsert({
-    where: { id: 'seed-svc-beard' },
-    update: {},
-    create: {
-      id: 'seed-svc-beard',
-      businessId: business.id,
-      name: 'Beard Trim',
-      durationMinutes: 20,
-      priceCents: 5000,
-      isActive: true,
-    },
-  });
-  console.log('Services:', haircut.id, beard.id);
-
-  // StaffMember (upsert by businessUserId unique)
-  const staffMember = await prisma.staffMember.upsert({
-    where: { businessUserId: staffBu.id },
+  const avivitStaff = await prisma.staffMember.upsert({
+    where: { businessUserId: avivitBu.id },
     update: {},
     create: {
       businessId: business.id,
-      businessUserId: staffBu.id,
-      displayName: 'Moshe Cohen',
+      businessUserId: avivitBu.id,
+      displayName: 'Avivit Turgeman',
       isActive: true,
     },
   });
-  console.log('StaffMember:', staffMember.id);
+  console.log('Avivit StaffMember:', avivitStaff.id);
 
-  // StaffMemberService links (createMany with skipDuplicates)
   await prisma.staffMemberService.createMany({
     data: [
-      { staffMemberId: staffMember.id, serviceId: haircut.id },
-      { staffMemberId: staffMember.id, serviceId: beard.id },
+      { staffMemberId: avivitStaff.id, serviceId: svcLaserFace.id },
+      { staffMemberId: avivitStaff.id, serviceId: svcLaserLegs.id },
     ],
     skipDuplicates: true,
   });
-  console.log('StaffMemberService links created');
 
-  // Customer
-  const customerProfile = await prisma.customerProfile.upsert({
-    where: { phoneNormalized: '+972503333333' },
+  // Customer: Noam Levi
+  const noamProfile = await prisma.customerProfile.upsert({
+    where: { phoneNormalized: '+972525551001' },
     update: {},
     create: {
-      phoneNormalized: '+972503333333',
-      fullName: 'Yossi Levi',
-      email: 'yossi@example.com',
+      phoneNormalized: '+972525551001',
+      fullName: 'Noam Levi',
+      email: 'noam.levi@example.com',
     },
   });
-  console.log('CustomerProfile:', customerProfile.id);
+  console.log('CustomerProfile:', noamProfile.id);
 
-  const businessCustomer = await prisma.businessCustomer.upsert({
+  await prisma.businessCustomer.upsert({
     where: {
       businessId_customerProfileId: {
         businessId: business.id,
-        customerProfileId: customerProfile.id,
+        customerProfileId: noamProfile.id,
       },
     },
     update: {},
     create: {
       businessId: business.id,
-      customerProfileId: customerProfile.id,
+      customerProfileId: noamProfile.id,
       status: 'ACTIVE',
     },
   });
-  console.log('BusinessCustomer:', businessCustomer.id);
-
-  // Appointment (tomorrow at 10:00 AM Jerusalem)
-  const startsAt = new Date();
-  startsAt.setDate(startsAt.getDate() + 1);
-  startsAt.setHours(10, 0, 0, 0);
-  const endsAt = new Date(startsAt.getTime() + haircut.durationMinutes * 60 * 1000);
-
-  const existing = await prisma.appointment.findFirst({
-    where: {
-      businessCustomerId: businessCustomer.id,
-      serviceId: haircut.id,
-      staffMemberId: staffMember.id,
-    },
-  });
-
-  if (!existing) {
-    const appt = await prisma.appointment.create({
-      data: {
-        businessId: business.id,
-        businessCustomerId: businessCustomer.id,
-        serviceId: haircut.id,
-        staffMemberId: staffMember.id,
-        startsAt,
-        endsAt,
-        status: 'SCHEDULED',
-      },
-    });
-    console.log('Appointment:', appt.id);
-  } else {
-    console.log('Appointment already exists:', existing.id);
-  }
+  console.log('BusinessCustomer linked');
 
   console.log('Seed complete.');
 }
