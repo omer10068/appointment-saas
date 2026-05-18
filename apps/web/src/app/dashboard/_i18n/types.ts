@@ -164,6 +164,10 @@ export interface DashboardDictionary {
     addStaffMember: string;
     editStaffMember: string;
     staffName: string;
+    businessUser: string;
+    selectBusinessUser: string;
+    services: string;
+    noServicesAvailable: string;
     isActive: string;
     save: string;
     cancel: string;

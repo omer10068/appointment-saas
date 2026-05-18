@@ -25,9 +25,11 @@ const mockBusiness: Business = {
 const mockUser: User = {
   id: 'user-1',
   email: 'owner@example.com',
-  phone: null,
+  phoneNormalized: '+972501111111',
+  phoneVerifiedAt: null,
   clerkUserId: null,
   status: 'INVITED',
+  platformRole: 'USER',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -44,24 +46,20 @@ const mockBusinessUser: BusinessUser = {
 
 const mockTx = {
   business: {
-    findUnique: jest.fn<() => Promise<Business | null>>(),
+    findUnique: jest.fn<(...args: unknown[]) => Promise<Business | null>>(),
   },
   businessUser: {
-    findFirst: jest.fn<() => Promise<BusinessUser | null>>(),
-    create: jest.fn<() => Promise<BusinessUser>>(),
+    findFirst: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<BusinessUser>>(),
   },
   user: {
-    findUnique: jest.fn<() => Promise<User | null>>(),
-    create: jest.fn<() => Promise<User>>(),
+    findUnique: jest.fn<(...args: unknown[]) => Promise<User | null>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<User>>(),
   },
 };
 
 const mockPrisma = {
-  $transaction: jest
-    .fn()
-    .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) =>
-      fn(mockTx),
-    ),
+  $transaction: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
 };
 
 describe('BusinessUsersService', () => {
@@ -70,9 +68,10 @@ describe('BusinessUsersService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    mockPrisma.$transaction.mockImplementation(
-      (fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx),
-    );
+    mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
+      const fn = args[0] as (tx: typeof mockTx) => Promise<unknown>;
+      return fn(mockTx);
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -85,7 +84,10 @@ describe('BusinessUsersService', () => {
   });
 
   describe('createOwnerForBusiness', () => {
-    const dto: CreateBusinessOwnerDto = { email: 'owner@example.com' };
+    const dto: CreateBusinessOwnerDto = {
+      phone: '050-1111111',
+      email: 'owner@example.com',
+    };
 
     it('creates an invited user and owner membership when user does not exist', async () => {
       mockTx.business.findUnique.mockResolvedValue(mockBusiness);
@@ -97,7 +99,11 @@ describe('BusinessUsersService', () => {
       const result = await service.createOwnerForBusiness('biz-1', dto);
 
       expect(mockTx.user.create).toHaveBeenCalledWith({
-        data: { email: dto.email, status: 'INVITED' },
+        data: {
+          phoneNormalized: '+972501111111',
+          email: 'owner@example.com',
+          status: 'INVITED',
+        },
       });
       expect(mockTx.businessUser.create).toHaveBeenCalledWith({
         data: {
@@ -110,7 +116,7 @@ describe('BusinessUsersService', () => {
       expect(result).toEqual(mockBusinessUser);
     });
 
-    it('reuses an existing user and creates owner membership', async () => {
+    it('reuses an existing user found by phone and creates owner membership', async () => {
       mockTx.business.findUnique.mockResolvedValue(mockBusiness);
       mockTx.businessUser.findFirst.mockResolvedValue(null);
       mockTx.user.findUnique.mockResolvedValue(mockUser);
@@ -128,6 +134,13 @@ describe('BusinessUsersService', () => {
         },
       });
       expect(result).toEqual(mockBusinessUser);
+    });
+
+    it('throws BadRequestException when phone is invalid', async () => {
+      const badDto: CreateBusinessOwnerDto = { phone: 'not-a-phone' };
+      await expect(
+        service.createOwnerForBusiness('biz-1', badDto),
+      ).rejects.toThrow('Invalid phone number');
     });
 
     it('throws NotFoundException when business does not exist', async () => {

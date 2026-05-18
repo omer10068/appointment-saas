@@ -1,8 +1,11 @@
 import {
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 
@@ -12,9 +15,13 @@ export class CreateStaffMemberDto {
   @MaxLength(100)
   displayName!: string;
 
-  @IsString()
-  @IsOptional()
-  businessUserId?: string | null;
+  @IsUUID()
+  businessUserId!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('all', { each: true })
+  serviceIds!: string[];
 
   @IsBoolean()
   @IsOptional()

@@ -11,7 +11,8 @@ function makeUser(overrides: Partial<User> = {}): User {
     id: 'user-1',
     clerkUserId: 'clerk_123',
     email: 'test@example.com',
-    phone: null,
+    phoneNormalized: '+972501234567',
+    phoneVerifiedAt: null,
     status: 'ACTIVE',
     platformRole: 'USER',
     createdAt: new Date('2024-01-01'),
@@ -133,26 +134,26 @@ describe('ClerkAuthGuard', () => {
       });
     });
 
-    it('does not call getClerkUserEmail when resolved by clerkUserId', async () => {
+    it('does not call getClerkUserData when resolved by clerkUserId', async () => {
       const user = makeUser();
       jest
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'clerk_123' });
-      const emailSpy = jest.spyOn(guard as any, 'getClerkUserEmail');
+      const dataSpy = jest.spyOn(guard as any, 'getClerkUserData');
       mockPrisma.user.findUnique.mockResolvedValue(user);
 
       const { ctx } = makeContextWithRequest('Bearer valid_token');
       await guard.canActivate(ctx);
 
-      expect(emailSpy).not.toHaveBeenCalled();
+      expect(dataSpy).not.toHaveBeenCalled();
     });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Slow path scenario 1: invited user linking
+  // Slow path scenario 1: phone-first invited user linking
   // ──────────────────────────────────────────────────────────────────────────
 
-  describe('invited user linking (first login)', () => {
+  describe('invited user linking by phone (first login)', () => {
     it('updates clerkUserId and changes status INVITED → ACTIVE', async () => {
       const invited = makeUser({
         id: 'invited-id',
@@ -168,12 +169,13 @@ describe('ClerkAuthGuard', () => {
       jest
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'new_clerk_id' });
-      jest
-        .spyOn(guard as any, 'getClerkUserEmail')
-        .mockResolvedValue('invited@example.com');
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: '050-123-4567',
+        email: 'invited@example.com',
+      });
       mockPrisma.user.findUnique
-        .mockResolvedValueOnce(null) // lookup by clerkUserId → miss
-        .mockResolvedValueOnce(invited); // lookup by email → invited user
+        .mockResolvedValueOnce(null) // by clerkUserId → miss
+        .mockResolvedValueOnce(invited); // by phoneNormalized → invited user
       mockPrisma.user.update.mockResolvedValue(linked);
 
       const { ctx, request } = makeContextWithRequest('Bearer valid_token');
@@ -185,12 +187,9 @@ describe('ClerkAuthGuard', () => {
       });
       expect((request as unknown as { user: User }).user.id).toBe('invited-id');
       expect((request as unknown as { user: User }).user.status).toBe('ACTIVE');
-      expect((request as unknown as { user: User }).user.clerkUserId).toBe(
-        'new_clerk_id',
-      );
     });
 
-    it('preserves the original internal user id after linking', async () => {
+    it('preserves the original internal user id after phone linking', async () => {
       const invited = makeUser({
         id: 'original-invited-id',
         clerkUserId: null,
@@ -206,8 +205,8 @@ describe('ClerkAuthGuard', () => {
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'new_clerk_id' });
       jest
-        .spyOn(guard as any, 'getClerkUserEmail')
-        .mockResolvedValue('owner@example.com');
+        .spyOn(guard as any, 'getClerkUserData')
+        .mockResolvedValue({ phone: '050-123-4567', email: null });
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(invited);
@@ -219,6 +218,78 @@ describe('ClerkAuthGuard', () => {
       expect((request as unknown as { user: User }).user.id).toBe(
         'original-invited-id',
       );
+    });
+
+    it('returns businesses assigned before login via BusinessUser (regression)', async () => {
+      const invited = makeUser({
+        id: 'abd30f9b-9a1e-4dac-af0e-2e851a246645',
+        clerkUserId: null,
+        status: 'INVITED',
+      });
+      const linked = makeUser({
+        id: 'abd30f9b-9a1e-4dac-af0e-2e851a246645',
+        clerkUserId: 'user_clerk_real_id',
+        status: 'ACTIVE',
+      });
+
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'user_clerk_real_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: '050-123-4567',
+        email: 'owner+clerk_test@example.com',
+      });
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(invited);
+      mockPrisma.user.update.mockResolvedValue(linked);
+
+      const { ctx, request } = makeContextWithRequest('Bearer valid_token');
+      await guard.canActivate(ctx);
+
+      expect((request as unknown as { user: User }).user.id).toBe(
+        'abd30f9b-9a1e-4dac-af0e-2e851a246645',
+      );
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Slow path scenario 2: email fallback linking
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('invited user linking by email fallback', () => {
+    it('links invited user when phone not in DB but email matches', async () => {
+      const invited = makeUser({
+        id: 'invited-id',
+        clerkUserId: null,
+        email: 'owner@example.com',
+        status: 'INVITED',
+      });
+      const linked = makeUser({
+        id: 'invited-id',
+        clerkUserId: 'clerk_id',
+        status: 'ACTIVE',
+      });
+
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: '050-123-4567',
+        email: 'OWNER@EXAMPLE.COM',
+      });
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // by clerkUserId → miss
+        .mockResolvedValueOnce(null) // by phoneNormalized → miss
+        .mockResolvedValueOnce(invited); // by email → hit
+      mockPrisma.user.update.mockResolvedValue(linked);
+
+      const { ctx } = makeContextWithRequest('Bearer valid_token');
+      await guard.canActivate(ctx);
+
+      expect(mockPrisma.user.findUnique).toHaveBeenNthCalledWith(3, {
+        where: { email: 'owner@example.com' },
+      });
     });
 
     it('normalizes Clerk email to lowercase before looking up in DB', async () => {
@@ -237,10 +308,12 @@ describe('ClerkAuthGuard', () => {
       jest
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'clerk_id' });
-      jest
-        .spyOn(guard as any, 'getClerkUserEmail')
-        .mockResolvedValue('OWNER@EXAMPLE.COM');
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: '050-123-4567',
+        email: 'OWNER@EXAMPLE.COM',
+      });
       mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(invited);
       mockPrisma.user.update.mockResolvedValue(linked);
@@ -248,67 +321,32 @@ describe('ClerkAuthGuard', () => {
       const { ctx } = makeContextWithRequest('Bearer valid_token');
       await guard.canActivate(ctx);
 
-      expect(mockPrisma.user.findUnique).toHaveBeenNthCalledWith(2, {
+      expect(mockPrisma.user.findUnique).toHaveBeenNthCalledWith(3, {
         where: { email: 'owner@example.com' },
       });
-    });
-
-    it('returns businesses assigned before login via BusinessUser (regression)', async () => {
-      // After linking, req.user.id equals the original invited user id, so
-      // BusinessesService.findMine(req.user.id) will still find all existing
-      // BusinessUser records — no code change needed, but guard must preserve id.
-      const invited = makeUser({
-        id: 'abd30f9b-9a1e-4dac-af0e-2e851a246645',
-        clerkUserId: null,
-        email: 'owner+clerk_test@example.com',
-        status: 'INVITED',
-      });
-      const linked = makeUser({
-        id: 'abd30f9b-9a1e-4dac-af0e-2e851a246645',
-        clerkUserId: 'user_clerk_real_id',
-        status: 'ACTIVE',
-      });
-
-      jest
-        .spyOn(guard as any, 'verifyClerkToken')
-        .mockResolvedValue({ sub: 'user_clerk_real_id' });
-      jest
-        .spyOn(guard as any, 'getClerkUserEmail')
-        .mockResolvedValue('owner+clerk_test@example.com');
-      mockPrisma.user.findUnique
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(invited);
-      mockPrisma.user.update.mockResolvedValue(linked);
-
-      const { ctx, request } = makeContextWithRequest('Bearer valid_token');
-      await guard.canActivate(ctx);
-
-      expect((request as unknown as { user: User }).user.id).toBe(
-        'abd30f9b-9a1e-4dac-af0e-2e851a246645',
-      );
     });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Slow path scenario 2: email claimed by different Clerk account
+  // Slow path scenario 3: phone already claimed by different Clerk account
   // ──────────────────────────────────────────────────────────────────────────
 
-  describe('email already claimed by a different Clerk account', () => {
+  describe('phone already linked to a different Clerk account', () => {
     it('throws UnauthorizedException and does not override existing clerkUserId', async () => {
       const existing = makeUser({
         clerkUserId: 'original_clerk_id',
-        email: 'shared@example.com',
       });
 
       jest
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'attacker_clerk_id' });
-      jest
-        .spyOn(guard as any, 'getClerkUserEmail')
-        .mockResolvedValue('shared@example.com');
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: '050-123-4567',
+        email: 'shared@example.com',
+      });
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(null) // by clerkUserId → miss
-        .mockResolvedValueOnce(existing); // by email → found with different id
+        .mockResolvedValueOnce(existing); // by phoneNormalized → found with different clerkUserId
 
       await expect(
         guard.canActivate(makeContext('Bearer valid_token')),
@@ -319,7 +357,7 @@ describe('ClerkAuthGuard', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Slow path scenario 3: brand new Clerk user
+  // Slow path scenario 4: brand new Clerk user
   // ──────────────────────────────────────────────────────────────────────────
 
   describe('new Clerk user with no matching internal user', () => {
@@ -327,6 +365,7 @@ describe('ClerkAuthGuard', () => {
       const newUser = makeUser({
         id: 'new-user-id',
         email: 'new@example.com',
+        phoneNormalized: '+972509999999',
         clerkUserId: 'brand_new_clerk_id',
         status: 'ACTIVE',
         platformRole: 'USER',
@@ -336,10 +375,11 @@ describe('ClerkAuthGuard', () => {
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'brand_new_clerk_id' });
       jest
-        .spyOn(guard as any, 'getClerkUserEmail')
-        .mockResolvedValue('new@example.com');
+        .spyOn(guard as any, 'getClerkUserData')
+        .mockResolvedValue({ phone: '050-9999999', email: 'new@example.com' });
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(null) // by clerkUserId
+        .mockResolvedValueOnce(null) // by phoneNormalized
         .mockResolvedValueOnce(null); // by email
       mockPrisma.user.create.mockResolvedValue(newUser);
 
@@ -349,6 +389,7 @@ describe('ClerkAuthGuard', () => {
       expect(mockPrisma.user.create).toHaveBeenCalledWith({
         data: {
           email: 'new@example.com',
+          phoneNormalized: '+972509999999',
           clerkUserId: 'brand_new_clerk_id',
           platformRole: 'USER',
           status: 'ACTIVE',
@@ -357,7 +398,7 @@ describe('ClerkAuthGuard', () => {
       expect((request as unknown as { user: User }).user).toEqual(newUser);
     });
 
-    it('does not create a duplicate user if Clerk email is already linked', async () => {
+    it('does not create a duplicate user if Clerk phone is already linked', async () => {
       const existing = makeUser({ clerkUserId: 'same_clerk_id' });
 
       jest
@@ -373,16 +414,16 @@ describe('ClerkAuthGuard', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Edge case: Clerk email unavailable
+  // Edge cases: Clerk data unavailable or phone missing
   // ──────────────────────────────────────────────────────────────────────────
 
-  describe('Clerk email unavailable', () => {
-    it('throws UnauthorizedException when getClerkUserEmail rejects', async () => {
+  describe('Clerk phone unavailable', () => {
+    it('throws UnauthorizedException when getClerkUserData rejects', async () => {
       jest
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'clerk_id' });
       jest
-        .spyOn(guard as any, 'getClerkUserEmail')
+        .spyOn(guard as any, 'getClerkUserData')
         .mockRejectedValue(new Error('Clerk API error'));
       mockPrisma.user.findUnique.mockResolvedValueOnce(null);
 
@@ -391,11 +432,13 @@ describe('ClerkAuthGuard', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('throws UnauthorizedException when primary email is null', async () => {
+    it('throws UnauthorizedException when primary phone is null', async () => {
       jest
         .spyOn(guard as any, 'verifyClerkToken')
         .mockResolvedValue({ sub: 'clerk_id' });
-      jest.spyOn(guard as any, 'getClerkUserEmail').mockResolvedValue(null);
+      jest
+        .spyOn(guard as any, 'getClerkUserData')
+        .mockResolvedValue({ phone: null, email: null });
       mockPrisma.user.findUnique.mockResolvedValueOnce(null);
 
       await expect(

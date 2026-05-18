@@ -54,7 +54,7 @@ function customerToForm(c: DashboardCustomerDto): FormState {
   return {
     fullName: c.fullName,
     email: c.email ?? '',
-    phone: c.phone ?? '',
+    phone: c.phone,
     notes: c.notes ?? '',
   };
 }
@@ -216,8 +216,20 @@ function CustomerModal({
             />
           </div>
 
-          {/* Email + Phone */}
+          {/* Phone + Email */}
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {tf.phone} *
+              </label>
+              <input
+                type="tel"
+                required
+                value={form.phone}
+                onChange={(e) => set('phone', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {tf.email}
@@ -226,17 +238,6 @@ function CustomerModal({
                 type="email"
                 value={form.email}
                 onChange={(e) => set('email', e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {tf.phone}
-              </label>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => set('phone', e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -377,7 +378,7 @@ export default function CustomersPage() {
         const payload: UpdateCustomerPayload = {
           fullName: form.fullName,
           email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
+          phone: form.phone.trim() || undefined,
           notes: form.notes.trim() || null,
         };
         const updated = await updateDashboardCustomer(
@@ -393,10 +394,14 @@ export default function CustomersPage() {
         );
         showSuccess(tf.updatedSuccess);
       } else {
+        if (!form.phone.trim()) {
+          setSaveError(tf.saveError);
+          return;
+        }
         const payload: CreateCustomerPayload = {
           fullName: form.fullName,
           email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
+          phone: form.phone.trim(),
           notes: form.notes.trim() || null,
         };
         const created = await createDashboardCustomer(

@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsUUID } from 'class-validator';
+import { IsDateString, IsUUID } from 'class-validator';
 
 export class CreateDashboardAppointmentDto {
   @IsUUID()
@@ -8,8 +8,7 @@ export class CreateDashboardAppointmentDto {
   serviceId!: string;
 
   @IsUUID()
-  @IsOptional()
-  staffMemberId?: string | null;
+  staffMemberId!: string;
 
   @IsDateString()
   startsAt!: string;

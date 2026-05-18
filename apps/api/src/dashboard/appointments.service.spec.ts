@@ -21,6 +21,7 @@ const OTHER_USER_ID = 'user-2';
 const BUSINESS_ID = 'biz-1';
 const APPOINTMENT_ID = 'appt-1';
 const STAFF_ID = 'sm-1';
+const STAFF_BU_ID = 'bu-3'; // BusinessUser linked to the StaffMember
 const SERVICE_ID = 'svc-1';
 const CUSTOMER_ID = 'bc-1';
 
@@ -36,14 +37,16 @@ const mockMembership: BusinessUser = {
 
 const mockStaffMembership: BusinessUser = {
   ...mockMembership,
-  id: 'bu-3',
+  id: STAFF_BU_ID,
   role: 'STAFF',
 };
+
+const mockStaffBu = { status: 'ACTIVE' };
 
 const mockStaffRecord: StaffMember = {
   id: STAFF_ID,
   businessId: BUSINESS_ID,
-  businessUserId: null,
+  businessUserId: STAFF_BU_ID,
   displayName: 'Alice',
   isActive: true,
   createdAt: new Date('2024-01-01'),
@@ -112,6 +115,12 @@ const mockPrisma = {
   },
   staffMember: {
     findFirst: jest.fn<(...args: unknown[]) => Promise<StaffMember | null>>(),
+  },
+  staffMemberService: {
+    findFirst:
+      jest.fn<
+        (...args: unknown[]) => Promise<{ staffMemberId: string } | null>
+      >(),
   },
   service: {
     findFirst: jest.fn<(...args: unknown[]) => Promise<Service | null>>(),
@@ -224,12 +233,21 @@ describe('AppointmentsService', () => {
       startsAt: STARTS_AT.toISOString(),
     };
 
-    it('OWNER can create an appointment', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+    function setupHappyPath() {
+      mockPrisma.businessUser.findUnique
+        .mockResolvedValueOnce(mockMembership) // assertMutationAccess
+        .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser); // assertStaffReadyForBooking
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
       mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
+      mockPrisma.staffMemberService.findFirst.mockResolvedValue({
+        staffMemberId: STAFF_ID,
+      });
       mockPrisma.appointment.findFirst.mockResolvedValue(null); // no conflict
+    }
+
+    it('OWNER can create an appointment', async () => {
+      setupHappyPath();
       mockPrisma.appointment.create.mockResolvedValue(
         mockAppointmentRow as unknown as Appointment,
       );
@@ -305,47 +323,67 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('throws ConflictException when staff has overlapping appointment', async () => {
+    it('throws BadRequestException when staff is inactive', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
+      mockPrisma.staffMember.findFirst.mockResolvedValue({
+        ...mockStaffRecord,
+        isActive: false,
+      });
+
+      await expect(
+        service.createAppointment(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("throws BadRequestException when staff's linked user account is not active", async () => {
+      mockPrisma.businessUser.findUnique
+        .mockResolvedValueOnce(mockMembership)
+        .mockResolvedValueOnce({
+          status: 'INVITED',
+        } as unknown as BusinessUser);
+      mockPrisma.service.findFirst.mockResolvedValue(mockService);
+      mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
       mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
-      mockPrisma.appointment.findFirst.mockResolvedValue(mockAppointment);
+
+      await expect(
+        service.createAppointment(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when staff does not provide the selected service', async () => {
+      mockPrisma.businessUser.findUnique
+        .mockResolvedValueOnce(mockMembership)
+        .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser);
+      mockPrisma.service.findFirst.mockResolvedValue(mockService);
+      mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
+      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
+      mockPrisma.staffMemberService.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createAppointment(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws ConflictException when staff has overlapping appointment', async () => {
+      setupHappyPath();
+      mockPrisma.appointment.findFirst.mockResolvedValue(mockAppointment); // conflict
 
       await expect(
         service.createAppointment(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(ConflictException);
-    });
-
-    it('creates appointment without staff member', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.service.findFirst.mockResolvedValue(mockService);
-      mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
-      mockPrisma.appointment.create.mockResolvedValue({
-        ...mockAppointmentRow,
-        staffMemberId: null,
-        staffMember: null,
-      } as unknown as Appointment);
-
-      const result = await service.createAppointment(USER_ID, BUSINESS_ID, {
-        ...createDto,
-        staffMemberId: undefined,
-      });
-
-      expect(mockPrisma.staffMember.findFirst).not.toHaveBeenCalled();
-      expect(result.staffMemberName).toBeNull();
     });
   });
 
   // ─── updateAppointment ────────────────────────────────────────────────────
 
   describe('updateAppointment', () => {
-    it('OWNER can update an appointment', async () => {
+    it('OWNER can update an appointment (no field changes)', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.appointment.findFirst
         .mockResolvedValueOnce(mockAppointment) // existing check
         .mockResolvedValueOnce(null); // conflict check
-      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
       mockPrisma.appointment.update.mockResolvedValue(
         mockAppointmentRow as unknown as Appointment,
       );
@@ -354,7 +392,7 @@ describe('AppointmentsService', () => {
         USER_ID,
         BUSINESS_ID,
         APPOINTMENT_ID,
-        { notes: 'Updated notes' },
+        {},
       );
 
       expect(mockPrisma.appointment.update).toHaveBeenCalledWith(
@@ -392,7 +430,6 @@ describe('AppointmentsService', () => {
       mockPrisma.appointment.findFirst
         .mockResolvedValueOnce(mockAppointment)
         .mockResolvedValueOnce(null);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
       mockPrisma.appointment.update.mockResolvedValue(
         mockAppointmentRow as unknown as Appointment,
       );
@@ -409,6 +446,33 @@ describe('AppointmentsService', () => {
           }),
         }),
       );
+    });
+
+    it('validates new staff when staffMemberId changes', async () => {
+      const NEW_STAFF_ID = 'sm-2';
+      mockPrisma.businessUser.findUnique
+        .mockResolvedValueOnce(mockMembership)
+        .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser);
+      mockPrisma.appointment.findFirst
+        .mockResolvedValueOnce(mockAppointment)
+        .mockResolvedValueOnce(null);
+      mockPrisma.staffMember.findFirst.mockResolvedValue({
+        ...mockStaffRecord,
+        id: NEW_STAFF_ID,
+      });
+      mockPrisma.staffMemberService.findFirst.mockResolvedValue({
+        staffMemberId: NEW_STAFF_ID,
+      });
+      mockPrisma.appointment.update.mockResolvedValue(
+        mockAppointmentRow as unknown as Appointment,
+      );
+
+      await service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+        staffMemberId: NEW_STAFF_ID,
+      });
+
+      expect(mockPrisma.staffMember.findFirst).toHaveBeenCalled();
+      expect(mockPrisma.staffMemberService.findFirst).toHaveBeenCalled();
     });
   });
 
