@@ -1,11 +1,13 @@
 import type {
   CreateAppointmentPayload,
   CreateAvailabilityExceptionPayload,
+  CreateBusinessUserPayload,
   CreateCustomerPayload,
   CreateServicePayload,
   CreateStaffMemberPayload,
   DashboardAppointmentDto,
   DashboardAvailabilityExceptionDto,
+  DashboardBusinessUserCreatedDto,
   DashboardBusinessUserDto,
   DashboardCustomerDto,
   DashboardServiceDto,
@@ -186,6 +188,20 @@ export function fetchDashboardBusinessUsers(
   return fetchWithAuth(
     `/dashboard/businesses/${businessId}/users`,
     getToken,
+  );
+}
+
+// ─── Business users (mutations) ──────────────────────────────────────────────
+
+export function createDashboardBusinessUser(
+  businessId: string,
+  payload: CreateBusinessUserPayload,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardBusinessUserCreatedDto> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/users`,
+    getToken,
+    { method: 'POST', body: payload },
   );
 }
 

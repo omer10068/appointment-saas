@@ -11,6 +11,7 @@ import type { CreateServiceDto } from './dto/create-service.dto';
 import type { UpdateServiceDto } from './dto/update-service.dto';
 import type { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
 import type { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
+import type { CreateBusinessUserDto } from './dto/create-business-user.dto';
 import type { CreateStaffMemberDto } from './dto/create-staff-member.dto';
 import type { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
 
@@ -51,6 +52,17 @@ export interface BusinessUserDto {
   role: string;
   status: string;
   hasStaffProfile: boolean;
+}
+
+export interface BusinessUserCreatedDto {
+  id: string;
+  userId: string;
+  businessId: string;
+  role: string;
+  status: string;
+  phoneNormalized: string;
+  email: string | null;
+  staffMemberId: string | null;
 }
 
 export interface BusinessReadinessDto {
@@ -151,6 +163,64 @@ export class DashboardDataService {
       status: bu.status,
       hasStaffProfile: bu.staffMember !== null,
     }));
+  }
+
+  async createBusinessUser(
+    userId: string,
+    businessId: string,
+    dto: CreateBusinessUserDto,
+  ): Promise<BusinessUserCreatedDto> {
+    await this.assertMutationAccess(userId, businessId);
+
+    const phoneNormalized = normalizePhone(dto.phone);
+
+    return this.prisma.$transaction(async (tx) => {
+      let user = await tx.user.findUnique({ where: { phoneNormalized } });
+      if (!user) {
+        user = await tx.user.create({
+          data: {
+            phoneNormalized,
+            email: dto.email ?? null,
+            status: 'ACTIVE',
+            platformRole: 'USER',
+          },
+        });
+      }
+
+      const existingBu = await tx.businessUser.findUnique({
+        where: { businessId_userId: { businessId, userId: user.id } },
+      });
+      if (existingBu) {
+        throw new ConflictException(
+          'This user is already a member of this business',
+        );
+      }
+
+      const bu = await tx.businessUser.create({
+        data: {
+          businessId,
+          userId: user.id,
+          role: dto.role,
+          status: 'ACTIVE',
+        },
+      });
+
+      const staffMember = await tx.staffMember.findUnique({
+        where: { businessUserId: bu.id },
+        select: { id: true },
+      });
+
+      return {
+        id: bu.id,
+        userId: user.id,
+        businessId,
+        role: bu.role,
+        status: bu.status,
+        phoneNormalized: user.phoneNormalized,
+        email: user.email,
+        staffMemberId: staffMember?.id ?? null,
+      };
+    });
   }
 
   async getSummary(userId: string, businessId: string): Promise<SummaryDto> {
