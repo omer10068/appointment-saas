@@ -13,13 +13,14 @@ export class CreateDashboardCustomerDto {
   @MaxLength(100)
   fullName!: string;
 
+  // Raw phone input — backend will normalize to E.164 (phoneNormalized).
+  @IsString()
+  @IsNotEmpty()
+  phone!: string;
+
   @IsEmail()
   @IsOptional()
   email?: string | null;
-
-  @IsString()
-  @IsOptional()
-  phone?: string | null;
 
   @IsString()
   @IsOptional()

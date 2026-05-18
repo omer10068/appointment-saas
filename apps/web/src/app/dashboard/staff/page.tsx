@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import type {
   CreateStaffMemberPayload,
+  DashboardBusinessUserDto,
+  DashboardServiceDto,
   DashboardStaffMemberDto,
   UpdateStaffMemberPayload,
 } from '@appointment/contracts';
@@ -12,6 +14,8 @@ import { useDashboardI18n } from '../_i18n/useDashboardI18n';
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
 import {
   createDashboardStaffMember,
+  fetchDashboardBusinessUsers,
+  fetchDashboardServices,
   fetchDashboardStaff,
   updateDashboardStaffMember,
   updateDashboardStaffMemberStatus,
@@ -21,15 +25,22 @@ import {
 
 interface FormState {
   displayName: string;
+  businessUserId: string;
+  serviceIds: string[];
   isActive: boolean;
 }
 
 function emptyForm(): FormState {
-  return { displayName: '', isActive: true };
+  return { displayName: '', businessUserId: '', serviceIds: [], isActive: true };
 }
 
 function staffToForm(sm: DashboardStaffMemberDto): FormState {
-  return { displayName: sm.displayName, isActive: sm.isActive };
+  return {
+    displayName: sm.displayName,
+    businessUserId: sm.businessUserId,
+    serviceIds: sm.serviceIds,
+    isActive: sm.isActive,
+  };
 }
 
 // ─── Staff row ────────────────────────────────────────────────────────────────
@@ -97,6 +108,8 @@ function StaffRow({
 
 function StaffModal({
   editingStaff,
+  businessUsers,
+  services,
   tf,
   dir,
   onClose,
@@ -105,6 +118,8 @@ function StaffModal({
   saveError,
 }: {
   editingStaff: DashboardStaffMemberDto | null;
+  businessUsers: DashboardBusinessUserDto[];
+  services: DashboardServiceDto[];
   tf: ReturnType<typeof useDashboardI18n>['staffForm'];
   dir: 'rtl' | 'ltr';
   onClose: () => void;
@@ -116,8 +131,22 @@ function StaffModal({
     editingStaff ? staffToForm(editingStaff) : emptyForm(),
   );
 
-  const set = (field: keyof FormState, value: string | boolean) =>
+  const set = (field: keyof FormState, value: string | boolean | string[]) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  function toggleService(serviceId: string) {
+    setForm((prev) => ({
+      ...prev,
+      serviceIds: prev.serviceIds.includes(serviceId)
+        ? prev.serviceIds.filter((id) => id !== serviceId)
+        : [...prev.serviceIds, serviceId],
+    }));
+  }
+
+  const activeServices = services.filter((s) => s.isActive);
+  const availableUsers = editingStaff
+    ? businessUsers
+    : businessUsers.filter((u) => !u.hasStaffProfile);
 
   return (
     <div
@@ -162,6 +191,63 @@ function StaffModal({
               onChange={(e) => set('displayName', e.target.value)}
               className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+
+          {/* Linked business user */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {tf.businessUser} *
+            </label>
+            {editingStaff ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-1">
+                {businessUsers.find((u) => u.id === form.businessUserId)?.id ?? form.businessUserId}
+              </p>
+            ) : (
+              <select
+                required
+                value={form.businessUserId}
+                onChange={(e) => set('businessUserId', e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">{tf.selectBusinessUser}</option>
+                {availableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.id}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Services */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {tf.services} *
+            </label>
+            {activeServices.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                {tf.noServicesAvailable}
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {activeServices.map((svc) => (
+                  <label
+                    key={svc.id}
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.serviceIds.includes(svc.id)}
+                      onChange={() => toggleService(svc.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {svc.name}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* isActive */}
@@ -220,6 +306,8 @@ export default function StaffPage() {
   getTokenRef.current = getToken;
 
   const [staff, setStaff] = useState<DashboardStaffMemberDto[]>([]);
+  const [businessUsers, setBusinessUsers] = useState<DashboardBusinessUserDto[]>([]);
+  const [services, setServices] = useState<DashboardServiceDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -234,11 +322,13 @@ export default function StaffPage() {
 
   const businessId = currentBusiness?.business.id;
 
-  // ─── Load staff ─────────────────────────────────────────────────────────────
+  // ─── Load staff, business users, services ────────────────────────────────────
 
   useEffect(() => {
     if (!businessId) {
       setStaff([]);
+      setBusinessUsers([]);
+      setServices([]);
       setLoadError(null);
       return;
     }
@@ -248,9 +338,18 @@ export default function StaffPage() {
     setLoadError(null);
     setStaff([]);
 
-    fetchDashboardStaff(businessId, () => getTokenRef.current())
-      .then((data) => {
-        if (!cancelled) setStaff(data);
+    const gt = () => getTokenRef.current();
+
+    Promise.all([
+      fetchDashboardStaff(businessId, gt),
+      fetchDashboardBusinessUsers(businessId, gt),
+      fetchDashboardServices(businessId, gt),
+    ])
+      .then(([stf, users, svcs]) => {
+        if (cancelled) return;
+        setStaff(stf);
+        setBusinessUsers(users);
+        setServices(svcs);
       })
       .catch(() => {
         if (!cancelled) setLoadError(tf.loadError);
@@ -291,6 +390,10 @@ export default function StaffPage() {
 
   async function handleSave(form: FormState) {
     if (!businessId) return;
+    if (form.serviceIds.length === 0) {
+      setSaveError(tf.saveError);
+      return;
+    }
     setIsSaving(true);
     setSaveError(null);
 
@@ -298,6 +401,7 @@ export default function StaffPage() {
       if (editingStaff) {
         const payload: UpdateStaffMemberPayload = {
           displayName: form.displayName,
+          serviceIds: form.serviceIds,
           isActive: form.isActive,
         };
         const updated = await updateDashboardStaffMember(
@@ -311,6 +415,8 @@ export default function StaffPage() {
       } else {
         const payload: CreateStaffMemberPayload = {
           displayName: form.displayName,
+          businessUserId: form.businessUserId,
+          serviceIds: form.serviceIds,
           isActive: form.isActive,
         };
         const created = await createDashboardStaffMember(
@@ -357,6 +463,8 @@ export default function StaffPage() {
       {modalOpen && (
         <StaffModal
           editingStaff={editingStaff}
+          businessUsers={businessUsers}
+          services={services}
           tf={tf}
           dir={dict.dir}
           onClose={closeModal}

@@ -1,21 +1,30 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Webhook } from 'svix';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizePhone } from '../dashboard/phone.util';
 
 interface ClerkEmailAddress {
   id: string;
   email_address: string;
 }
 
+interface ClerkPhoneNumber {
+  id: string;
+  phone_number: string;
+}
+
 interface ClerkUserData {
   id: string;
   email_addresses: ClerkEmailAddress[];
-  primary_email_address_id: string;
+  primary_email_address_id: string | null;
+  phone_numbers: ClerkPhoneNumber[];
+  primary_phone_number_id: string | null;
 }
 
 interface ClerkWebhookEvent {
@@ -33,6 +42,8 @@ const SUPPORTED_EVENTS = new Set(['user.created', 'user.updated']);
 
 @Injectable()
 export class ClerkWebhookService {
+  private readonly logger = new Logger(ClerkWebhookService.name);
+
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
@@ -59,7 +70,9 @@ export class ClerkWebhookService {
     }
 
     const email = this.extractPrimaryEmail(event.data);
-    await this.upsertUser(event.data.id, email);
+    const phone = this.extractPrimaryPhone(event.data);
+
+    await this.upsertUser(event.data.id, email, phone);
   }
 
   protected verifyWebhook(
@@ -75,43 +88,111 @@ export class ClerkWebhookService {
     }
   }
 
-  private extractPrimaryEmail(data: ClerkUserData): string {
+  private extractPrimaryEmail(data: ClerkUserData): string | null {
+    if (!data.primary_email_address_id) return null;
     const primary = data.email_addresses.find(
       (e) => e.id === data.primary_email_address_id,
     );
-    if (!primary) {
-      throw new BadRequestException('Clerk user has no primary email address');
-    }
-    return primary.email_address;
+    return primary?.email_address ?? null;
   }
 
-  private async upsertUser(clerkUserId: string, email: string): Promise<void> {
+  private extractPrimaryPhone(data: ClerkUserData): string | null {
+    if (!data.primary_phone_number_id && data.phone_numbers.length === 0) {
+      return null;
+    }
+    const primary =
+      data.phone_numbers.find((p) => p.id === data.primary_phone_number_id) ??
+      data.phone_numbers[0];
+    return primary?.phone_number ?? null;
+  }
+
+  private async upsertUser(
+    clerkUserId: string,
+    email: string | null,
+    rawPhone: string | null,
+  ): Promise<void> {
+    let phoneNormalized: string | null = null;
+    if (rawPhone) {
+      try {
+        phoneNormalized = normalizePhone(rawPhone);
+      } catch {
+        this.logger.warn(
+          `Webhook: cannot normalize phone "${rawPhone}" for clerkUserId=${clerkUserId}`,
+        );
+      }
+    }
+
     const byClerkId = await this.prisma.user.findUnique({
       where: { clerkUserId },
     });
+
     if (byClerkId) {
-      if (byClerkId.email !== email) {
+      // Update email and/or phone if changed
+      const updates: Record<string, unknown> = {};
+      if (email !== null && byClerkId.email !== email) updates['email'] = email;
+      if (
+        phoneNormalized !== null &&
+        byClerkId.phoneNormalized !== phoneNormalized
+      ) {
+        updates['phoneNormalized'] = phoneNormalized;
+      }
+      if (Object.keys(updates).length > 0) {
         await this.prisma.user.update({
           where: { id: byClerkId.id },
-          data: { email },
+          data: updates,
         });
       }
       return;
     }
 
-    const byEmail = await this.prisma.user.findUnique({ where: { email } });
-    if (byEmail) {
-      await this.prisma.user.update({
-        where: { id: byEmail.id },
-        data: { clerkUserId, status: 'ACTIVE' },
+    // No existing user — try to link by phone then email
+    if (phoneNormalized) {
+      const byPhone = await this.prisma.user.findUnique({
+        where: { phoneNormalized },
       });
-      return;
+      if (byPhone && !byPhone.clerkUserId) {
+        await this.prisma.user.update({
+          where: { id: byPhone.id },
+          data: {
+            clerkUserId,
+            status: 'ACTIVE',
+            ...(email && { email }),
+          },
+        });
+        return;
+      }
+    }
+
+    if (email) {
+      const byEmail = await this.prisma.user.findUnique({ where: { email } });
+      if (byEmail && !byEmail.clerkUserId) {
+        await this.prisma.user.update({
+          where: { id: byEmail.id },
+          data: {
+            clerkUserId,
+            status: 'ACTIVE',
+            ...(phoneNormalized && { phoneNormalized }),
+          },
+        });
+        return;
+      }
+    }
+
+    if (!phoneNormalized) {
+      this.logger.warn(
+        `Webhook: skipping user creation for clerkUserId=${clerkUserId} — no valid phone number`,
+      );
+      // Throw so Clerk will retry; operator must add phone to Clerk user
+      throw new BadRequestException(
+        'Cannot create internal user without a phone number',
+      );
     }
 
     await this.prisma.user.create({
       data: {
         clerkUserId,
         email,
+        phoneNormalized,
         status: 'ACTIVE',
         platformRole: 'USER',
       },

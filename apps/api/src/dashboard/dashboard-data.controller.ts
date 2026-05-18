@@ -191,6 +191,29 @@ export class DashboardDataController {
     );
   }
 
+  // ─── Business users (read) ────────────────────────────────────────────────────
+
+  @Get(':businessId/users')
+  getBusinessUsers(
+    @Param('businessId') businessId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.getBusinessUsers(req.user.id, businessId);
+  }
+
+  // ─── Business readiness ───────────────────────────────────────────────────────
+
+  @Get(':businessId/readiness')
+  getBusinessReadiness(
+    @Param('businessId') businessId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.getBusinessReadiness(
+      req.user.id,
+      businessId,
+    );
+  }
+
   // ─── Summary ─────────────────────────────────────────────────────────────────
 
   @Get(':businessId/summary')

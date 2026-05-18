@@ -6,6 +6,7 @@ import type {
   CreateStaffMemberPayload,
   DashboardAppointmentDto,
   DashboardAvailabilityExceptionDto,
+  DashboardBusinessUserDto,
   DashboardCustomerDto,
   DashboardServiceDto,
   DashboardStaffMemberDto,
@@ -173,6 +174,18 @@ export function updateDashboardCustomerStatus(
     `/dashboard/businesses/${businessId}/customers/${businessCustomerId}/status`,
     getToken,
     { method: 'PATCH', body: payload },
+  );
+}
+
+// ─── Business users (read) ───────────────────────────────────────────────────
+
+export function fetchDashboardBusinessUsers(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<DashboardBusinessUserDto[]> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/users`,
+    getToken,
   );
 }
 

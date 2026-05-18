@@ -89,7 +89,7 @@ function apptToForm(a: DashboardAppointmentDto): FormState {
   return {
     businessCustomerId: a.businessCustomerId,
     serviceId: a.serviceId,
-    staffMemberId: a.staffMemberId ?? '',
+    staffMemberId: a.staffMemberId,
     startsAt: a.startsAt.slice(0, 16),
   };
 }
@@ -203,7 +203,13 @@ function AppointmentModal({
   saving: boolean;
 }) {
   const isEdit = editing !== null;
-  const activeServices = services.filter((s) => s.isActive);
+  const activeStaff = staff.filter((s) => s.isActive);
+  const selectedStaff = activeStaff.find((s) => s.id === form.staffMemberId);
+  const availableServices = isEdit
+    ? services.filter((s) => s.isActive)
+    : selectedStaff
+      ? services.filter((s) => s.isActive && selectedStaff.serviceIds.includes(s.id))
+      : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -219,6 +225,7 @@ function AppointmentModal({
                 {t.customer}
               </label>
               <select
+                required
                 value={form.businessCustomerId}
                 onChange={(e) => setForm({ ...form, businessCustomerId: e.target.value })}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -235,19 +242,22 @@ function AppointmentModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t.service}
+              {t.staff} *
             </label>
             {isEdit ? (
-              <p className="text-sm text-gray-600 dark:text-gray-400">{editing.serviceName}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{editing.staffMemberName}</p>
             ) : (
               <select
-                value={form.serviceId}
-                onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
+                required
+                value={form.staffMemberId}
+                onChange={(e) =>
+                  setForm({ ...form, staffMemberId: e.target.value, serviceId: '' })
+                }
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
-                <option value="">{t.noServices}</option>
-                {activeServices.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                <option value="">{t.noStaff}</option>
+                {activeStaff.map((s) => (
+                  <option key={s.id} value={s.id}>{s.displayName}</option>
                 ))}
               </select>
             )}
@@ -255,18 +265,24 @@ function AppointmentModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t.staff}
+              {t.service} *
             </label>
-            <select
-              value={form.staffMemberId}
-              onChange={(e) => setForm({ ...form, staffMemberId: e.target.value })}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            >
-              <option value="">{t.noStaff}</option>
-              {staff.filter((s) => s.isActive).map((s) => (
-                <option key={s.id} value={s.id}>{s.displayName}</option>
-              ))}
-            </select>
+            {isEdit ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400">{editing.serviceName}</p>
+            ) : (
+              <select
+                required
+                value={form.serviceId}
+                onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
+                disabled={!form.staffMemberId}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50"
+              >
+                <option value="">{t.noServices}</option>
+                {availableServices.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
@@ -394,8 +410,8 @@ export default function AppointmentsPage() {
     try {
       if (editing) {
         const payload: UpdateAppointmentPayload = {
-          ...(form.staffMemberId !== (editing.staffMemberId ?? '') && {
-            staffMemberId: form.staffMemberId || null,
+          ...(form.staffMemberId && form.staffMemberId !== editing.staffMemberId && {
+            staffMemberId: form.staffMemberId,
           }),
           ...(form.startsAt && form.startsAt !== editing.startsAt.slice(0, 16) && {
             startsAt: new Date(form.startsAt).toISOString(),
@@ -404,14 +420,14 @@ export default function AppointmentsPage() {
         const updated = await updateDashboardAppointment(businessId, editing.id, payload, gt);
         setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
       } else {
-        if (!form.businessCustomerId || !form.serviceId || !form.startsAt) {
+        if (!form.businessCustomerId || !form.serviceId || !form.staffMemberId || !form.startsAt) {
           setSaveError(tf.saveError);
           return;
         }
         const payload: CreateAppointmentPayload = {
           businessCustomerId: form.businessCustomerId,
           serviceId: form.serviceId,
-          staffMemberId: form.staffMemberId || null,
+          staffMemberId: form.staffMemberId,
           startsAt: new Date(form.startsAt).toISOString(),
         };
         const created = await createDashboardAppointment(businessId, payload, gt);

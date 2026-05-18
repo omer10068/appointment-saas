@@ -16,9 +16,23 @@ export interface DashboardCustomerDto {
   customerProfileId: string;
   fullName: string;
   email: string | null;
-  phone: string | null;
+  phone: string;
   status: CustomerStatus;
   notes: string | null;
+}
+
+export interface DashboardBusinessUserDto {
+  id: string;
+  userId: string;
+  role: string;
+  status: string;
+  hasStaffProfile: boolean;
+}
+
+export interface DashboardBusinessReadinessDto {
+  hasActiveStaff: boolean;
+  hasActiveService: boolean;
+  isReady: boolean;
 }
 
 export interface DashboardSummaryDto {
@@ -54,18 +68,17 @@ export interface UpdateServicePayload {
 
 export interface CreateCustomerPayload {
   fullName: string;
+  phone: string;
   email?: string | null;
-  phone?: string | null;
   notes?: string | null;
   status?: CustomerStatus;
 }
 
 export interface UpdateCustomerPayload {
   fullName?: string;
+  phone?: string;
   email?: string | null;
-  phone?: string | null;
   notes?: string | null;
-  status?: CustomerStatus;
 }
 
 export interface UpdateCustomerStatusPayload {
@@ -78,20 +91,22 @@ export interface DashboardStaffMemberDto {
   id: string;
   displayName: string;
   isActive: boolean;
-  businessUserId: string | null;
+  businessUserId: string;
+  serviceIds: string[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateStaffMemberPayload {
   displayName: string;
-  businessUserId?: string | null;
+  businessUserId: string;
+  serviceIds: string[];
   isActive?: boolean;
 }
 
 export interface UpdateStaffMemberPayload {
   displayName?: string;
-  businessUserId?: string | null;
+  serviceIds?: string[];
   isActive?: boolean;
 }
 
@@ -160,8 +175,8 @@ export interface DashboardAppointmentDto {
   customerName: string;
   serviceId: string;
   serviceName: string;
-  staffMemberId: string | null;
-  staffMemberName: string | null;
+  staffMemberId: string;
+  staffMemberName: string;
   startsAt: string;
   endsAt: string;
   status: AppointmentStatus;
@@ -172,13 +187,13 @@ export interface DashboardAppointmentDto {
 export interface CreateAppointmentPayload {
   businessCustomerId: string;
   serviceId: string;
-  staffMemberId?: string | null;
+  staffMemberId: string;
   startsAt: string;
 }
 
 export interface UpdateAppointmentPayload {
   serviceId?: string;
-  staffMemberId?: string | null;
+  staffMemberId?: string;
   startsAt?: string;
 }
 

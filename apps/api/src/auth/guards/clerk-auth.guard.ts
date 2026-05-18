@@ -10,6 +10,7 @@ import { createClerkClient, verifyToken } from '@clerk/backend';
 import { User } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../types/authenticated-request';
+import { normalizePhone } from '../../dashboard/phone.util';
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -49,11 +50,10 @@ export class ClerkAuthGuard implements CanActivate {
   ): Promise<User> {
     this.logger.debug(`resolveUser clerkUserId=${clerkUserId}`);
 
-    // Fast path: already linked
+    // Fast path: already linked — existing users work without re-fetching Clerk data
     const byClerkId = await this.prisma.user.findUnique({
       where: { clerkUserId },
     });
-
     if (byClerkId) {
       this.logger.debug(
         `resolved by clerkUserId internalId=${byClerkId.id} status=${byClerkId.status}`,
@@ -61,59 +61,94 @@ export class ClerkAuthGuard implements CanActivate {
       return byClerkId;
     }
 
-    // Slow path: first login — resolve by primary email from Clerk
+    // Slow path: first login — fetch full Clerk user data (email + phone)
     this.logger.debug(
-      `no user by clerkUserId=${clerkUserId}, resolving by email`,
+      `no user by clerkUserId=${clerkUserId}, fetching Clerk user data`,
     );
 
-    const rawEmail = await this.getClerkUserEmail(clerkUserId, secretKey).catch(
+    const clerkData = await this.getClerkUserData(clerkUserId, secretKey).catch(
       () => {
         throw new UnauthorizedException();
       },
     );
 
-    if (!rawEmail) {
-      this.logger.warn(`no primary email for clerkUserId=${clerkUserId}`);
-      throw new UnauthorizedException();
+    // Phone is required for all new internal users
+    if (!clerkData.phone) {
+      this.logger.warn(
+        `clerkUserId=${clerkUserId} has no verified phone — login rejected. ` +
+          'Add a phone number to your Clerk profile to continue.',
+      );
+      throw new UnauthorizedException(
+        'Phone number is required. Please add a verified phone to your Clerk profile.',
+      );
     }
 
-    const email = rawEmail.toLowerCase();
-    this.logger.debug(`email=${email} for clerkUserId=${clerkUserId}`);
+    let phoneNormalized: string;
+    try {
+      phoneNormalized = normalizePhone(clerkData.phone);
+    } catch {
+      this.logger.warn(
+        `clerkUserId=${clerkUserId} phone "${clerkData.phone}" could not be normalized`,
+      );
+      throw new UnauthorizedException('Invalid phone number in Clerk profile');
+    }
 
-    const byEmail = await this.prisma.user.findUnique({ where: { email } });
+    // Try to find existing User by phoneNormalized (phone-first identity)
+    const byPhone = await this.prisma.user.findUnique({
+      where: { phoneNormalized },
+    });
 
-    if (byEmail) {
-      if (byEmail.clerkUserId !== null) {
-        // Email already claimed by a different Clerk account — reject silently
+    if (byPhone) {
+      if (byPhone.clerkUserId !== null) {
         this.logger.warn(
-          `email ${email} already linked to a different clerkUserId`,
+          `phoneNormalized ${phoneNormalized} already linked to a different clerkUserId`,
         );
         throw new UnauthorizedException();
       }
-
-      // Link invited user: preserve id + BusinessUser assignments, activate account
+      // Link invited user by phone: preserve id + BusinessUser assignments
       this.logger.debug(
-        `linking invited user internalId=${byEmail.id} status=${byEmail.status} → ACTIVE`,
+        `linking user by phone internalId=${byPhone.id} → ACTIVE`,
       );
-      const linked = await this.prisma.user.update({
-        where: { id: byEmail.id },
+      return this.prisma.user.update({
+        where: { id: byPhone.id },
         data: { clerkUserId, status: 'ACTIVE' },
       });
-      this.logger.debug(
-        `linked internalId=${linked.id} clerkUserId=${linked.clerkUserId} status=${linked.status}`,
-      );
-      return linked;
     }
 
-    // No internal user at all — create a new one
+    // Fallback: try to find invited user by email (backward compat)
+    const email = clerkData.email?.toLowerCase() ?? null;
+    if (email) {
+      const byEmail = await this.prisma.user.findUnique({ where: { email } });
+      if (byEmail) {
+        if (byEmail.clerkUserId !== null) {
+          this.logger.warn(
+            `email ${email} already linked to a different clerkUserId`,
+          );
+          throw new UnauthorizedException();
+        }
+        this.logger.debug(
+          `linking invited user by email internalId=${byEmail.id} status=${byEmail.status} → ACTIVE`,
+        );
+        return this.prisma.user.update({
+          where: { id: byEmail.id },
+          data: { clerkUserId, phoneNormalized, status: 'ACTIVE' },
+        });
+      }
+    }
+
+    // Create new internal user
     this.logger.debug(
-      `creating new user email=${email} clerkUserId=${clerkUserId}`,
+      `creating new user clerkUserId=${clerkUserId} phone=${phoneNormalized}`,
     );
-    const created = await this.prisma.user.create({
-      data: { email, clerkUserId, platformRole: 'USER', status: 'ACTIVE' },
+    return this.prisma.user.create({
+      data: {
+        email,
+        phoneNormalized,
+        clerkUserId,
+        platformRole: 'USER',
+        status: 'ACTIVE',
+      },
     });
-    this.logger.debug(`created internalId=${created.id}`);
-    return created;
   }
 
   protected verifyClerkToken(
@@ -123,15 +158,27 @@ export class ClerkAuthGuard implements CanActivate {
     return verifyToken(token, { secretKey });
   }
 
-  protected async getClerkUserEmail(
+  protected async getClerkUserData(
     clerkUserId: string,
     secretKey: string,
-  ): Promise<string | null> {
+  ): Promise<{ email: string | null; phone: string | null }> {
     const clerk = createClerkClient({ secretKey });
     const clerkUser = await clerk.users.getUser(clerkUserId);
-    const primary = clerkUser.emailAddresses.find(
-      (e) => e.id === clerkUser.primaryEmailAddressId,
-    );
-    return primary?.emailAddress ?? null;
+
+    const primaryEmail =
+      clerkUser.emailAddresses.find(
+        (e) => e.id === clerkUser.primaryEmailAddressId,
+      )?.emailAddress ?? null;
+
+    // Prefer verified primary phone; fall back to any verified phone
+    // TODO: in production, only use phoneNumbers with verification.status === 'verified'
+    const primaryPhone =
+      clerkUser.phoneNumbers.find(
+        (p) => p.id === clerkUser.primaryPhoneNumberId,
+      )?.phoneNumber ??
+      clerkUser.phoneNumbers[0]?.phoneNumber ??
+      null;
+
+    return { email: primaryEmail, phone: primaryPhone };
   }
 }

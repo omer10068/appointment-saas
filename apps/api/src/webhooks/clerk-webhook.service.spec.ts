@@ -13,26 +13,46 @@ const SVIX_HEADERS = {
   svixSignature: 'v1,abc123',
 };
 
-function makeUserCreatedEvent(
+function makeUserEvent(
+  type: 'user.created' | 'user.updated',
   clerkUserId: string,
   email: string,
   primaryEmailId = 'email_1',
+  phone?: string,
+  primaryPhoneId = 'phone_1',
 ) {
   return {
-    type: 'user.created',
+    type,
     data: {
       id: clerkUserId,
       email_addresses: [{ id: primaryEmailId, email_address: email }],
       primary_email_address_id: primaryEmailId,
+      phone_numbers: phone ? [{ id: primaryPhoneId, phone_number: phone }] : [],
+      primary_phone_number_id: phone ? primaryPhoneId : null,
     },
+  };
+}
+
+function makeUser(overrides: Partial<User> = {}): User {
+  return {
+    id: 'user-1',
+    clerkUserId: 'clerk_123',
+    email: 'test@example.com',
+    phoneNormalized: '+972501234567',
+    phoneVerifiedAt: null,
+    status: 'ACTIVE',
+    platformRole: 'USER',
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+    ...overrides,
   };
 }
 
 const mockPrisma = {
   user: {
-    findUnique: jest.fn<() => Promise<User | null>>(),
-    update: jest.fn<() => Promise<User>>(),
-    create: jest.fn<() => Promise<User>>(),
+    findUnique: jest.fn<(...args: unknown[]) => Promise<User | null>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<User>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<User>>(),
   },
 };
 
@@ -58,7 +78,7 @@ describe('ClerkWebhookService', () => {
     service = module.get<ClerkWebhookService>(ClerkWebhookService);
   });
 
-  function spyVerify(event: ReturnType<typeof makeUserCreatedEvent>) {
+  function spyVerify(event: ReturnType<typeof makeUserEvent>) {
     jest.spyOn(service as any, 'verifyWebhook').mockReturnValue(event);
   }
 
@@ -101,9 +121,20 @@ describe('ClerkWebhookService', () => {
 
   describe('user.created — no existing user', () => {
     it('creates a new internal user with status ACTIVE and platformRole USER', async () => {
-      spyVerify(makeUserCreatedEvent('clerk_new', 'new@example.com'));
-      mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.user.create.mockResolvedValue({} as User);
+      spyVerify(
+        makeUserEvent(
+          'user.created',
+          'clerk_new',
+          'new@example.com',
+          'email_1',
+          '050-123-4567',
+        ),
+      );
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // byClerkId
+        .mockResolvedValueOnce(null) // byPhoneNormalized
+        .mockResolvedValueOnce(null); // byEmail
+      mockPrisma.user.create.mockResolvedValue(makeUser());
 
       await service.handleEvent(
         RAW_BODY,
@@ -116,6 +147,7 @@ describe('ClerkWebhookService', () => {
         data: {
           clerkUserId: 'clerk_new',
           email: 'new@example.com',
+          phoneNormalized: '+972501234567',
           status: 'ACTIVE',
           platformRole: 'USER',
         },
@@ -128,26 +160,68 @@ describe('ClerkWebhookService', () => {
     });
   });
 
-  describe('user.created — invited user exists by email', () => {
-    it('links clerkUserId and sets status ACTIVE on the existing user', async () => {
-      const existingUser: User = {
+  describe('user.created — invited user exists by phone', () => {
+    it('links clerkUserId by phone and sets status ACTIVE', async () => {
+      const invited = makeUser({
+        id: 'user-invited',
+        clerkUserId: null,
+        phoneNormalized: '+972501234567',
+        email: 'owner@example.com',
+        status: 'INVITED',
+      });
+
+      spyVerify(
+        makeUserEvent(
+          'user.created',
+          'clerk_owner',
+          'owner@example.com',
+          'email_1',
+          '050-123-4567',
+        ),
+      );
+
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // byClerkId → miss
+        .mockResolvedValueOnce(invited); // byPhone → hit
+      mockPrisma.user.update.mockResolvedValue(makeUser());
+
+      await service.handleEvent(
+        RAW_BODY,
+        SVIX_HEADERS.svixId,
+        SVIX_HEADERS.svixTimestamp,
+        SVIX_HEADERS.svixSignature,
+      );
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-invited' },
+        data: {
+          clerkUserId: 'clerk_owner',
+          status: 'ACTIVE',
+          email: 'owner@example.com',
+        },
+      });
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('user.created — invited user exists by email (no phone in event)', () => {
+    it('links clerkUserId by email fallback and sets status ACTIVE', async () => {
+      const invited = makeUser({
         id: 'user-invited',
         clerkUserId: null,
         email: 'owner@example.com',
-        phone: null,
         status: 'INVITED',
-        platformRole: 'USER',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
-      spyVerify(makeUserCreatedEvent('clerk_owner', 'owner@example.com'));
+      // Event has no phone — tests email fallback path
+      spyVerify(
+        makeUserEvent('user.created', 'clerk_owner', 'owner@example.com'),
+      );
 
       mockPrisma.user.findUnique
-        .mockResolvedValueOnce(null) // byClerkId
-        .mockResolvedValueOnce(existingUser); // byEmail
-
-      mockPrisma.user.update.mockResolvedValue({} as User);
+        .mockResolvedValueOnce(null) // byClerkId → miss
+        .mockResolvedValueOnce(invited); // byEmail → hit
+      mockPrisma.user.update.mockResolvedValue(makeUser());
 
       await service.handleEvent(
         RAW_BODY,
@@ -166,30 +240,18 @@ describe('ClerkWebhookService', () => {
 
   describe('user.updated — user already linked by clerkUserId', () => {
     it('updates email when it has changed', async () => {
-      const existingUser: User = {
+      const existingUser = makeUser({
         id: 'user-linked',
         clerkUserId: 'clerk_existing',
         email: 'old@example.com',
-        phone: null,
-        status: 'ACTIVE',
-        platformRole: 'USER',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      jest.spyOn(service as any, 'verifyWebhook').mockReturnValue({
-        type: 'user.updated',
-        data: {
-          id: 'clerk_existing',
-          email_addresses: [
-            { id: 'email_1', email_address: 'new@example.com' },
-          ],
-          primary_email_address_id: 'email_1',
-        },
       });
 
+      spyVerify(
+        makeUserEvent('user.updated', 'clerk_existing', 'new@example.com'),
+      );
+
       mockPrisma.user.findUnique.mockResolvedValueOnce(existingUser);
-      mockPrisma.user.update.mockResolvedValue({} as User);
+      mockPrisma.user.update.mockResolvedValue(makeUser());
 
       await service.handleEvent(
         RAW_BODY,
@@ -205,27 +267,15 @@ describe('ClerkWebhookService', () => {
     });
 
     it('skips update when email is unchanged', async () => {
-      const existingUser: User = {
+      const existingUser = makeUser({
         id: 'user-linked',
         clerkUserId: 'clerk_existing',
         email: 'same@example.com',
-        phone: null,
-        status: 'ACTIVE',
-        platformRole: 'USER',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      jest.spyOn(service as any, 'verifyWebhook').mockReturnValue({
-        type: 'user.updated',
-        data: {
-          id: 'clerk_existing',
-          email_addresses: [
-            { id: 'email_1', email_address: 'same@example.com' },
-          ],
-          primary_email_address_id: 'email_1',
-        },
       });
+
+      spyVerify(
+        makeUserEvent('user.updated', 'clerk_existing', 'same@example.com'),
+      );
 
       mockPrisma.user.findUnique.mockResolvedValueOnce(existingUser);
 
@@ -241,18 +291,15 @@ describe('ClerkWebhookService', () => {
     });
   });
 
-  describe('missing primary email', () => {
-    it('throws BadRequestException when primary_email_address_id has no match', async () => {
-      jest.spyOn(service as any, 'verifyWebhook').mockReturnValue({
-        type: 'user.created',
-        data: {
-          id: 'clerk_noemail',
-          email_addresses: [
-            { id: 'email_other', email_address: 'other@example.com' },
-          ],
-          primary_email_address_id: 'email_missing',
-        },
-      });
+  describe('user.created — no phone and no existing user', () => {
+    it('throws BadRequestException when event has no phone and user cannot be created', async () => {
+      // No phone in event → cannot create new user
+      spyVerify(
+        makeUserEvent('user.created', 'clerk_nophone', 'nophone@example.com'),
+      );
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // byClerkId
+        .mockResolvedValueOnce(null); // byEmail
 
       await expect(
         service.handleEvent(

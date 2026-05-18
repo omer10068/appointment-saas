@@ -1,8 +1,11 @@
 import {
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 
@@ -13,9 +16,13 @@ export class UpdateStaffMemberDto {
   @IsOptional()
   displayName?: string;
 
-  @IsString()
+  // When provided, replaces all service links for this StaffMember.
+  // If the StaffMember is active, at least one serviceId is required.
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('all', { each: true })
   @IsOptional()
-  businessUserId?: string | null;
+  serviceIds?: string[];
 
   @IsBoolean()
   @IsOptional()
