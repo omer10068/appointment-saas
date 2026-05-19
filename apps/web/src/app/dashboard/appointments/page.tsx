@@ -8,7 +8,7 @@ import type {
   DashboardAppointmentDto,
   DashboardCustomerDto,
   DashboardServiceDto,
-  DashboardStaffMemberDto,
+  DashboardServiceProviderDto,
   UpdateAppointmentPayload,
 } from '@appointment/contracts';
 import { useDashboardBusiness } from '../_business/useDashboardBusiness';
@@ -19,7 +19,7 @@ import {
   fetchDashboardAppointments,
   fetchDashboardCustomers,
   fetchDashboardServices,
-  fetchDashboardStaff,
+  fetchDashboardServiceProviders,
   updateDashboardAppointment,
   updateDashboardAppointmentStatus,
 } from '../../../lib/api';
@@ -77,19 +77,19 @@ function formatDateTime(dateStr: string, locale: string): string {
 interface FormState {
   businessCustomerId: string;
   serviceId: string;
-  staffMemberId: string;
+  serviceProviderId: string;
   startsAt: string;
 }
 
 function emptyForm(): FormState {
-  return { businessCustomerId: '', serviceId: '', staffMemberId: '', startsAt: '' };
+  return { businessCustomerId: '', serviceId: '', serviceProviderId: '', startsAt: '' };
 }
 
 function apptToForm(a: DashboardAppointmentDto): FormState {
   return {
     businessCustomerId: a.businessCustomerId,
     serviceId: a.serviceId,
-    staffMemberId: a.staffMemberId,
+    serviceProviderId: a.serviceProviderId,
     startsAt: a.startsAt.slice(0, 16),
   };
 }
@@ -123,7 +123,7 @@ function AppointmentRow({
         <p className="text-sm text-gray-600 dark:text-gray-400">{appt.serviceName}</p>
       </td>
       <td className="px-4 py-3">
-        <p className="text-sm text-gray-600 dark:text-gray-400">{appt.staffMemberName ?? '—'}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{appt.serviceProviderName ?? '—'}</p>
       </td>
       <td className="px-4 py-3">
         <p className="text-sm text-gray-600 dark:text-gray-400">{formatDateTime(appt.startsAt, locale)}</p>
@@ -196,7 +196,7 @@ function AppointmentModal({
   setForm: (f: FormState) => void;
   customers: DashboardCustomerDto[];
   services: DashboardServiceDto[];
-  staff: DashboardStaffMemberDto[];
+  staff: DashboardServiceProviderDto[];
   t: ReturnType<typeof useDashboardI18n>['appointmentForm'];
   onSave: () => void;
   onClose: () => void;
@@ -204,7 +204,7 @@ function AppointmentModal({
 }) {
   const isEdit = editing !== null;
   const activeStaff = staff.filter((s) => s.isActive);
-  const selectedStaff = activeStaff.find((s) => s.id === form.staffMemberId);
+  const selectedStaff = activeStaff.find((s) => s.id === form.serviceProviderId);
   const availableServices = isEdit
     ? services.filter((s) => s.isActive)
     : selectedStaff
@@ -245,13 +245,13 @@ function AppointmentModal({
               {t.staff} *
             </label>
             {isEdit ? (
-              <p className="text-sm text-gray-600 dark:text-gray-400">{editing.staffMemberName}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{editing.serviceProviderName}</p>
             ) : (
               <select
                 required
-                value={form.staffMemberId}
+                value={form.serviceProviderId}
                 onChange={(e) =>
-                  setForm({ ...form, staffMemberId: e.target.value, serviceId: '' })
+                  setForm({ ...form, serviceProviderId: e.target.value, serviceId: '' })
                 }
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
@@ -274,7 +274,7 @@ function AppointmentModal({
                 required
                 value={form.serviceId}
                 onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
-                disabled={!form.staffMemberId}
+                disabled={!form.serviceProviderId}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50"
               >
                 <option value="">{t.noServices}</option>
@@ -335,7 +335,7 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<DashboardAppointmentDto[]>([]);
   const [customers, setCustomers] = useState<DashboardCustomerDto[]>([]);
   const [services, setServices] = useState<DashboardServiceDto[]>([]);
-  const [staff, setStaff] = useState<DashboardStaffMemberDto[]>([]);
+  const [staff, setStaff] = useState<DashboardServiceProviderDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -363,7 +363,7 @@ export default function AppointmentsPage() {
       fetchDashboardAppointments(businessId, gt),
       fetchDashboardCustomers(businessId, gt),
       fetchDashboardServices(businessId, gt),
-      fetchDashboardStaff(businessId, gt),
+      fetchDashboardServiceProviders(businessId, gt),
     ])
       .then(([appts, custs, svcs, stf]) => {
         if (cancelled) return;
@@ -410,8 +410,8 @@ export default function AppointmentsPage() {
     try {
       if (editing) {
         const payload: UpdateAppointmentPayload = {
-          ...(form.staffMemberId && form.staffMemberId !== editing.staffMemberId && {
-            staffMemberId: form.staffMemberId,
+          ...(form.serviceProviderId && form.serviceProviderId !== editing.serviceProviderId && {
+            serviceProviderId: form.serviceProviderId,
           }),
           ...(form.startsAt && form.startsAt !== editing.startsAt.slice(0, 16) && {
             startsAt: new Date(form.startsAt).toISOString(),
@@ -420,14 +420,14 @@ export default function AppointmentsPage() {
         const updated = await updateDashboardAppointment(businessId, editing.id, payload, gt);
         setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
       } else {
-        if (!form.businessCustomerId || !form.serviceId || !form.staffMemberId || !form.startsAt) {
+        if (!form.businessCustomerId || !form.serviceId || !form.serviceProviderId || !form.startsAt) {
           setSaveError(tf.saveError);
           return;
         }
         const payload: CreateAppointmentPayload = {
           businessCustomerId: form.businessCustomerId,
           serviceId: form.serviceId,
-          staffMemberId: form.staffMemberId,
+          serviceProviderId: form.serviceProviderId,
           startsAt: new Date(form.startsAt).toISOString(),
         };
         const created = await createDashboardAppointment(businessId, payload, gt);

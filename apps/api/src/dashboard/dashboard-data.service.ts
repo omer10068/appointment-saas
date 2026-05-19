@@ -13,8 +13,8 @@ import type { UpdateServiceDto } from './dto/update-service.dto';
 import type { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
 import type { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
 import type { CreateBusinessUserDto } from './dto/create-business-user.dto';
-import type { CreateStaffMemberDto } from './dto/create-staff-member.dto';
-import type { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
+import type { CreateServiceProviderDto } from './dto/create-service-provider.dto';
+import type { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
 
 export interface ServiceDto {
   id: string;
@@ -37,7 +37,7 @@ export interface CustomerDto {
   notes: string | null;
 }
 
-export interface StaffMemberDto {
+export interface ServiceProviderDto {
   id: string;
   displayName: string;
   isActive: boolean;
@@ -52,7 +52,7 @@ export interface BusinessUserDto {
   userId: string;
   role: string;
   status: string;
-  hasStaffProfile: boolean;
+  hasServiceProviderProfile: boolean;
 }
 
 export interface BusinessUserCreatedDto {
@@ -63,11 +63,11 @@ export interface BusinessUserCreatedDto {
   status: string;
   phoneNormalized: string;
   email: string | null;
-  staffMemberId: string | null;
+  serviceProviderId: string | null;
 }
 
 export interface BusinessReadinessDto {
-  hasActiveStaff: boolean;
+  hasActiveServiceProviders: boolean;
   hasActiveService: boolean;
   isReady: boolean;
 }
@@ -90,7 +90,7 @@ const SERVICE_SELECT = {
   bufferAfterMin: true,
 } as const;
 
-const STAFF_SELECT = {
+const SERVICE_PROVIDER_SELECT = {
   id: true,
   displayName: true,
   isActive: true,
@@ -128,17 +128,17 @@ export class DashboardDataService {
     return records.map(mapToCustomerDto);
   }
 
-  async getStaff(
+  async getServiceProviders(
     userId: string,
     businessId: string,
-  ): Promise<StaffMemberDto[]> {
+  ): Promise<ServiceProviderDto[]> {
     await this.assertAccess(userId, businessId);
-    const records = await this.prisma.staffMember.findMany({
+    const records = await this.prisma.serviceProvider.findMany({
       where: { businessId },
       orderBy: { displayName: 'asc' },
-      select: STAFF_SELECT,
+      select: SERVICE_PROVIDER_SELECT,
     });
-    return records.map(toStaffDto);
+    return records.map(toServiceProviderDto);
   }
 
   async getBusinessUsers(
@@ -154,7 +154,7 @@ export class DashboardDataService {
         userId: true,
         role: true,
         status: true,
-        staffMember: { select: { id: true } },
+        serviceProvider: { select: { id: true } },
       },
     });
     return records.map((bu) => ({
@@ -162,7 +162,7 @@ export class DashboardDataService {
       userId: bu.userId,
       role: bu.role,
       status: bu.status,
-      hasStaffProfile: bu.staffMember !== null,
+      hasServiceProviderProfile: bu.serviceProvider !== null,
     }));
   }
 
@@ -206,7 +206,7 @@ export class DashboardDataService {
         },
       });
 
-      const staffMember = await tx.staffMember.findUnique({
+      const serviceProvider = await tx.serviceProvider.findUnique({
         where: { businessUserId: bu.id },
         select: { id: true },
       });
@@ -219,7 +219,7 @@ export class DashboardDataService {
         status: bu.status,
         phoneNormalized: user.phoneNormalized,
         email: user.email,
-        staffMemberId: staffMember?.id ?? null,
+        serviceProviderId: serviceProvider?.id ?? null,
       };
     });
   }
@@ -252,16 +252,18 @@ export class DashboardDataService {
     businessId: string,
   ): Promise<BusinessReadinessDto> {
     await this.assertAccess(userId, businessId);
-    const [activeStaffCount, activeServiceCount] = await Promise.all([
-      this.prisma.staffMember.count({ where: { businessId, isActive: true } }),
+    const [activeServiceProviderCount, activeServiceCount] = await Promise.all([
+      this.prisma.serviceProvider.count({
+        where: { businessId, isActive: true },
+      }),
       this.prisma.service.count({ where: { businessId, isActive: true } }),
     ]);
-    const hasActiveStaff = activeStaffCount > 0;
+    const hasActiveServiceProviders = activeServiceProviderCount > 0;
     const hasActiveService = activeServiceCount > 0;
     return {
-      hasActiveStaff,
+      hasActiveServiceProviders,
       hasActiveService,
-      isReady: hasActiveStaff && hasActiveService,
+      isReady: hasActiveServiceProviders && hasActiveService,
     };
   }
 
@@ -483,13 +485,13 @@ export class DashboardDataService {
     };
   }
 
-  // ─── Staff mutations ──────────────────────────────────────────────────────────
+  // ─── ServiceProvider mutations ────────────────────────────────────────────────
 
-  async createStaffMember(
+  async createServiceProvider(
     userId: string,
     businessId: string,
-    dto: CreateStaffMemberDto,
-  ): Promise<StaffMemberDto> {
+    dto: CreateServiceProviderDto,
+  ): Promise<ServiceProviderDto> {
     await this.assertMutationAccess(userId, businessId);
 
     const businessUser = await this.prisma.businessUser.findFirst({
@@ -505,17 +507,17 @@ export class DashboardDataService {
     const isActive = dto.isActive ?? true;
     if (isActive && businessUser.status !== 'ACTIVE') {
       throw new BadRequestException(
-        'Cannot create an active StaffMember for a non-ACTIVE BusinessUser',
+        'Cannot create an active ServiceProvider for a non-ACTIVE BusinessUser',
       );
     }
 
-    const duplicate = await this.prisma.staffMember.findUnique({
+    const duplicate = await this.prisma.serviceProvider.findUnique({
       where: { businessUserId: dto.businessUserId },
       select: { id: true },
     });
     if (duplicate) {
       throw new ConflictException(
-        'This BusinessUser already has a StaffMember profile',
+        'This BusinessUser already has a ServiceProvider profile',
       );
     }
 
@@ -530,12 +532,12 @@ export class DashboardDataService {
     }
     if (isActive && services.some((s) => !s.isActive)) {
       throw new BadRequestException(
-        'Active StaffMember cannot be linked to inactive services',
+        'Active ServiceProvider cannot be linked to inactive services',
       );
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const staff = await tx.staffMember.create({
+      const sp = await tx.serviceProvider.create({
         data: {
           businessId,
           displayName: dto.displayName,
@@ -543,33 +545,33 @@ export class DashboardDataService {
           isActive,
         },
       });
-      await tx.staffMemberService.createMany({
+      await tx.serviceProviderService.createMany({
         data: dto.serviceIds.map((serviceId) => ({
-          staffMemberId: staff.id,
+          serviceProviderId: sp.id,
           serviceId,
         })),
       });
       return {
-        id: staff.id,
-        displayName: staff.displayName,
-        isActive: staff.isActive,
-        businessUserId: staff.businessUserId,
+        id: sp.id,
+        displayName: sp.displayName,
+        isActive: sp.isActive,
+        businessUserId: sp.businessUserId,
         serviceIds: dto.serviceIds,
-        createdAt: staff.createdAt,
-        updatedAt: staff.updatedAt,
+        createdAt: sp.createdAt,
+        updatedAt: sp.updatedAt,
       };
     });
   }
 
-  async updateStaffMember(
+  async updateServiceProvider(
     userId: string,
     businessId: string,
-    staffMemberId: string,
-    dto: UpdateStaffMemberDto,
-  ): Promise<StaffMemberDto> {
+    serviceProviderId: string,
+    dto: UpdateServiceProviderDto,
+  ): Promise<ServiceProviderDto> {
     await this.assertMutationAccess(userId, businessId);
-    const existing = await this.prisma.staffMember.findFirst({
-      where: { id: staffMemberId, businessId },
+    const existing = await this.prisma.serviceProvider.findFirst({
+      where: { id: serviceProviderId, businessId },
       select: {
         id: true,
         isActive: true,
@@ -577,14 +579,14 @@ export class DashboardDataService {
         services: { select: { serviceId: true } },
       },
     });
-    if (!existing) throw new NotFoundException('Staff member not found');
+    if (!existing) throw new NotFoundException('Service provider not found');
 
     const effectiveIsActive = dto.isActive ?? existing.isActive;
 
     if (dto.serviceIds !== undefined) {
       if (effectiveIsActive && dto.serviceIds.length === 0) {
         throw new BadRequestException(
-          'Active StaffMember must have at least one service',
+          'Active ServiceProvider must have at least one service',
         );
       }
       if (dto.serviceIds.length > 0) {
@@ -599,7 +601,7 @@ export class DashboardDataService {
         }
         if (effectiveIsActive && services.some((s) => !s.isActive)) {
           throw new BadRequestException(
-            'Active StaffMember cannot be linked to inactive services',
+            'Active ServiceProvider cannot be linked to inactive services',
           );
         }
       }
@@ -607,62 +609,62 @@ export class DashboardDataService {
       // No serviceIds in update — check that current links are still valid when activating
       if (effectiveIsActive && existing.services.length === 0) {
         throw new BadRequestException(
-          'Cannot activate StaffMember with no services',
+          'Cannot activate ServiceProvider with no services',
         );
       }
     }
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.serviceIds !== undefined) {
-        await tx.staffMemberService.deleteMany({
-          where: { staffMemberId },
+        await tx.serviceProviderService.deleteMany({
+          where: { serviceProviderId },
         });
         if (dto.serviceIds.length > 0) {
-          await tx.staffMemberService.createMany({
+          await tx.serviceProviderService.createMany({
             data: dto.serviceIds.map((serviceId) => ({
-              staffMemberId,
+              serviceProviderId,
               serviceId,
             })),
           });
         }
       }
 
-      const updated = await tx.staffMember.update({
-        where: { id: staffMemberId },
+      const updated = await tx.serviceProvider.update({
+        where: { id: serviceProviderId },
         data: {
           ...(dto.displayName !== undefined && {
             displayName: dto.displayName,
           }),
           ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         },
-        select: STAFF_SELECT,
+        select: SERVICE_PROVIDER_SELECT,
       });
 
-      return toStaffDto(updated);
+      return toServiceProviderDto(updated);
     });
   }
 
-  async setStaffMemberStatus(
+  async setServiceProviderStatus(
     userId: string,
     businessId: string,
-    staffMemberId: string,
+    serviceProviderId: string,
     isActive: boolean,
-  ): Promise<StaffMemberDto> {
+  ): Promise<ServiceProviderDto> {
     await this.assertMutationAccess(userId, businessId);
-    const existing = await this.prisma.staffMember.findFirst({
-      where: { id: staffMemberId, businessId },
+    const existing = await this.prisma.serviceProvider.findFirst({
+      where: { id: serviceProviderId, businessId },
       select: {
         id: true,
         businessUserId: true,
         services: { select: { serviceId: true } },
       },
     });
-    if (!existing) throw new NotFoundException('Staff member not found');
+    if (!existing) throw new NotFoundException('Service provider not found');
 
     if (isActive) {
       if (existing.services.length === 0) {
         throw new BadRequestException(
-          'Cannot activate StaffMember with no services',
+          'Cannot activate ServiceProvider with no services',
         );
       }
       const businessUser = await this.prisma.businessUser.findUnique({
@@ -671,17 +673,17 @@ export class DashboardDataService {
       });
       if (!businessUser || businessUser.status !== 'ACTIVE') {
         throw new BadRequestException(
-          'Cannot activate StaffMember whose linked BusinessUser is not ACTIVE',
+          'Cannot activate ServiceProvider whose linked BusinessUser is not ACTIVE',
         );
       }
     }
 
-    const updated = await this.prisma.staffMember.update({
-      where: { id: staffMemberId },
+    const updated = await this.prisma.serviceProvider.update({
+      where: { id: serviceProviderId },
       data: { isActive },
-      select: STAFF_SELECT,
+      select: SERVICE_PROVIDER_SELECT,
     });
-    return toStaffDto(updated);
+    return toServiceProviderDto(updated);
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────
@@ -738,7 +740,7 @@ export class DashboardDataService {
 
 // ─── Shared mappers ───────────────────────────────────────────────────────────
 
-function toStaffDto(row: {
+function toServiceProviderDto(row: {
   id: string;
   displayName: string;
   isActive: boolean;
@@ -746,7 +748,7 @@ function toStaffDto(row: {
   createdAt: Date;
   updatedAt: Date;
   services: { serviceId: string }[];
-}): StaffMemberDto {
+}): ServiceProviderDto {
   return {
     id: row.id,
     displayName: row.displayName,

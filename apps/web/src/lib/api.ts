@@ -4,14 +4,14 @@ import type {
   CreateBusinessUserPayload,
   CreateCustomerPayload,
   CreateServicePayload,
-  CreateStaffMemberPayload,
+  CreateServiceProviderPayload,
   DashboardAppointmentDto,
   DashboardAvailabilityExceptionDto,
   DashboardBusinessUserCreatedDto,
   DashboardBusinessUserDto,
   DashboardCustomerDto,
   DashboardServiceDto,
-  DashboardStaffMemberDto,
+  DashboardServiceProviderDto,
   DashboardSummaryDto,
   DashboardWorkingHourDto,
   UpdateAppointmentPayload,
@@ -20,8 +20,8 @@ import type {
   UpdateCustomerPayload,
   UpdateCustomerStatusPayload,
   UpdateServicePayload,
-  UpdateStaffMemberPayload,
-  UpdateStaffMemberStatusPayload,
+  UpdateServiceProviderPayload,
+  UpdateServiceProviderStatusPayload,
   UpdateWorkingHoursPayload,
 } from '@appointment/contracts';
 
@@ -205,53 +205,53 @@ export function createDashboardBusinessUser(
   );
 }
 
-// ─── Staff (read) ─────────────────────────────────────────────────────────────
+// ─── Service providers (read) ─────────────────────────────────────────────────
 
-export function fetchDashboardStaff(
+export function fetchDashboardServiceProviders(
   businessId: string,
   getToken: () => Promise<string | null>,
-): Promise<DashboardStaffMemberDto[]> {
+): Promise<DashboardServiceProviderDto[]> {
   return fetchWithAuth(
-    `/dashboard/businesses/${businessId}/staff`,
+    `/dashboard/businesses/${businessId}/service-providers`,
     getToken,
   );
 }
 
-// ─── Staff (mutations) ────────────────────────────────────────────────────────
+// ─── Service providers (mutations) ────────────────────────────────────────────
 
-export function createDashboardStaffMember(
+export function createDashboardServiceProvider(
   businessId: string,
-  payload: CreateStaffMemberPayload,
+  payload: CreateServiceProviderPayload,
   getToken: () => Promise<string | null>,
-): Promise<DashboardStaffMemberDto> {
+): Promise<DashboardServiceProviderDto> {
   return fetchWithAuth(
-    `/dashboard/businesses/${businessId}/staff`,
+    `/dashboard/businesses/${businessId}/service-providers`,
     getToken,
     { method: 'POST', body: payload },
   );
 }
 
-export function updateDashboardStaffMember(
+export function updateDashboardServiceProvider(
   businessId: string,
-  staffMemberId: string,
-  payload: UpdateStaffMemberPayload,
+  serviceProviderId: string,
+  payload: UpdateServiceProviderPayload,
   getToken: () => Promise<string | null>,
-): Promise<DashboardStaffMemberDto> {
+): Promise<DashboardServiceProviderDto> {
   return fetchWithAuth(
-    `/dashboard/businesses/${businessId}/staff/${staffMemberId}`,
+    `/dashboard/businesses/${businessId}/service-providers/${serviceProviderId}`,
     getToken,
     { method: 'PATCH', body: payload },
   );
 }
 
-export function updateDashboardStaffMemberStatus(
+export function updateDashboardServiceProviderStatus(
   businessId: string,
-  staffMemberId: string,
-  payload: UpdateStaffMemberStatusPayload,
+  serviceProviderId: string,
+  payload: UpdateServiceProviderStatusPayload,
   getToken: () => Promise<string | null>,
-): Promise<DashboardStaffMemberDto> {
+): Promise<DashboardServiceProviderDto> {
   return fetchWithAuth(
-    `/dashboard/businesses/${businessId}/staff/${staffMemberId}/status`,
+    `/dashboard/businesses/${businessId}/service-providers/${serviceProviderId}/status`,
     getToken,
     { method: 'PATCH', body: payload },
   );
@@ -281,27 +281,27 @@ export function updateBusinessWorkingHours(
   );
 }
 
-// ─── Working hours (staff) ────────────────────────────────────────────────────
+// ─── Working hours (service provider) ────────────────────────────────────────
 
-export function fetchStaffWorkingHours(
+export function fetchServiceProviderWorkingHours(
   businessId: string,
-  staffMemberId: string,
+  serviceProviderId: string,
   getToken: () => Promise<string | null>,
 ): Promise<DashboardWorkingHourDto[]> {
   return fetchWithAuth(
-    `/dashboard/businesses/${businessId}/staff/${staffMemberId}/working-hours`,
+    `/dashboard/businesses/${businessId}/service-providers/${serviceProviderId}/working-hours`,
     getToken,
   );
 }
 
-export function updateStaffWorkingHours(
+export function updateServiceProviderWorkingHours(
   businessId: string,
-  staffMemberId: string,
+  serviceProviderId: string,
   payload: UpdateWorkingHoursPayload,
   getToken: () => Promise<string | null>,
 ): Promise<DashboardWorkingHourDto[]> {
   return fetchWithAuth(
-    `/dashboard/businesses/${businessId}/staff/${staffMemberId}/working-hours`,
+    `/dashboard/businesses/${businessId}/service-providers/${serviceProviderId}/working-hours`,
     getToken,
     { method: 'PUT', body: payload },
   );

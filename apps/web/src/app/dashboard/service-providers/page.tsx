@@ -3,22 +3,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import type {
-  CreateStaffMemberPayload,
+  CreateServiceProviderPayload,
   DashboardBusinessUserDto,
   DashboardServiceDto,
-  DashboardStaffMemberDto,
-  UpdateStaffMemberPayload,
+  DashboardServiceProviderDto,
+  UpdateServiceProviderPayload,
 } from '@appointment/contracts';
 import { useDashboardBusiness } from '../_business/useDashboardBusiness';
 import { useDashboardI18n } from '../_i18n/useDashboardI18n';
 import { DashboardPageHeader } from '../_components/DashboardPageHeader';
 import {
-  createDashboardStaffMember,
+  createDashboardServiceProvider,
   fetchDashboardBusinessUsers,
   fetchDashboardServices,
-  fetchDashboardStaff,
-  updateDashboardStaffMember,
-  updateDashboardStaffMemberStatus,
+  fetchDashboardServiceProviders,
+  updateDashboardServiceProvider,
+  updateDashboardServiceProviderStatus,
 } from '../../../lib/api';
 
 // ─── Form state ───────────────────────────────────────────────────────────────
@@ -34,69 +34,69 @@ function emptyForm(): FormState {
   return { displayName: '', businessUserId: '', serviceIds: [], isActive: true };
 }
 
-function staffToForm(sm: DashboardStaffMemberDto): FormState {
+function providerToForm(sp: DashboardServiceProviderDto): FormState {
   return {
-    displayName: sm.displayName,
-    businessUserId: sm.businessUserId,
-    serviceIds: sm.serviceIds,
-    isActive: sm.isActive,
+    displayName: sp.displayName,
+    businessUserId: sp.businessUserId,
+    serviceIds: sp.serviceIds,
+    isActive: sp.isActive,
   };
 }
 
-// ─── Staff row ────────────────────────────────────────────────────────────────
+// ─── Service provider row ─────────────────────────────────────────────────────
 
-function StaffRow({
-  sm,
+function ServiceProviderRow({
+  sp,
   t,
   tf,
   onEdit,
   onToggleStatus,
   isUpdating,
 }: {
-  sm: DashboardStaffMemberDto;
+  sp: DashboardServiceProviderDto;
   t: ReturnType<typeof useDashboardI18n>['staffList'];
   tf: ReturnType<typeof useDashboardI18n>['staffForm'];
-  onEdit: (sm: DashboardStaffMemberDto) => void;
-  onToggleStatus: (sm: DashboardStaffMemberDto) => void;
+  onEdit: (sp: DashboardServiceProviderDto) => void;
+  onToggleStatus: (sp: DashboardServiceProviderDto) => void;
   isUpdating: boolean;
 }) {
   return (
     <tr className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
       <td className="px-4 py-3">
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-          {sm.displayName}
+          {sp.displayName}
         </p>
       </td>
       <td className="px-4 py-3">
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-            sm.isActive
+            sp.isActive
               ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800'
               : 'bg-gray-100 text-gray-500 border border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
           }`}
         >
-          {sm.isActive ? t.active : t.inactive}
+          {sp.isActive ? t.active : t.inactive}
         </span>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onEdit(sm)}
+            onClick={() => onEdit(sp)}
             disabled={isUpdating}
             className="text-xs px-2.5 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
           >
             {tf.editStaffMember}
           </button>
           <button
-            onClick={() => onToggleStatus(sm)}
+            onClick={() => onToggleStatus(sp)}
             disabled={isUpdating}
             className={`text-xs px-2.5 py-1 rounded border transition-colors disabled:opacity-40 ${
-              sm.isActive
+              sp.isActive
                 ? 'border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950'
                 : 'border-green-200 text-green-600 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950'
             }`}
           >
-            {sm.isActive ? tf.deactivate : tf.activate}
+            {sp.isActive ? tf.deactivate : tf.activate}
           </button>
         </div>
       </td>
@@ -106,8 +106,8 @@ function StaffRow({
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
-function StaffModal({
-  editingStaff,
+function ServiceProviderModal({
+  editingProvider,
   businessUsers,
   services,
   tf,
@@ -117,7 +117,7 @@ function StaffModal({
   isSaving,
   saveError,
 }: {
-  editingStaff: DashboardStaffMemberDto | null;
+  editingProvider: DashboardServiceProviderDto | null;
   businessUsers: DashboardBusinessUserDto[];
   services: DashboardServiceDto[];
   tf: ReturnType<typeof useDashboardI18n>['staffForm'];
@@ -128,7 +128,7 @@ function StaffModal({
   saveError: string | null;
 }) {
   const [form, setForm] = useState<FormState>(() =>
-    editingStaff ? staffToForm(editingStaff) : emptyForm(),
+    editingProvider ? providerToForm(editingProvider) : emptyForm(),
   );
 
   const set = (field: keyof FormState, value: string | boolean | string[]) =>
@@ -144,9 +144,9 @@ function StaffModal({
   }
 
   const activeServices = services.filter((s) => s.isActive);
-  const availableUsers = editingStaff
+  const availableUsers = editingProvider
     ? businessUsers
-    : businessUsers.filter((u) => !u.hasStaffProfile);
+    : businessUsers.filter((u) => !u.hasServiceProviderProfile);
 
   return (
     <div
@@ -161,7 +161,7 @@ function StaffModal({
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-            {editingStaff ? tf.editStaffMember : tf.addStaffMember}
+            {editingProvider ? tf.editStaffMember : tf.addStaffMember}
           </h2>
           <button
             onClick={onClose}
@@ -198,7 +198,7 @@ function StaffModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {tf.businessUser} *
             </label>
-            {editingStaff ? (
+            {editingProvider ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 py-1">
                 {businessUsers.find((u) => u.id === form.businessUserId)?.id ?? form.businessUserId}
               </p>
@@ -295,7 +295,7 @@ function StaffModal({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function StaffPage() {
+export default function ServiceProvidersPage() {
   const { currentBusiness } = useDashboardBusiness();
   const dict = useDashboardI18n();
   const t = dict.staffList;
@@ -305,15 +305,15 @@ export default function StaffPage() {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
-  const [staff, setStaff] = useState<DashboardStaffMemberDto[]>([]);
+  const [serviceProviders, setServiceProviders] = useState<DashboardServiceProviderDto[]>([]);
   const [businessUsers, setBusinessUsers] = useState<DashboardBusinessUserDto[]>([]);
   const [services, setServices] = useState<DashboardServiceDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingStaff, setEditingStaff] =
-    useState<DashboardStaffMemberDto | null>(null);
+  const [editingProvider, setEditingProvider] =
+    useState<DashboardServiceProviderDto | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -322,11 +322,11 @@ export default function StaffPage() {
 
   const businessId = currentBusiness?.business.id;
 
-  // ─── Load staff, business users, services ────────────────────────────────────
+  // ─── Load service providers, business users, services ────────────────────────
 
   useEffect(() => {
     if (!businessId) {
-      setStaff([]);
+      setServiceProviders([]);
       setBusinessUsers([]);
       setServices([]);
       setLoadError(null);
@@ -336,18 +336,18 @@ export default function StaffPage() {
     let cancelled = false;
     setIsLoading(true);
     setLoadError(null);
-    setStaff([]);
+    setServiceProviders([]);
 
     const gt = () => getTokenRef.current();
 
     Promise.all([
-      fetchDashboardStaff(businessId, gt),
+      fetchDashboardServiceProviders(businessId, gt),
       fetchDashboardBusinessUsers(businessId, gt),
       fetchDashboardServices(businessId, gt),
     ])
-      .then(([stf, users, svcs]) => {
+      .then(([providers, users, svcs]) => {
         if (cancelled) return;
-        setStaff(stf);
+        setServiceProviders(providers);
         setBusinessUsers(users);
         setServices(svcs);
       })
@@ -363,16 +363,16 @@ export default function StaffPage() {
     };
   }, [businessId, tf.loadError]);
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   function openCreate() {
-    setEditingStaff(null);
+    setEditingProvider(null);
     setSaveError(null);
     setModalOpen(true);
   }
 
-  function openEdit(sm: DashboardStaffMemberDto) {
-    setEditingStaff(sm);
+  function openEdit(sp: DashboardServiceProviderDto) {
+    setEditingProvider(sp);
     setSaveError(null);
     setModalOpen(true);
   }
@@ -386,7 +386,7 @@ export default function StaffPage() {
     setTimeout(() => setSuccessMessage(null), 3000);
   }
 
-  // ─── Save (create or update) ────────────────────────────────────────────────
+  // ─── Save (create or update) ──────────────────────────────────────────────────
 
   async function handleSave(form: FormState) {
     if (!businessId) return;
@@ -398,33 +398,35 @@ export default function StaffPage() {
     setSaveError(null);
 
     try {
-      if (editingStaff) {
-        const payload: UpdateStaffMemberPayload = {
+      if (editingProvider) {
+        const payload: UpdateServiceProviderPayload = {
           displayName: form.displayName,
           serviceIds: form.serviceIds,
           isActive: form.isActive,
         };
-        const updated = await updateDashboardStaffMember(
+        const updated = await updateDashboardServiceProvider(
           businessId,
-          editingStaff.id,
+          editingProvider.id,
           payload,
           () => getTokenRef.current(),
         );
-        setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+        setServiceProviders((prev) =>
+          prev.map((sp) => (sp.id === updated.id ? updated : sp)),
+        );
         showSuccess(tf.updatedSuccess);
       } else {
-        const payload: CreateStaffMemberPayload = {
+        const payload: CreateServiceProviderPayload = {
           displayName: form.displayName,
           businessUserId: form.businessUserId,
           serviceIds: form.serviceIds,
           isActive: form.isActive,
         };
-        const created = await createDashboardStaffMember(
+        const created = await createDashboardServiceProvider(
           businessId,
           payload,
           () => getTokenRef.current(),
         );
-        setStaff((prev) => [...prev, created]);
+        setServiceProviders((prev) => [...prev, created]);
         showSuccess(tf.createdSuccess);
       }
       setModalOpen(false);
@@ -435,19 +437,21 @@ export default function StaffPage() {
     }
   }
 
-  // ─── Toggle status ──────────────────────────────────────────────────────────
+  // ─── Toggle status ────────────────────────────────────────────────────────────
 
-  async function handleToggleStatus(sm: DashboardStaffMemberDto) {
+  async function handleToggleStatus(sp: DashboardServiceProviderDto) {
     if (!businessId) return;
-    setUpdatingId(sm.id);
+    setUpdatingId(sp.id);
     try {
-      const updated = await updateDashboardStaffMemberStatus(
+      const updated = await updateDashboardServiceProviderStatus(
         businessId,
-        sm.id,
-        { isActive: !sm.isActive },
+        sp.id,
+        { isActive: !sp.isActive },
         () => getTokenRef.current(),
       );
-      setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setServiceProviders((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p)),
+      );
       showSuccess(tf.updatedSuccess);
     } catch {
       // silent retry
@@ -456,13 +460,13 @@ export default function StaffPage() {
     }
   }
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <>
       {modalOpen && (
-        <StaffModal
-          editingStaff={editingStaff}
+        <ServiceProviderModal
+          editingProvider={editingProvider}
           businessUsers={businessUsers}
           services={services}
           tf={tf}
@@ -509,7 +513,7 @@ export default function StaffPage() {
             </button>
           </div>
 
-          {staff.length === 0 ? (
+          {serviceProviders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-gray-200 rounded-lg bg-white dark:border-gray-700 dark:bg-gray-800">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t.noStaffYet}
@@ -536,15 +540,15 @@ export default function StaffPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {staff.map((sm) => (
-                      <StaffRow
-                        key={sm.id}
-                        sm={sm}
+                    {serviceProviders.map((sp) => (
+                      <ServiceProviderRow
+                        key={sp.id}
+                        sp={sp}
                         t={t}
                         tf={tf}
                         onEdit={openEdit}
                         onToggleStatus={(s) => void handleToggleStatus(s)}
-                        isUpdating={updatingId === sm.id}
+                        isUpdating={updatingId === sp.id}
                       />
                     ))}
                   </tbody>

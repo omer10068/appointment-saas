@@ -9,7 +9,7 @@ import {
   MaxLength,
 } from 'class-validator';
 
-export class CreateStaffMemberDto {
+export class CreateServiceProviderDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

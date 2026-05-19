@@ -16,9 +16,9 @@ import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
 import { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
 import { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
 import { UpdateDashboardCustomerStatusDto } from './dto/update-dashboard-customer-status.dto';
-import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
-import { UpdateStaffMemberDto } from './dto/update-staff-member.dto';
-import { UpdateStaffMemberStatusDto } from './dto/update-staff-member-status.dto';
+import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
+import { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
+import { UpdateServiceProviderStatusDto } from './dto/update-service-provider-status.dto';
 import { CreateBusinessUserDto } from './dto/create-business-user.dto';
 import { DashboardDataService } from './dashboard-data.service';
 
@@ -137,57 +137,60 @@ export class DashboardDataController {
     );
   }
 
-  // ─── Staff (read) ────────────────────────────────────────────────────────────
+  // ─── Service providers (read) ─────────────────────────────────────────────────
 
-  @Get(':businessId/staff')
-  getStaff(
+  @Get(':businessId/service-providers')
+  getServiceProviders(
     @Param('businessId') businessId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.dashboardDataService.getStaff(req.user.id, businessId);
+    return this.dashboardDataService.getServiceProviders(
+      req.user.id,
+      businessId,
+    );
   }
 
-  // ─── Staff (mutations) ────────────────────────────────────────────────────────
+  // ─── Service providers (mutations) ────────────────────────────────────────────
 
-  @Post(':businessId/staff')
-  createStaffMember(
+  @Post(':businessId/service-providers')
+  createServiceProvider(
     @Param('businessId') businessId: string,
-    @Body() dto: CreateStaffMemberDto,
+    @Body() dto: CreateServiceProviderDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.dashboardDataService.createStaffMember(
+    return this.dashboardDataService.createServiceProvider(
       req.user.id,
       businessId,
       dto,
     );
   }
 
-  @Patch(':businessId/staff/:staffMemberId')
-  updateStaffMember(
+  @Patch(':businessId/service-providers/:serviceProviderId')
+  updateServiceProvider(
     @Param('businessId') businessId: string,
-    @Param('staffMemberId') staffMemberId: string,
-    @Body() dto: UpdateStaffMemberDto,
+    @Param('serviceProviderId') serviceProviderId: string,
+    @Body() dto: UpdateServiceProviderDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.dashboardDataService.updateStaffMember(
+    return this.dashboardDataService.updateServiceProvider(
       req.user.id,
       businessId,
-      staffMemberId,
+      serviceProviderId,
       dto,
     );
   }
 
-  @Patch(':businessId/staff/:staffMemberId/status')
-  setStaffMemberStatus(
+  @Patch(':businessId/service-providers/:serviceProviderId/status')
+  setServiceProviderStatus(
     @Param('businessId') businessId: string,
-    @Param('staffMemberId') staffMemberId: string,
-    @Body() dto: UpdateStaffMemberStatusDto,
+    @Param('serviceProviderId') serviceProviderId: string,
+    @Body() dto: UpdateServiceProviderStatusDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.dashboardDataService.setStaffMemberStatus(
+    return this.dashboardDataService.setServiceProviderStatus(
       req.user.id,
       businessId,
-      staffMemberId,
+      serviceProviderId,
       dto.isActive,
     );
   }

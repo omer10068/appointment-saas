@@ -26,11 +26,11 @@ export interface DashboardBusinessUserDto {
   userId: string;
   role: string;
   status: string;
-  hasStaffProfile: boolean;
+  hasServiceProviderProfile: boolean;
 }
 
 export interface DashboardBusinessReadinessDto {
-  hasActiveStaff: boolean;
+  hasActiveServiceProviders: boolean;
   hasActiveService: boolean;
   isReady: boolean;
 }
@@ -58,7 +58,7 @@ export interface DashboardBusinessUserCreatedDto {
   status: string;
   phoneNormalized: string;
   email: string | null;
-  staffMemberId: string | null;
+  serviceProviderId: string | null;
 }
 
 // ─── Service payloads ─────────────────────────────────────────────────────────
@@ -104,9 +104,9 @@ export interface UpdateCustomerStatusPayload {
   status: CustomerStatus;
 }
 
-// ─── Staff payloads ───────────────────────────────────────────────────────────
+// ─── Service provider payloads ────────────────────────────────────────────────
 
-export interface DashboardStaffMemberDto {
+export interface DashboardServiceProviderDto {
   id: string;
   displayName: string;
   isActive: boolean;
@@ -116,20 +116,20 @@ export interface DashboardStaffMemberDto {
   updatedAt: string;
 }
 
-export interface CreateStaffMemberPayload {
+export interface CreateServiceProviderPayload {
   displayName: string;
   businessUserId: string;
   serviceIds: string[];
   isActive?: boolean;
 }
 
-export interface UpdateStaffMemberPayload {
+export interface UpdateServiceProviderPayload {
   displayName?: string;
   serviceIds?: string[];
   isActive?: boolean;
 }
 
-export interface UpdateStaffMemberStatusPayload {
+export interface UpdateServiceProviderStatusPayload {
   isActive: boolean;
 }
 
@@ -159,7 +159,7 @@ export interface UpdateWorkingHoursPayload {
 export interface DashboardAvailabilityExceptionDto {
   id: string;
   businessId: string;
-  staffMemberId: string | null;
+  serviceProviderId: string | null;
   date: string;
   startTime: string | null;
   endTime: string | null;
@@ -170,7 +170,7 @@ export interface DashboardAvailabilityExceptionDto {
 
 export interface CreateAvailabilityExceptionPayload {
   date: string;
-  staffMemberId?: string | null;
+  serviceProviderId?: string | null;
   isClosed: boolean;
   startTime?: string | null;
   endTime?: string | null;
@@ -178,7 +178,7 @@ export interface CreateAvailabilityExceptionPayload {
 }
 
 export interface UpdateAvailabilityExceptionPayload {
-  staffMemberId?: string | null;
+  serviceProviderId?: string | null;
   isClosed?: boolean;
   startTime?: string | null;
   endTime?: string | null;
@@ -194,8 +194,8 @@ export interface DashboardAppointmentDto {
   customerName: string;
   serviceId: string;
   serviceName: string;
-  staffMemberId: string;
-  staffMemberName: string;
+  serviceProviderId: string;
+  serviceProviderName: string;
   startsAt: string;
   endsAt: string;
   status: AppointmentStatus;
@@ -206,13 +206,13 @@ export interface DashboardAppointmentDto {
 export interface CreateAppointmentPayload {
   businessCustomerId: string;
   serviceId: string;
-  staffMemberId: string;
+  serviceProviderId: string;
   startsAt: string;
 }
 
 export interface UpdateAppointmentPayload {
   serviceId?: string;
-  staffMemberId?: string;
+  serviceProviderId?: string;
   startsAt?: string;
 }
 

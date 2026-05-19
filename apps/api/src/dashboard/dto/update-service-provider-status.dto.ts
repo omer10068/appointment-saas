@@ -1,6 +1,6 @@
 import { IsBoolean } from 'class-validator';
 
-export class UpdateStaffMemberStatusDto {
+export class UpdateServiceProviderStatusDto {
   @IsBoolean()
   isActive!: boolean;
 }

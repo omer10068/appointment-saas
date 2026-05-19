@@ -43,7 +43,7 @@ function mapAppointment(dto: DashboardAppointmentDto): CalendarAppointment {
     id: dto.id,
     customerName: dto.customerName,
     serviceName: dto.serviceName,
-    staffMember: dto.staffMemberName ?? '',
+    staffMember: dto.serviceProviderName ?? '',
     startTime: toHHmm(start),
     endTime: toHHmm(end),
     status: STATUS_MAP[dto.status as AppointmentStatus] ?? 'scheduled',

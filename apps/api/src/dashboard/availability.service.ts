@@ -21,7 +21,7 @@ export interface WorkingHourDto {
 export interface AvailabilityExceptionDto {
   id: string;
   businessId: string;
-  staffMemberId: string | null;
+  serviceProviderId: string | null;
   date: Date;
   startTime: string | null;
   endTime: string | null;
@@ -41,7 +41,7 @@ const WORKING_HOUR_SELECT = {
 const EXCEPTION_SELECT = {
   id: true,
   businessId: true,
-  staffMemberId: true,
+  serviceProviderId: true,
   date: true,
   startTime: true,
   endTime: true,
@@ -94,45 +94,47 @@ export class AvailabilityService {
     });
   }
 
-  // ─── Staff working hours ──────────────────────────────────────────────────────
+  // ─── Service provider working hours ──────────────────────────────────────────
 
-  async getStaffWorkingHours(
+  async getServiceProviderWorkingHours(
     userId: string,
     businessId: string,
-    staffMemberId: string,
+    serviceProviderId: string,
   ): Promise<WorkingHourDto[]> {
     await this.assertAccess(userId, businessId);
-    await this.assertStaffInBusiness(staffMemberId, businessId);
-    return this.prisma.staffWorkingHour.findMany({
-      where: { staffMemberId, businessId },
+    await this.assertServiceProviderInBusiness(serviceProviderId, businessId);
+    return this.prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId, businessId },
       orderBy: { dayOfWeek: 'asc' },
       select: WORKING_HOUR_SELECT,
     });
   }
 
-  async setStaffWorkingHours(
+  async setServiceProviderWorkingHours(
     userId: string,
     businessId: string,
-    staffMemberId: string,
+    serviceProviderId: string,
     dto: UpsertWorkingHoursDto,
   ): Promise<WorkingHourDto[]> {
     await this.assertMutationAccess(userId, businessId);
-    await this.assertStaffInBusiness(staffMemberId, businessId);
+    await this.assertServiceProviderInBusiness(serviceProviderId, businessId);
     this.validateHoursPayload(dto.hours);
     return this.prisma.$transaction(async (tx) => {
-      await tx.staffWorkingHour.deleteMany({ where: { staffMemberId } });
-      await tx.staffWorkingHour.createMany({
+      await tx.serviceProviderWorkingHour.deleteMany({
+        where: { serviceProviderId },
+      });
+      await tx.serviceProviderWorkingHour.createMany({
         data: dto.hours.map((h) => ({
           businessId,
-          staffMemberId,
+          serviceProviderId,
           dayOfWeek: h.dayOfWeek,
           startTime: h.isClosed ? null : (h.startTime ?? null),
           endTime: h.isClosed ? null : (h.endTime ?? null),
           isClosed: h.isClosed,
         })),
       });
-      return tx.staffWorkingHour.findMany({
-        where: { staffMemberId },
+      return tx.serviceProviderWorkingHour.findMany({
+        where: { serviceProviderId },
         orderBy: { dayOfWeek: 'asc' },
         select: WORKING_HOUR_SELECT,
       });
@@ -159,8 +161,11 @@ export class AvailabilityService {
     dto: CreateAvailabilityExceptionDto,
   ): Promise<AvailabilityExceptionDto> {
     await this.assertMutationAccess(userId, businessId);
-    if (dto.staffMemberId) {
-      await this.assertStaffInBusiness(dto.staffMemberId, businessId);
+    if (dto.serviceProviderId) {
+      await this.assertServiceProviderInBusiness(
+        dto.serviceProviderId,
+        businessId,
+      );
     }
     if (!dto.isClosed) {
       this.validateTimeRange(dto.startTime ?? null, dto.endTime ?? null);
@@ -168,7 +173,7 @@ export class AvailabilityService {
     return this.prisma.availabilityException.create({
       data: {
         businessId,
-        staffMemberId: dto.staffMemberId ?? null,
+        serviceProviderId: dto.serviceProviderId ?? null,
         date: new Date(dto.date),
         isClosed: dto.isClosed,
         startTime: dto.isClosed ? null : (dto.startTime ?? null),
@@ -193,8 +198,11 @@ export class AvailabilityService {
     if (!existing)
       throw new NotFoundException('Availability exception not found');
 
-    if (dto.staffMemberId) {
-      await this.assertStaffInBusiness(dto.staffMemberId, businessId);
+    if (dto.serviceProviderId) {
+      await this.assertServiceProviderInBusiness(
+        dto.serviceProviderId,
+        businessId,
+      );
     }
 
     const isClosed = dto.isClosed ?? existing.isClosed;
@@ -208,8 +216,8 @@ export class AvailabilityService {
     return this.prisma.availabilityException.update({
       where: { id: exceptionId },
       data: {
-        ...(dto.staffMemberId !== undefined && {
-          staffMemberId: dto.staffMemberId,
+        ...(dto.serviceProviderId !== undefined && {
+          serviceProviderId: dto.serviceProviderId,
         }),
         ...(dto.isClosed !== undefined && { isClosed: dto.isClosed }),
         ...(dto.startTime !== undefined && {
@@ -269,15 +277,15 @@ export class AvailabilityService {
     }
   }
 
-  private async assertStaffInBusiness(
-    staffMemberId: string,
+  private async assertServiceProviderInBusiness(
+    serviceProviderId: string,
     businessId: string,
   ): Promise<void> {
-    const staff = await this.prisma.staffMember.findFirst({
-      where: { id: staffMemberId, businessId },
+    const sp = await this.prisma.serviceProvider.findFirst({
+      where: { id: serviceProviderId, businessId },
       select: { id: true },
     });
-    if (!staff) throw new NotFoundException('Staff member not found');
+    if (!sp) throw new NotFoundException('Service provider not found');
   }
 
   private validateHoursPayload(

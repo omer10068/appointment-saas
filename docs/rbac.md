@@ -6,11 +6,11 @@
 
 A user who has dashboard/system access to a business. Controlled by `BusinessUser.role`.
 
-### 2. StaffMember
+### 2. ServiceProvider
 
-A bookable staff/service provider entity that appears in the calendar and can receive appointments. A `StaffMember` is linked to a `BusinessUser` but is a separate concept — a `BusinessUser` with `MEMBER` role may or may not have a corresponding `StaffMember` profile.
+A bookable entity that appears in the calendar and can receive appointments. A `ServiceProvider` is linked to a `BusinessUser` but is a separate concept — a `BusinessUser` with `MEMBER` role may or may not have a corresponding `ServiceProvider` profile.
 
-These are not the same thing. `BusinessUser.role` controls dashboard permissions. `StaffMember` controls booking/calendar assignment.
+These are not the same thing. `BusinessUser.role` controls dashboard permissions. `ServiceProvider` controls booking/calendar assignment.
 
 ---
 
@@ -26,7 +26,7 @@ Full control over the business.
 - Manage services
 - Manage customers
 - Manage appointments
-- Manage staff members
+- Manage service providers
 - Manage working hours
 - Manage availability exceptions
 - Invite/remove MANAGER users
@@ -44,7 +44,7 @@ Operational manager.
 - Manage services
 - Manage customers
 - Manage appointments
-- Manage staff members
+- Manage service providers
 - Manage working hours
 - Manage availability exceptions
 - Access dashboard data
@@ -66,7 +66,7 @@ Basic operational user with read access and limited write access.
 - View dashboard data
 - View services
 - View customers
-- View staff members
+- View service providers
 - View appointments
 - Create appointments (current implementation allows this)
 - Change appointment status (current implementation allows this)
@@ -76,7 +76,7 @@ Basic operational user with read access and limited write access.
 - Manage users
 - Change roles
 - Create/edit/delete services
-- Create/edit/delete staff members
+- Create/edit/delete service providers
 - Manage working hours
 - Manage availability exceptions
 - Manage business settings
@@ -99,8 +99,8 @@ Basic operational user with read access and limited write access.
 | Create appointments                  | yes   | yes     | yes    |
 | Update appointment details           | yes   | yes     | no     |
 | Change appointment status            | yes   | yes     | yes    |
-| View staff members                   | yes   | yes     | yes    |
-| Create/update/delete staff members   | yes   | yes     | no     |
+| View service providers               | yes   | yes     | yes    |
+| Create/update/delete svc providers   | yes   | yes     | no     |
 | View working hours                   | yes   | yes     | yes    |
 | Update working hours                 | yes   | yes     | no     |
 | Manage availability exceptions       | yes   | yes     | no     |
@@ -126,4 +126,4 @@ The table above reflects intended permissions. The following gaps exist between 
 
 4. **Invite/remove users**: Currently only OWNER is implemented as the role that can call `createBusinessUser`. MANAGER is blocked by `assertMutationAccess`. This aligns with the table above.
 
-5. **StaffMember → ServiceProvider rename**: `StaffMember` is currently used as both a bookable entity concept and loosely associated with the `MEMBER` role. A future task will rename `StaffMember` to `ServiceProvider` to fully decouple these concepts.
+5. **Invite/remove users follow-up**: MANAGER role currently cannot invite or remove users. Confirm whether this restriction is permanent or if MANAGER should gain limited invite capability in a future iteration.

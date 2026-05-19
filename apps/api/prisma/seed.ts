@@ -124,7 +124,7 @@ async function main() {
     },
   });
 
-  const yuvalStaff = await prisma.staffMember.upsert({
+  const yuvalSp = await prisma.serviceProvider.upsert({
     where: { businessUserId: yuvalBu.id },
     update: {},
     create: {
@@ -135,15 +135,15 @@ async function main() {
     },
   });
 
-  await prisma.staffMemberService.createMany({
+  await prisma.serviceProviderService.createMany({
     data: [
-      { staffMemberId: yuvalStaff.id, serviceId: svcConsult.id },
-      { staffMemberId: yuvalStaff.id, serviceId: svcLaserFace.id },
+      { serviceProviderId: yuvalSp.id, serviceId: svcConsult.id },
+      { serviceProviderId: yuvalSp.id, serviceId: svcLaserFace.id },
     ],
     skipDuplicates: true,
   });
 
-  // Staff: Avivit Turgeman — upsert by stable ID; where and create phone match
+  // Service provider: Avivit Turgeman — upsert by stable ID; where and create phone match
   const avivitUser = await prisma.user.upsert({
     where: { id: AVIVIT_USER_ID },
     update: {},
@@ -170,7 +170,7 @@ async function main() {
     },
   });
 
-  const avivitStaff = await prisma.staffMember.upsert({
+  const avivitSp = await prisma.serviceProvider.upsert({
     where: { businessUserId: avivitBu.id },
     update: {},
     create: {
@@ -181,10 +181,10 @@ async function main() {
     },
   });
 
-  await prisma.staffMemberService.createMany({
+  await prisma.serviceProviderService.createMany({
     data: [
-      { staffMemberId: avivitStaff.id, serviceId: svcLaserFace.id },
-      { staffMemberId: avivitStaff.id, serviceId: svcLaserLegs.id },
+      { serviceProviderId: avivitSp.id, serviceId: svcLaserFace.id },
+      { serviceProviderId: avivitSp.id, serviceId: svcLaserLegs.id },
     ],
     skipDuplicates: true,
   });
@@ -222,10 +222,10 @@ async function main() {
   console.log(`superAdminUserId     = ${superAdmin.id}`);
   console.log(`ownerUserId          = ${yuvalUser.id}`);
   console.log(`ownerBusinessUserId  = ${yuvalBu.id}`);
-  console.log(`ownerStaffMemberId   = ${yuvalStaff.id}`);
-  console.log(`staffUserId          = ${avivitUser.id}`);
-  console.log(`staffBusinessUserId  = ${avivitBu.id}`);
-  console.log(`staffStaffMemberId   = ${avivitStaff.id}`);
+  console.log(`ownerServiceProviderId   = ${yuvalSp.id}`);
+  console.log(`staffUserId              = ${avivitUser.id}`);
+  console.log(`staffBusinessUserId      = ${avivitBu.id}`);
+  console.log(`staffServiceProviderId   = ${avivitSp.id}`);
   console.log(`svcConsultId         = ${svcConsult.id}`);
   console.log(`svcLaserFaceId       = ${svcLaserFace.id}`);
   console.log(`svcLaserLegsId       = ${svcLaserLegs.id}`);

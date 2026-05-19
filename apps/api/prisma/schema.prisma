@@ -57,8 +57,8 @@ enum AppointmentStatus {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  clerkUserId     String?   @unique
+  id          String  @id @default(uuid())
+  clerkUserId String? @unique
 
   email           String?   @unique
   phoneNormalized String    @unique
@@ -87,18 +87,18 @@ model Business {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  businessUsers          BusinessUser[]
-  services               Service[]
-  staffMembers           StaffMember[]
-  businessCustomers      BusinessCustomer[]
-  appointments           Appointment[]
-  businessWorkingHours   BusinessWorkingHour[]
-  staffWorkingHours      StaffWorkingHour[]
-  availabilityExceptions AvailabilityException[]
+  businessUsers               BusinessUser[]
+  services                    Service[]
+  serviceProviders            ServiceProvider[]
+  businessCustomers           BusinessCustomer[]
+  appointments                Appointment[]
+  businessWorkingHours        BusinessWorkingHour[]
+  serviceProviderWorkingHours ServiceProviderWorkingHour[]
+  availabilityExceptions      AvailabilityException[]
 }
 
 model BusinessUser {
-  id         String             @id @default(uuid())
+  id         String @id @default(uuid())
   businessId String
   userId     String
 
@@ -108,9 +108,9 @@ model BusinessUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  business    Business     @relation(fields: [businessId], references: [id])
-  user        User         @relation(fields: [userId], references: [id])
-  staffMember StaffMember?
+  business        Business         @relation(fields: [businessId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+  serviceProvider ServiceProvider?
 
   @@unique([businessId, userId])
   @@index([businessId])
@@ -136,7 +136,7 @@ model CustomerProfile {
 }
 
 model BusinessCustomer {
-  id                String         @id @default(uuid())
+  id                String @id @default(uuid())
   businessId        String
   customerProfileId String
 
@@ -156,7 +156,7 @@ model BusinessCustomer {
 }
 
 model Service {
-  id         String  @id @default(uuid())
+  id         String @id @default(uuid())
   businessId String
 
   name            String
@@ -171,17 +171,17 @@ model Service {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  business     Business             @relation(fields: [businessId], references: [id])
-  appointments Appointment[]
-  staffMembers StaffMemberService[]
+  business         Business                 @relation(fields: [businessId], references: [id])
+  appointments     Appointment[]
+  serviceProviders ServiceProviderService[]
 
   @@index([businessId])
 }
 
-model StaffMember {
-  id             String  @id @default(uuid())
+model ServiceProvider {
+  id             String @id @default(uuid())
   businessId     String
-  businessUserId String  @unique
+  businessUserId String @unique
 
   displayName String
   isActive    Boolean @default(true)
@@ -189,34 +189,34 @@ model StaffMember {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  business               Business               @relation(fields: [businessId], references: [id])
-  businessUser           BusinessUser           @relation(fields: [businessUserId], references: [id])
-  appointments           Appointment[]
-  services               StaffMemberService[]
-  staffWorkingHours      StaffWorkingHour[]
-  availabilityExceptions AvailabilityException[]
+  business                    Business                     @relation(fields: [businessId], references: [id])
+  businessUser                BusinessUser                 @relation(fields: [businessUserId], references: [id])
+  appointments                Appointment[]
+  services                    ServiceProviderService[]
+  serviceProviderWorkingHours ServiceProviderWorkingHour[]
+  availabilityExceptions      AvailabilityException[]
 
   @@index([businessId])
 }
 
-// Join table: which Services a StaffMember can provide
-model StaffMemberService {
-  staffMemberId String
-  serviceId     String
+// Join table: which Services a ServiceProvider can provide
+model ServiceProviderService {
+  serviceProviderId String
+  serviceId         String
 
-  staffMember StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
-  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceProvider ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  service         Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
-  @@id([staffMemberId, serviceId])
+  @@id([serviceProviderId, serviceId])
   @@index([serviceId])
 }
 
 model Appointment {
-  id                 String            @id @default(uuid())
+  id                 String @id @default(uuid())
   businessId         String
   businessCustomerId String
   serviceId          String
-  staffMemberId      String
+  serviceProviderId  String
 
   startsAt DateTime
   endsAt   DateTime
@@ -228,12 +228,12 @@ model Appointment {
   business         Business         @relation(fields: [businessId], references: [id])
   businessCustomer BusinessCustomer @relation(fields: [businessCustomerId], references: [id])
   service          Service          @relation(fields: [serviceId], references: [id])
-  staffMember      StaffMember      @relation(fields: [staffMemberId], references: [id])
+  serviceProvider  ServiceProvider  @relation(fields: [serviceProviderId], references: [id])
 
   @@index([businessId, startsAt])
   @@index([businessCustomerId])
   @@index([serviceId])
-  @@index([staffMemberId, startsAt])
+  @@index([serviceProviderId, startsAt])
 }
 
 model BusinessWorkingHour {
@@ -252,41 +252,41 @@ model BusinessWorkingHour {
   @@index([businessId])
 }
 
-model StaffWorkingHour {
-  id            String   @id @default(uuid())
-  businessId    String
-  staffMemberId String
-  dayOfWeek     Int
-  startTime     String?
-  endTime       String?
-  isClosed      Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model ServiceProviderWorkingHour {
+  id                String   @id @default(uuid())
+  businessId        String
+  serviceProviderId String
+  dayOfWeek         Int
+  startTime         String?
+  endTime           String?
+  isClosed          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  business    Business    @relation(fields: [businessId], references: [id])
-  staffMember StaffMember @relation(fields: [staffMemberId], references: [id])
+  business        Business        @relation(fields: [businessId], references: [id])
+  serviceProvider ServiceProvider @relation(fields: [serviceProviderId], references: [id])
 
-  @@unique([staffMemberId, dayOfWeek])
+  @@unique([serviceProviderId, dayOfWeek])
   @@index([businessId])
-  @@index([staffMemberId])
+  @@index([serviceProviderId])
 }
 
 model AvailabilityException {
-  id            String    @id @default(uuid())
-  businessId    String
-  staffMemberId String?
-  date          DateTime
-  startTime     String?
-  endTime       String?
-  isClosed      Boolean   @default(false)
-  reason        String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                String   @id @default(uuid())
+  businessId        String
+  serviceProviderId String?
+  date              DateTime
+  startTime         String?
+  endTime           String?
+  isClosed          Boolean  @default(false)
+  reason            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  business    Business     @relation(fields: [businessId], references: [id])
-  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id])
+  business        Business         @relation(fields: [businessId], references: [id])
+  serviceProvider ServiceProvider? @relation(fields: [serviceProviderId], references: [id])
 
   @@index([businessId])
-  @@index([staffMemberId])
+  @@index([serviceProviderId])
   @@index([date])
 }

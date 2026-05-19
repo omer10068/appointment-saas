@@ -14,7 +14,7 @@ export class CreateAvailabilityExceptionDto {
 
   @IsString()
   @IsOptional()
-  staffMemberId?: string | null;
+  serviceProviderId?: string | null;
 
   @IsBoolean()
   isClosed!: boolean;
