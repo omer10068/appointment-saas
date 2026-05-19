@@ -38,7 +38,7 @@ const mockMembership: BusinessUser = {
 const mockStaffMembership: BusinessUser = {
   ...mockMembership,
   id: STAFF_BU_ID,
-  role: 'STAFF',
+  role: 'MEMBER',
 };
 
 const mockStaffBu = { status: 'ACTIVE' };
@@ -273,7 +273,7 @@ describe('AppointmentsService', () => {
       expect(result.customerName).toBe('John Doe');
     });
 
-    it('throws ForbiddenException for STAFF role', async () => {
+    it('throws ForbiddenException for MEMBER role', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -514,7 +514,7 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('throws ForbiddenException for STAFF role', async () => {
+    it('throws ForbiddenException for MEMBER role', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(

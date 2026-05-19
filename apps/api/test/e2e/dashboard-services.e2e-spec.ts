@@ -114,7 +114,7 @@ describe('GET /dashboard/businesses/:businessId/services', () => {
       data: {
         businessId: E2E_SVC_BUSINESS_ID,
         userId: staffUser.id,
-        role: 'STAFF',
+        role: 'MEMBER',
         status: 'ACTIVE',
       },
     });

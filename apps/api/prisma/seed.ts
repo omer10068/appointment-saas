@@ -165,7 +165,7 @@ async function main() {
     create: {
       businessId: business.id,
       userId: avivitUser.id,
-      role: 'STAFF',
+      role: 'MEMBER',
       status: 'ACTIVE',
     },
   });

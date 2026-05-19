@@ -47,7 +47,7 @@ export interface DashboardSummaryDto {
 export interface CreateBusinessUserPayload {
   phone: string;
   email?: string | null;
-  role: 'STAFF' | 'MANAGER';
+  role: 'MEMBER' | 'MANAGER';
 }
 
 export interface DashboardBusinessUserCreatedDto {

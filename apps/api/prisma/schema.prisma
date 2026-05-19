@@ -32,7 +32,7 @@ enum BusinessStatus {
 enum BusinessUserRole {
   OWNER
   MANAGER
-  STAFF
+  MEMBER
 }
 
 enum BusinessUserStatus {

@@ -15,8 +15,8 @@ export class CreateBusinessUserDto {
   @IsOptional()
   email?: string | null;
 
-  @IsEnum(['STAFF', 'MANAGER'], {
-    message: 'role must be STAFF or MANAGER',
+  @IsEnum(['MEMBER', 'MANAGER'], {
+    message: 'role must be MEMBER or MANAGER',
   })
-  role!: 'STAFF' | 'MANAGER';
+  role!: 'MEMBER' | 'MANAGER';
 }
