@@ -8,21 +8,25 @@ if (!connectionString) throw new Error('DATABASE_URL is not defined');
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
-const SUPER_ADMIN_ID = 'd8ccc07a-e315-40d6-a4c1-d6e227590c5b';
-const SVC_CONSULT_ID = 'seed-svc-consult';
-const SVC_LASER_FACE_ID = 'seed-svc-laser-face';
-const SVC_LASER_LEGS_ID = 'seed-svc-laser-legs';
+// Stable UUIDs — these are fixed so Postman env vars survive DB resets
+const SUPER_ADMIN_ID    = 'd8ccc07a-e315-40d6-a4c1-d6e227590c5b';
+const BUSINESS_ID       = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
+const YUVAL_USER_ID     = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001';
+const AVIVIT_USER_ID    = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000002';
+const SVC_CONSULT_ID    = '11111111-1111-4111-8111-111111111111';
+const SVC_LASER_FACE_ID = '22222222-2222-4222-8222-222222222222';
+const SVC_LASER_LEGS_ID = '33333333-3333-4333-8333-333333333333';
 
 async function main() {
   console.log('Seeding dev data...');
 
-  // Platform SUPER_ADMIN — fixed ID, preserved across resets
+  // Platform SUPER_ADMIN — update and create are fully consistent
   const superAdmin = await prisma.user.upsert({
     where: { id: SUPER_ADMIN_ID },
     update: {
       clerkUserId: 'user_3DlLgMQ6Ni2Hr21fsmuWYXdlnHc',
       email: 'omer10068@gmail.com',
-      phoneNormalized: '+97299000001',
+      phoneNormalized: '+972501111111',
       phoneVerifiedAt: new Date('2024-01-01T00:00:00.000Z'),
       status: 'ACTIVE',
       platformRole: 'SUPER_ADMIN',
@@ -32,18 +36,18 @@ async function main() {
       clerkUserId: 'user_3DlLgMQ6Ni2Hr21fsmuWYXdlnHc',
       email: 'omer10068@gmail.com',
       phoneNormalized: '+972501111111',
-      phoneVerifiedAt: new Date('2027-01-01T00:00:00.000Z'),
+      phoneVerifiedAt: new Date('2024-01-01T00:00:00.000Z'),
       status: 'ACTIVE',
       platformRole: 'SUPER_ADMIN',
     },
   });
-  console.log('SUPER_ADMIN:', superAdmin.id);
 
-  // Business: Yuval Turgeman
+  // Business: Yuval Turgeman — stable ID set in create so it survives resets
   const business = await prisma.business.upsert({
     where: { slug: 'yuval-turgeman' },
     update: {},
     create: {
+      id: BUSINESS_ID,
       name: 'Yuval Turgeman',
       slug: 'yuval-turgeman',
       status: 'ACTIVE',
@@ -52,9 +56,8 @@ async function main() {
       currency: 'ILS',
     },
   });
-  console.log('Business:', business.id);
 
-  // Services
+  // Services — IDs are valid UUIDs; required by @IsUUID() in appointment DTOs
   const svcConsult = await prisma.service.upsert({
     where: { id: SVC_CONSULT_ID },
     update: {},
@@ -93,13 +96,13 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('Services:', svcConsult.id, svcLaserFace.id, svcLaserLegs.id);
 
-  // Owner: Yuval Turgeman
+  // Owner: Yuval Turgeman — upsert by stable ID; where and create phone match
   const yuvalUser = await prisma.user.upsert({
-    where: { phoneNormalized: '+972529900001' },
+    where: { id: YUVAL_USER_ID },
     update: {},
     create: {
+      id: YUVAL_USER_ID,
       clerkUserId: 'user_3Dnq0lwCHze3mSiCbqbbfWDRGLo',
       phoneNormalized: '+972501234567',
       email: 'owner+clerk_test@example.com',
@@ -107,7 +110,6 @@ async function main() {
       platformRole: 'USER',
     },
   });
-  console.log('Yuval user:', yuvalUser.id);
 
   const yuvalBu = await prisma.businessUser.upsert({
     where: {
@@ -132,7 +134,6 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('Yuval StaffMember:', yuvalStaff.id);
 
   await prisma.staffMemberService.createMany({
     data: [
@@ -142,11 +143,12 @@ async function main() {
     skipDuplicates: true,
   });
 
-  // Staff: Avivit Turgeman
+  // Staff: Avivit Turgeman — upsert by stable ID; where and create phone match
   const avivitUser = await prisma.user.upsert({
-    where: { phoneNormalized: '+972529900002' },
+    where: { id: AVIVIT_USER_ID },
     update: {},
     create: {
+      id: AVIVIT_USER_ID,
       clerkUserId: 'user_3DsWoF8rxi853aZYSA4UzGtDm5s',
       phoneNormalized: '+972507654321',
       email: 'staff+clerk_test@example.com',
@@ -154,7 +156,6 @@ async function main() {
       platformRole: 'USER',
     },
   });
-  console.log('Avivit user:', avivitUser.id);
 
   const avivitBu = await prisma.businessUser.upsert({
     where: {
@@ -179,7 +180,6 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('Avivit StaffMember:', avivitStaff.id);
 
   await prisma.staffMemberService.createMany({
     data: [
@@ -199,9 +199,8 @@ async function main() {
       email: 'noam.levi@example.com',
     },
   });
-  console.log('CustomerProfile:', noamProfile.id);
 
-  await prisma.businessCustomer.upsert({
+  const noamBc = await prisma.businessCustomer.upsert({
     where: {
       businessId_customerProfileId: {
         businessId: business.id,
@@ -215,8 +214,22 @@ async function main() {
       status: 'ACTIVE',
     },
   });
-  console.log('BusinessCustomer linked');
 
+  console.log('\n─── Postman environment variables ───────────────────────────────────');
+  console.log(`businessId           = ${business.id}`);
+  console.log(`superAdminUserId     = ${superAdmin.id}`);
+  console.log(`ownerUserId          = ${yuvalUser.id}`);
+  console.log(`ownerBusinessUserId  = ${yuvalBu.id}`);
+  console.log(`ownerStaffMemberId   = ${yuvalStaff.id}`);
+  console.log(`staffUserId          = ${avivitUser.id}`);
+  console.log(`staffBusinessUserId  = ${avivitBu.id}`);
+  console.log(`staffStaffMemberId   = ${avivitStaff.id}`);
+  console.log(`svcConsultId         = ${svcConsult.id}`);
+  console.log(`svcLaserFaceId       = ${svcLaserFace.id}`);
+  console.log(`svcLaserLegsId       = ${svcLaserLegs.id}`);
+  console.log(`customerProfileId    = ${noamProfile.id}`);
+  console.log(`businessCustomerId   = ${noamBc.id}`);
+  console.log('─────────────────────────────────────────────────────────────────────\n');
   console.log('Seed complete.');
 }
 
