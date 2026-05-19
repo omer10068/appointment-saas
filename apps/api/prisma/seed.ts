@@ -9,11 +9,11 @@ const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 // Stable UUIDs — these are fixed so Postman env vars survive DB resets
-const SUPER_ADMIN_ID    = 'd8ccc07a-e315-40d6-a4c1-d6e227590c5b';
-const BUSINESS_ID       = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
-const YUVAL_USER_ID     = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001';
-const AVIVIT_USER_ID    = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000002';
-const SVC_CONSULT_ID    = '11111111-1111-4111-8111-111111111111';
+const SUPER_ADMIN_ID = 'd8ccc07a-e315-40d6-a4c1-d6e227590c5b';
+const BUSINESS_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
+const YUVAL_USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001';
+const AVIVIT_USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000002';
+const SVC_CONSULT_ID = '11111111-1111-4111-8111-111111111111';
 const SVC_LASER_FACE_ID = '22222222-2222-4222-8222-222222222222';
 const SVC_LASER_LEGS_ID = '33333333-3333-4333-8333-333333333333';
 
@@ -215,7 +215,9 @@ async function main() {
     },
   });
 
-  console.log('\n─── Postman environment variables ───────────────────────────────────');
+  console.log(
+    '\n─── Postman environment variables ───────────────────────────────────',
+  );
   console.log(`businessId           = ${business.id}`);
   console.log(`superAdminUserId     = ${superAdmin.id}`);
   console.log(`ownerUserId          = ${yuvalUser.id}`);
@@ -229,7 +231,9 @@ async function main() {
   console.log(`svcLaserLegsId       = ${svcLaserLegs.id}`);
   console.log(`customerProfileId    = ${noamProfile.id}`);
   console.log(`businessCustomerId   = ${noamBc.id}`);
-  console.log('─────────────────────────────────────────────────────────────────────\n');
+  console.log(
+    '─────────────────────────────────────────────────────────────────────\n',
+  );
   console.log('Seed complete.');
 }
 
