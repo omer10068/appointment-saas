@@ -1,9 +1,12 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { HealthModule } from '../src/health/health.module';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { HealthModule } from '../../src/health/health.module';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { createTestApp } from '../helpers/create-test-app';
+
+// No requireTestDatabase() — PrismaService is fully mocked here.
 
 describe('GET /health', () => {
   let app: INestApplication<App>;
@@ -20,15 +23,7 @@ describe('GET /health', () => {
       .useValue(mockPrisma)
       .compile();
 
-    app = module.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
-    await app.init();
+    app = await createTestApp(module);
   });
 
   afterAll(async () => {
