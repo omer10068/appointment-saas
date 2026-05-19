@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { BusinessUserRole } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizePhone } from './phone.util';
 import type { CreateServiceDto } from './dto/create-service.dto';
@@ -144,7 +145,7 @@ export class DashboardDataService {
     userId: string,
     businessId: string,
   ): Promise<BusinessUserDto[]> {
-    await this.assertAccess(userId, businessId);
+    await this.assertOwnerAccess(userId, businessId);
     const records = await this.prisma.businessUser.findMany({
       where: { businessId },
       orderBy: { createdAt: 'asc' },
@@ -695,6 +696,18 @@ export class DashboardDataService {
     if (!membership) throw new ForbiddenException();
   }
 
+  private async assertOwnerAccess(
+    userId: string,
+    businessId: string,
+  ): Promise<void> {
+    const membership = await this.prisma.businessUser.findUnique({
+      where: { businessId_userId: { businessId, userId } },
+    });
+    if (!membership || membership.role !== BusinessUserRole.OWNER) {
+      throw new ForbiddenException();
+    }
+  }
+
   private async assertMutationAccess(
     userId: string,
     businessId: string,
@@ -704,7 +717,8 @@ export class DashboardDataService {
     });
     if (
       !membership ||
-      (membership.role !== 'OWNER' && membership.role !== 'MANAGER')
+      (membership.role !== BusinessUserRole.OWNER &&
+        membership.role !== BusinessUserRole.MANAGER)
     ) {
       throw new ForbiddenException();
     }

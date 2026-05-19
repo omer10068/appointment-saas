@@ -1048,6 +1048,71 @@ describe('DashboardDataService', () => {
     });
   });
 
+  // ─── getBusinessUsers ──────────────────────────────────────────────────────
+
+  describe('getBusinessUsers', () => {
+    const mockBuRow = {
+      id: 'bu-1',
+      userId: USER_ID,
+      role: 'OWNER',
+      status: 'ACTIVE',
+      staffMember: null,
+    };
+
+    it('OWNER can list business users', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findMany.mockResolvedValue([
+        mockBuRow,
+      ] as unknown as BusinessUser[]);
+
+      const result = await service.getBusinessUsers(USER_ID, BUSINESS_ID);
+
+      expect(mockPrisma.businessUser.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { businessId: BUSINESS_ID } }),
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: 'bu-1',
+        userId: USER_ID,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        hasStaffProfile: false,
+      });
+    });
+
+    it('MANAGER cannot list business users', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockManagerMembership,
+      );
+
+      await expect(
+        service.getBusinessUsers(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();
+    });
+
+    it('MEMBER cannot list business users', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+
+      await expect(
+        service.getBusinessUsers(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when user is not assigned to the business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getBusinessUsers(OTHER_USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── createBusinessUser ────────────────────────────────────────────────────
 
   describe('createBusinessUser', () => {

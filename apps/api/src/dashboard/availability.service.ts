@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { BusinessUserRole } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpsertWorkingHoursDto } from './dto/upsert-working-hours.dto';
 import type { CreateAvailabilityExceptionDto } from './dto/create-availability-exception.dto';
@@ -261,7 +262,8 @@ export class AvailabilityService {
     });
     if (
       !membership ||
-      (membership.role !== 'OWNER' && membership.role !== 'MANAGER')
+      (membership.role !== BusinessUserRole.OWNER &&
+        membership.role !== BusinessUserRole.MANAGER)
     ) {
       throw new ForbiddenException();
     }
