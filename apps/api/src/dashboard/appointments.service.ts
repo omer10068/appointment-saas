@@ -22,8 +22,8 @@ export interface AppointmentDto {
   customerName: string;
   serviceId: string;
   serviceName: string;
-  staffMemberId: string;
-  staffMemberName: string;
+  serviceProviderId: string;
+  serviceProviderName: string;
   startsAt: Date;
   endsAt: Date;
   status: string;
@@ -36,7 +36,7 @@ const APPOINTMENT_SELECT = {
   businessId: true,
   businessCustomerId: true,
   serviceId: true,
-  staffMemberId: true,
+  serviceProviderId: true,
   startsAt: true,
   endsAt: true,
   status: true,
@@ -48,7 +48,7 @@ const APPOINTMENT_SELECT = {
     },
   },
   service: { select: { name: true } },
-  staffMember: { select: { displayName: true } },
+  serviceProvider: { select: { displayName: true } },
 } as const;
 
 type AppointmentRow = {
@@ -56,7 +56,7 @@ type AppointmentRow = {
   businessId: string;
   businessCustomerId: string;
   serviceId: string;
-  staffMemberId: string;
+  serviceProviderId: string;
   startsAt: Date;
   endsAt: Date;
   status: AppointmentStatus;
@@ -64,7 +64,7 @@ type AppointmentRow = {
   updatedAt: Date;
   businessCustomer: { customerProfile: { fullName: string } };
   service: { name: string };
-  staffMember: { displayName: string };
+  serviceProvider: { displayName: string };
 };
 
 function toDto(row: AppointmentRow): AppointmentDto {
@@ -75,8 +75,8 @@ function toDto(row: AppointmentRow): AppointmentDto {
     customerName: row.businessCustomer.customerProfile.fullName,
     serviceId: row.serviceId,
     serviceName: row.service.name,
-    staffMemberId: row.staffMemberId,
-    staffMemberName: row.staffMember.displayName,
+    serviceProviderId: row.serviceProviderId,
+    serviceProviderName: row.serviceProvider.displayName,
     startsAt: row.startsAt,
     endsAt: row.endsAt,
     status: row.status,
@@ -137,8 +137,8 @@ export class AppointmentsService {
     });
     if (!customer) throw new NotFoundException('Customer not found');
 
-    await this.assertStaffReadyForBooking(
-      dto.staffMemberId,
+    await this.assertServiceProviderReadyForBooking(
+      dto.serviceProviderId,
       businessId,
       dto.serviceId,
     );
@@ -148,7 +148,12 @@ export class AppointmentsService {
       startsAt.getTime() + service.durationMinutes * 60 * 1000,
     );
 
-    await this.checkStaffConflict(dto.staffMemberId, startsAt, endsAt, null);
+    await this.checkServiceProviderConflict(
+      dto.serviceProviderId,
+      startsAt,
+      endsAt,
+      null,
+    );
 
     // TODO: validate against working hours / availability exceptions
     const row = await this.prisma.appointment.create({
@@ -156,7 +161,7 @@ export class AppointmentsService {
         businessId,
         businessCustomerId: dto.businessCustomerId,
         serviceId: dto.serviceId,
-        staffMemberId: dto.staffMemberId,
+        serviceProviderId: dto.serviceProviderId,
         startsAt,
         endsAt,
         status: AppointmentStatus.SCHEDULED,
@@ -180,7 +185,7 @@ export class AppointmentsService {
       select: {
         id: true,
         serviceId: true,
-        staffMemberId: true,
+        serviceProviderId: true,
         startsAt: true,
         endsAt: true,
         status: true,
@@ -212,15 +217,15 @@ export class AppointmentsService {
       durationMinutes = service.durationMinutes;
     }
 
-    // staffMemberId can be changed but never nulled
-    const staffMemberId =
-      dto.staffMemberId !== undefined
-        ? dto.staffMemberId
-        : existing.staffMemberId;
+    // serviceProviderId can be changed but never nulled
+    const serviceProviderId =
+      dto.serviceProviderId !== undefined
+        ? dto.serviceProviderId
+        : existing.serviceProviderId;
 
-    if (dto.staffMemberId !== undefined) {
-      await this.assertStaffReadyForBooking(
-        dto.staffMemberId,
+    if (dto.serviceProviderId !== undefined) {
+      await this.assertServiceProviderReadyForBooking(
+        dto.serviceProviderId,
         businessId,
         serviceId,
       );
@@ -228,8 +233,11 @@ export class AppointmentsService {
       dto.serviceId !== undefined &&
       dto.serviceId !== existing.serviceId
     ) {
-      // Service changed but staff not — re-validate existing staff provides new service
-      await this.assertStaffProvidesService(staffMemberId, serviceId);
+      // Service changed but provider not — re-validate existing provider offers new service
+      await this.assertServiceProviderOffersService(
+        serviceProviderId,
+        serviceId,
+      );
     }
 
     let startsAt = existing.startsAt;
@@ -249,8 +257,8 @@ export class AppointmentsService {
       }
     }
 
-    await this.checkStaffConflict(
-      staffMemberId,
+    await this.checkServiceProviderConflict(
+      serviceProviderId,
       startsAt,
       endsAt,
       appointmentId,
@@ -260,7 +268,7 @@ export class AppointmentsService {
       where: { id: appointmentId },
       data: {
         ...(dto.serviceId !== undefined && { serviceId }),
-        ...(dto.staffMemberId !== undefined && { staffMemberId }),
+        ...(dto.serviceProviderId !== undefined && { serviceProviderId }),
         ...(dto.startsAt !== undefined && { startsAt }),
         ...(needsRecompute && { endsAt }),
       },
@@ -322,62 +330,62 @@ export class AppointmentsService {
   }
 
   /**
-   * Full staff validation for booking:
-   * - Staff belongs to business
-   * - Staff is active
-   * - Staff's linked BusinessUser is ACTIVE
-   * - Staff provides the selected service
+   * Full service provider validation for booking:
+   * - Provider belongs to business
+   * - Provider is active
+   * - Provider's linked BusinessUser is ACTIVE
+   * - Provider offers the selected service
    */
-  private async assertStaffReadyForBooking(
-    staffMemberId: string,
+  private async assertServiceProviderReadyForBooking(
+    serviceProviderId: string,
     businessId: string,
     serviceId: string,
   ): Promise<void> {
-    const staff = await this.prisma.staffMember.findFirst({
-      where: { id: staffMemberId, businessId },
+    const sp = await this.prisma.serviceProvider.findFirst({
+      where: { id: serviceProviderId, businessId },
       select: { id: true, isActive: true, businessUserId: true },
     });
-    if (!staff) throw new NotFoundException('Staff member not found');
-    if (!staff.isActive)
-      throw new BadRequestException('Staff member is not active');
+    if (!sp) throw new NotFoundException('Service provider not found');
+    if (!sp.isActive)
+      throw new BadRequestException('Service provider is not active');
 
     const businessUser = await this.prisma.businessUser.findUnique({
-      where: { id: staff.businessUserId },
+      where: { id: sp.businessUserId },
       select: { status: true },
     });
     if (!businessUser || businessUser.status !== 'ACTIVE') {
       throw new BadRequestException(
-        "Staff member's linked user account is not active",
+        "Service provider's linked user account is not active",
       );
     }
 
-    await this.assertStaffProvidesService(staffMemberId, serviceId);
+    await this.assertServiceProviderOffersService(serviceProviderId, serviceId);
   }
 
-  private async assertStaffProvidesService(
-    staffMemberId: string,
+  private async assertServiceProviderOffersService(
+    serviceProviderId: string,
     serviceId: string,
   ): Promise<void> {
-    const link = await this.prisma.staffMemberService.findFirst({
-      where: { staffMemberId, serviceId },
-      select: { staffMemberId: true },
+    const link = await this.prisma.serviceProviderService.findFirst({
+      where: { serviceProviderId, serviceId },
+      select: { serviceProviderId: true },
     });
     if (!link) {
       throw new BadRequestException(
-        'Staff member does not provide the selected service',
+        'Service provider does not offer the selected service',
       );
     }
   }
 
-  private async checkStaffConflict(
-    staffMemberId: string,
+  private async checkServiceProviderConflict(
+    serviceProviderId: string,
     startsAt: Date,
     endsAt: Date,
     excludeId: string | null,
   ): Promise<void> {
     const conflict = await this.prisma.appointment.findFirst({
       where: {
-        staffMemberId,
+        serviceProviderId,
         status: {
           notIn: ['CANCELLED_BY_CUSTOMER', 'CANCELLED_BY_BUSINESS'],
         },
@@ -389,7 +397,7 @@ export class AppointmentsService {
     });
     if (conflict) {
       throw new ConflictException(
-        'Staff member has a conflicting appointment at this time',
+        'Service provider has a conflicting appointment at this time',
       );
     }
   }

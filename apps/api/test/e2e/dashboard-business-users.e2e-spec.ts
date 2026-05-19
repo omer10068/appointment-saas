@@ -32,7 +32,7 @@ type BusinessUserDto = {
   userId: string;
   role: string;
   status: string;
-  hasStaffProfile: boolean;
+  hasServiceProviderProfile: boolean;
 };
 
 describe('GET /dashboard/businesses/:businessId/users', () => {
@@ -234,21 +234,21 @@ describe('GET /dashboard/businesses/:businessId/users', () => {
       userId: E2E_BU_OWNER_USER_ID,
       role: 'OWNER',
       status: 'ACTIVE',
-      hasStaffProfile: false,
+      hasServiceProviderProfile: false,
     });
     expect(body[1]).toMatchObject<BusinessUserDto>({
       id: expect.any(String) as string,
       userId: E2E_BU_MGR_USER_ID,
       role: 'MANAGER',
       status: 'ACTIVE',
-      hasStaffProfile: false,
+      hasServiceProviderProfile: false,
     });
     expect(body[2]).toMatchObject<BusinessUserDto>({
       id: expect.any(String) as string,
       userId: E2E_BU_MBR_USER_ID,
       role: 'MEMBER',
       status: 'ACTIVE',
-      hasStaffProfile: false,
+      hasServiceProviderProfile: false,
     });
   });
 

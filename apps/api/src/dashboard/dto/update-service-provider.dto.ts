@@ -9,15 +9,15 @@ import {
   MaxLength,
 } from 'class-validator';
 
-export class UpdateStaffMemberDto {
+export class UpdateServiceProviderDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   @IsOptional()
   displayName?: string;
 
-  // When provided, replaces all service links for this StaffMember.
-  // If the StaffMember is active, at least one serviceId is required.
+  // When provided, replaces all service links for this ServiceProvider.
+  // If the ServiceProvider is active, at least one serviceId is required.
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('all', { each: true })

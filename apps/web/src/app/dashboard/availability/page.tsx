@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import type {
   CreateAvailabilityExceptionPayload,
   DashboardAvailabilityExceptionDto,
-  DashboardStaffMemberDto,
+  DashboardServiceProviderDto,
   DashboardWorkingHourDto,
   UpdateWorkingHoursPayload,
 } from '@appointment/contracts';
@@ -17,10 +17,10 @@ import {
   deleteAvailabilityException,
   fetchAvailabilityExceptions,
   fetchBusinessWorkingHours,
-  fetchDashboardStaff,
-  fetchStaffWorkingHours,
+  fetchDashboardServiceProviders,
+  fetchServiceProviderWorkingHours,
   updateBusinessWorkingHours,
-  updateStaffWorkingHours,
+  updateServiceProviderWorkingHours,
 } from '../../../lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ interface HourRow {
 
 interface ExceptionForm {
   date: string;
-  staffMemberId: string;
+  serviceProviderId: string;
   isClosed: boolean;
   startTime: string;
   endTime: string;
@@ -72,7 +72,7 @@ function mergeHours(
 function emptyExceptionForm(): ExceptionForm {
   return {
     date: '',
-    staffMemberId: '',
+    serviceProviderId: '',
     isClosed: true,
     startTime: '09:00',
     endTime: '17:00',
@@ -206,7 +206,7 @@ export default function AvailabilityPage() {
 
   // ─── Staff list + staff hours ──────────────────────────────────────────────
 
-  const [staffList, setStaffList] = useState<DashboardStaffMemberDto[]>([]);
+  const [staffList, setStaffList] = useState<DashboardServiceProviderDto[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [staffHours, setStaffHours] = useState<HourRow[]>(defaultHours());
   const [staffHoursLoading, setStaffHoursLoading] = useState(false);
@@ -254,7 +254,7 @@ export default function AvailabilityPage() {
       .catch(() => { /* silent */ })
       .finally(() => { if (!cancelled) setExceptionsLoading(false); });
 
-    fetchDashboardStaff(businessId, () => getTokenRef.current())
+    fetchDashboardServiceProviders(businessId, () => getTokenRef.current())
       .then((data) => {
         if (!cancelled) {
           setStaffList(data.filter((s) => s.isActive));
@@ -279,7 +279,7 @@ export default function AvailabilityPage() {
     setStaffHoursLoading(true);
     setStaffHoursError(null);
 
-    fetchStaffWorkingHours(businessId, selectedStaffId, () => getTokenRef.current())
+    fetchServiceProviderWorkingHours(businessId, selectedStaffId, () => getTokenRef.current())
       .then((data) => { if (!cancelled) setStaffHours(mergeHours(data)); })
       .catch(() => { if (!cancelled) setStaffHoursError(ta.hoursLoadError); })
       .finally(() => { if (!cancelled) setStaffHoursLoading(false); });
@@ -344,7 +344,7 @@ export default function AvailabilityPage() {
       })),
     };
     try {
-      const updated = await updateStaffWorkingHours(
+      const updated = await updateServiceProviderWorkingHours(
         businessId,
         selectedStaffId,
         payload,
@@ -368,7 +368,7 @@ export default function AvailabilityPage() {
     setExceptionError(null);
     const payload: CreateAvailabilityExceptionPayload = {
       date: exceptionForm.date,
-      staffMemberId: exceptionForm.staffMemberId || null,
+      serviceProviderId: exceptionForm.serviceProviderId || null,
       isClosed: exceptionForm.isClosed,
       startTime: exceptionForm.isClosed ? null : exceptionForm.startTime || null,
       endTime: exceptionForm.isClosed ? null : exceptionForm.endTime || null,
@@ -569,9 +569,9 @@ export default function AvailabilityPage() {
                   {ta.staffMemberLabel}
                 </label>
                 <select
-                  value={exceptionForm.staffMemberId}
+                  value={exceptionForm.serviceProviderId}
                   onChange={(e) =>
-                    setExceptionForm((f) => ({ ...f, staffMemberId: e.target.value }))
+                    setExceptionForm((f) => ({ ...f, serviceProviderId: e.target.value }))
                   }
                   className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
@@ -702,8 +702,8 @@ export default function AvailabilityPage() {
                 <tbody>
                   {exceptions.map((ex) => {
                     const staffName =
-                      ex.staffMemberId
-                        ? (staffList.find((s) => s.id === ex.staffMemberId)?.displayName ?? ex.staffMemberId)
+                      ex.serviceProviderId
+                        ? (staffList.find((s) => s.id === ex.serviceProviderId)?.displayName ?? ex.serviceProviderId)
                         : ta.entireBusiness;
                     return (
                       <tr

@@ -11,7 +11,7 @@ import type {
   BusinessCustomer,
   BusinessUser,
   Service,
-  StaffMember,
+  ServiceProvider,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentsService } from './appointments.service';
@@ -21,7 +21,7 @@ const OTHER_USER_ID = 'user-2';
 const BUSINESS_ID = 'biz-1';
 const APPOINTMENT_ID = 'appt-1';
 const STAFF_ID = 'sm-1';
-const STAFF_BU_ID = 'bu-3'; // BusinessUser linked to the StaffMember
+const STAFF_BU_ID = 'bu-3'; // BusinessUser linked to the ServiceProvider
 const SERVICE_ID = 'svc-1';
 const CUSTOMER_ID = 'bc-1';
 
@@ -35,7 +35,7 @@ const mockMembership: BusinessUser = {
   updatedAt: new Date('2024-01-01'),
 };
 
-const mockStaffMembership: BusinessUser = {
+const mockServiceProvidership: BusinessUser = {
   ...mockMembership,
   id: STAFF_BU_ID,
   role: 'MEMBER',
@@ -43,7 +43,7 @@ const mockStaffMembership: BusinessUser = {
 
 const mockStaffBu = { status: 'ACTIVE' };
 
-const mockStaffRecord: StaffMember = {
+const mockServiceProviderRecord: ServiceProvider = {
   id: STAFF_ID,
   businessId: BUSINESS_ID,
   businessUserId: STAFF_BU_ID,
@@ -85,7 +85,7 @@ const mockAppointmentRow = {
   businessId: BUSINESS_ID,
   businessCustomerId: CUSTOMER_ID,
   serviceId: SERVICE_ID,
-  staffMemberId: STAFF_ID,
+  serviceProviderId: STAFF_ID,
   startsAt: STARTS_AT,
   endsAt: ENDS_AT,
   status: 'SCHEDULED',
@@ -93,7 +93,7 @@ const mockAppointmentRow = {
   updatedAt: new Date('2024-01-01'),
   businessCustomer: { customerProfile: { fullName: 'John Doe' } },
   service: { name: 'Haircut' },
-  staffMember: { displayName: 'Alice' },
+  serviceProvider: { displayName: 'Alice' },
 };
 
 const mockAppointment: Appointment = {
@@ -101,7 +101,7 @@ const mockAppointment: Appointment = {
   businessId: BUSINESS_ID,
   businessCustomerId: CUSTOMER_ID,
   serviceId: SERVICE_ID,
-  staffMemberId: STAFF_ID,
+  serviceProviderId: STAFF_ID,
   startsAt: STARTS_AT,
   endsAt: ENDS_AT,
   status: 'SCHEDULED',
@@ -113,13 +113,14 @@ const mockPrisma = {
   businessUser: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
   },
-  staffMember: {
-    findFirst: jest.fn<(...args: unknown[]) => Promise<StaffMember | null>>(),
+  serviceProvider: {
+    findFirst:
+      jest.fn<(...args: unknown[]) => Promise<ServiceProvider | null>>(),
   },
-  staffMemberService: {
+  serviceProviderService: {
     findFirst:
       jest.fn<
-        (...args: unknown[]) => Promise<{ staffMemberId: string } | null>
+        (...args: unknown[]) => Promise<{ serviceProviderId: string } | null>
       >(),
   },
   service: {
@@ -172,7 +173,7 @@ describe('AppointmentsService', () => {
         id: APPOINTMENT_ID,
         customerName: 'John Doe',
         serviceName: 'Haircut',
-        staffMemberName: 'Alice',
+        serviceProviderName: 'Alice',
       });
     });
 
@@ -229,7 +230,7 @@ describe('AppointmentsService', () => {
     const createDto = {
       businessCustomerId: CUSTOMER_ID,
       serviceId: SERVICE_ID,
-      staffMemberId: STAFF_ID,
+      serviceProviderId: STAFF_ID,
       startsAt: STARTS_AT.toISOString(),
     };
 
@@ -239,9 +240,11 @@ describe('AppointmentsService', () => {
         .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser); // assertStaffReadyForBooking
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
-      mockPrisma.staffMemberService.findFirst.mockResolvedValue({
-        staffMemberId: STAFF_ID,
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        mockServiceProviderRecord,
+      );
+      mockPrisma.serviceProviderService.findFirst.mockResolvedValue({
+        serviceProviderId: STAFF_ID,
       });
       mockPrisma.appointment.findFirst.mockResolvedValue(null); // no conflict
     }
@@ -264,7 +267,7 @@ describe('AppointmentsService', () => {
             businessId: BUSINESS_ID,
             businessCustomerId: CUSTOMER_ID,
             serviceId: SERVICE_ID,
-            staffMemberId: STAFF_ID,
+            serviceProviderId: STAFF_ID,
             status: 'SCHEDULED',
             endsAt: ENDS_AT,
           }),
@@ -274,7 +277,9 @@ describe('AppointmentsService', () => {
     });
 
     it('throws ForbiddenException for MEMBER role', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.createAppointment(USER_ID, BUSINESS_ID, createDto),
@@ -312,23 +317,23 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('throws NotFoundException when staff does not belong to business', async () => {
+    it('throws NotFoundException when service provider does not belong to business', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(null);
 
       await expect(
         service.createAppointment(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('throws BadRequestException when staff is inactive', async () => {
+    it('throws BadRequestException when service provider is inactive', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
-      mockPrisma.staffMember.findFirst.mockResolvedValue({
-        ...mockStaffRecord,
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue({
+        ...mockServiceProviderRecord,
         isActive: false,
       });
 
@@ -337,7 +342,7 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("throws BadRequestException when staff's linked user account is not active", async () => {
+    it("throws BadRequestException when service provider's linked user account is not active", async () => {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership)
         .mockResolvedValueOnce({
@@ -345,28 +350,32 @@ describe('AppointmentsService', () => {
         } as unknown as BusinessUser);
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        mockServiceProviderRecord,
+      );
 
       await expect(
         service.createAppointment(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('throws BadRequestException when staff does not provide the selected service', async () => {
+    it('throws BadRequestException when service provider does not offer the selected service', async () => {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership)
         .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser);
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(mockStaffRecord);
-      mockPrisma.staffMemberService.findFirst.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        mockServiceProviderRecord,
+      );
+      mockPrisma.serviceProviderService.findFirst.mockResolvedValue(null);
 
       await expect(
         service.createAppointment(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('throws ConflictException when staff has overlapping appointment', async () => {
+    it('throws ConflictException when service provider has overlapping appointment', async () => {
       setupHappyPath();
       mockPrisma.appointment.findFirst.mockResolvedValue(mockAppointment); // conflict
 
@@ -448,7 +457,7 @@ describe('AppointmentsService', () => {
       );
     });
 
-    it('validates new staff when staffMemberId changes', async () => {
+    it('validates new service provider when serviceProviderId changes', async () => {
       const NEW_STAFF_ID = 'sm-2';
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership)
@@ -456,23 +465,23 @@ describe('AppointmentsService', () => {
       mockPrisma.appointment.findFirst
         .mockResolvedValueOnce(mockAppointment)
         .mockResolvedValueOnce(null);
-      mockPrisma.staffMember.findFirst.mockResolvedValue({
-        ...mockStaffRecord,
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue({
+        ...mockServiceProviderRecord,
         id: NEW_STAFF_ID,
       });
-      mockPrisma.staffMemberService.findFirst.mockResolvedValue({
-        staffMemberId: NEW_STAFF_ID,
+      mockPrisma.serviceProviderService.findFirst.mockResolvedValue({
+        serviceProviderId: NEW_STAFF_ID,
       });
       mockPrisma.appointment.update.mockResolvedValue(
         mockAppointmentRow as unknown as Appointment,
       );
 
       await service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
-        staffMemberId: NEW_STAFF_ID,
+        serviceProviderId: NEW_STAFF_ID,
       });
 
-      expect(mockPrisma.staffMember.findFirst).toHaveBeenCalled();
-      expect(mockPrisma.staffMemberService.findFirst).toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.findFirst).toHaveBeenCalled();
+      expect(mockPrisma.serviceProviderService.findFirst).toHaveBeenCalled();
     });
   });
 
@@ -515,7 +524,9 @@ describe('AppointmentsService', () => {
     });
 
     it('throws ForbiddenException for MEMBER role', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.setAppointmentStatus(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {

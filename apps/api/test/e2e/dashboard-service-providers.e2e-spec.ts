@@ -17,23 +17,23 @@ import { requireTestDatabase } from '../helpers/test-db';
 requireTestDatabase();
 
 // ─── Stable IDs — hex-only prefix e2e70000 ────────────────────────────────────
-const E2E_STAFF_BIZ_ID = 'e2e70000-0000-4000-8000-000000000001';
-const E2E_STAFF_OWNER_USER_ID = 'e2e70000-0000-4000-8000-000000000002';
-const E2E_STAFF_MGR_USER_ID = 'e2e70000-0000-4000-8000-000000000003';
-const E2E_STAFF_MBR_USER_ID = 'e2e70000-0000-4000-8000-000000000004';
-const E2E_STAFF_OUT_USER_ID = 'e2e70000-0000-4000-8000-000000000005';
-const E2E_STAFF_SVC_1_ID = 'e2e70000-0000-4000-8000-000000000010';
-const E2E_STAFF_SVC_2_ID = 'e2e70000-0000-4000-8000-000000000011';
-const E2E_STAFF_SM_1_ID = 'e2e70000-0000-4000-8000-000000000020';
-const E2E_STAFF_SM_2_ID = 'e2e70000-0000-4000-8000-000000000021';
-// Cross-tenant fixture — proves staff from another business are excluded
-const E2E_STAFF_OTHER_BIZ_ID = 'e2e70000-0000-4000-8000-000000000030';
-const E2E_STAFF_OTHER_USER_ID = 'e2e70000-0000-4000-8000-000000000031';
-const E2E_STAFF_OTHER_SVC_ID = 'e2e70000-0000-4000-8000-000000000032';
-const E2E_STAFF_OTHER_SM_ID = 'e2e70000-0000-4000-8000-000000000033';
+const E2E_SP_BIZ_ID = 'e2e70000-0000-4000-8000-000000000001';
+const E2E_SP_OWNER_USER_ID = 'e2e70000-0000-4000-8000-000000000002';
+const E2E_SP_MGR_USER_ID = 'e2e70000-0000-4000-8000-000000000003';
+const E2E_SP_MBR_USER_ID = 'e2e70000-0000-4000-8000-000000000004';
+const E2E_SP_OUT_USER_ID = 'e2e70000-0000-4000-8000-000000000005';
+const E2E_SP_SVC_1_ID = 'e2e70000-0000-4000-8000-000000000010';
+const E2E_SP_SVC_2_ID = 'e2e70000-0000-4000-8000-000000000011';
+const E2E_SP_SM_1_ID = 'e2e70000-0000-4000-8000-000000000020';
+const E2E_SP_SM_2_ID = 'e2e70000-0000-4000-8000-000000000021';
+// Cross-tenant fixture — proves service providers from another business are excluded
+const E2E_SP_OTHER_BIZ_ID = 'e2e70000-0000-4000-8000-000000000030';
+const E2E_SP_OTHER_USER_ID = 'e2e70000-0000-4000-8000-000000000031';
+const E2E_SP_OTHER_SVC_ID = 'e2e70000-0000-4000-8000-000000000032';
+const E2E_SP_OTHER_SM_ID = 'e2e70000-0000-4000-8000-000000000033';
 
-// Response shape returned by GET /dashboard/businesses/:businessId/staff
-type StaffMemberDto = {
+// Response shape returned by GET /dashboard/businesses/:businessId/service-providers
+type ServiceProviderDto = {
   id: string;
   displayName: string;
   isActive: boolean;
@@ -43,7 +43,7 @@ type StaffMemberDto = {
   updatedAt: string;
 };
 
-describe('GET /dashboard/businesses/:businessId/staff', () => {
+describe('GET /dashboard/businesses/:businessId/service-providers', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let ownerUser: User;
@@ -71,36 +71,36 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
     prisma = module.get(PrismaService);
 
     // ── Idempotent pre-cleanup (handles leftover from a crashed previous run) ──
-    // StaffMember (onDelete: Cascade → StaffMemberService) must go before Service/BusinessUser.
-    await prisma.staffMember.deleteMany({
+    // ServiceProvider (onDelete: Cascade → ServiceProviderService) must go before Service/BusinessUser.
+    await prisma.serviceProvider.deleteMany({
       where: {
-        businessId: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        businessId: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.service.deleteMany({
       where: {
-        businessId: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        businessId: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.businessUser.deleteMany({
       where: {
-        businessId: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        businessId: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.business.deleteMany({
       where: {
-        id: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        id: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.user.deleteMany({
       where: {
         id: {
           in: [
-            E2E_STAFF_OWNER_USER_ID,
-            E2E_STAFF_MGR_USER_ID,
-            E2E_STAFF_MBR_USER_ID,
-            E2E_STAFF_OUT_USER_ID,
-            E2E_STAFF_OTHER_USER_ID,
+            E2E_SP_OWNER_USER_ID,
+            E2E_SP_MGR_USER_ID,
+            E2E_SP_MBR_USER_ID,
+            E2E_SP_OUT_USER_ID,
+            E2E_SP_OTHER_USER_ID,
           ],
         },
       },
@@ -109,16 +109,16 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
     // ── Seed main business ─────────────────────────────────────────────────────
     await prisma.business.create({
       data: {
-        id: E2E_STAFF_BIZ_ID,
-        name: 'E2E Staff Business',
-        slug: 'e2e-staff-business',
+        id: E2E_SP_BIZ_ID,
+        name: 'E2E ServiceProvider Business',
+        slug: 'e2e-service-provider-business',
         status: 'ACTIVE',
       },
     });
 
     ownerUser = await prisma.user.create({
       data: {
-        id: E2E_STAFF_OWNER_USER_ID,
+        id: E2E_SP_OWNER_USER_ID,
         phoneNormalized: '+19990003001',
         status: 'ACTIVE',
         platformRole: 'USER',
@@ -127,7 +127,7 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     const ownerBU = await prisma.businessUser.create({
       data: {
-        businessId: E2E_STAFF_BIZ_ID,
+        businessId: E2E_SP_BIZ_ID,
         userId: ownerUser.id,
         role: 'OWNER',
         status: 'ACTIVE',
@@ -137,7 +137,7 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     managerUser = await prisma.user.create({
       data: {
-        id: E2E_STAFF_MGR_USER_ID,
+        id: E2E_SP_MGR_USER_ID,
         phoneNormalized: '+19990003002',
         status: 'ACTIVE',
         platformRole: 'USER',
@@ -146,7 +146,7 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     const managerBU = await prisma.businessUser.create({
       data: {
-        businessId: E2E_STAFF_BIZ_ID,
+        businessId: E2E_SP_BIZ_ID,
         userId: managerUser.id,
         role: 'MANAGER',
         status: 'ACTIVE',
@@ -156,7 +156,7 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     memberUser = await prisma.user.create({
       data: {
-        id: E2E_STAFF_MBR_USER_ID,
+        id: E2E_SP_MBR_USER_ID,
         phoneNormalized: '+19990003003',
         status: 'ACTIVE',
         platformRole: 'USER',
@@ -165,7 +165,7 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     await prisma.businessUser.create({
       data: {
-        businessId: E2E_STAFF_BIZ_ID,
+        businessId: E2E_SP_BIZ_ID,
         userId: memberUser.id,
         role: 'MEMBER',
         status: 'ACTIVE',
@@ -174,7 +174,7 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     outsiderUser = await prisma.user.create({
       data: {
-        id: E2E_STAFF_OUT_USER_ID,
+        id: E2E_SP_OUT_USER_ID,
         phoneNormalized: '+19990003004',
         status: 'ACTIVE',
         platformRole: 'USER',
@@ -185,8 +185,8 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
     await prisma.service.createMany({
       data: [
         {
-          id: E2E_STAFF_SVC_1_ID,
-          businessId: E2E_STAFF_BIZ_ID,
+          id: E2E_SP_SVC_1_ID,
+          businessId: E2E_SP_BIZ_ID,
           name: 'Haircut',
           durationMinutes: 30,
           isActive: true,
@@ -194,8 +194,8 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
           bufferAfterMin: 0,
         },
         {
-          id: E2E_STAFF_SVC_2_ID,
-          businessId: E2E_STAFF_BIZ_ID,
+          id: E2E_SP_SVC_2_ID,
+          businessId: E2E_SP_BIZ_ID,
           name: 'Manicure',
           durationMinutes: 45,
           isActive: true,
@@ -205,32 +205,32 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
       ],
     });
 
-    // StaffMember records — displayName asc ordering: "Alice Staff" < "Bob Staff"
-    await prisma.staffMember.create({
+    // ServiceProvider records — displayName asc ordering: "Alice Staff" < "Bob Staff"
+    await prisma.serviceProvider.create({
       data: {
-        id: E2E_STAFF_SM_1_ID,
-        businessId: E2E_STAFF_BIZ_ID,
+        id: E2E_SP_SM_1_ID,
+        businessId: E2E_SP_BIZ_ID,
         businessUserId: ownerBUId,
         displayName: 'Alice Staff',
         isActive: true,
         services: {
           create: [
-            { serviceId: E2E_STAFF_SVC_1_ID },
-            { serviceId: E2E_STAFF_SVC_2_ID },
+            { serviceId: E2E_SP_SVC_1_ID },
+            { serviceId: E2E_SP_SVC_2_ID },
           ],
         },
       },
     });
 
-    await prisma.staffMember.create({
+    await prisma.serviceProvider.create({
       data: {
-        id: E2E_STAFF_SM_2_ID,
-        businessId: E2E_STAFF_BIZ_ID,
+        id: E2E_SP_SM_2_ID,
+        businessId: E2E_SP_BIZ_ID,
         businessUserId: managerBUId,
         displayName: 'Bob Staff',
         isActive: true,
         services: {
-          create: [{ serviceId: E2E_STAFF_SVC_1_ID }],
+          create: [{ serviceId: E2E_SP_SVC_1_ID }],
         },
       },
     });
@@ -238,16 +238,16 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
     // ── Cross-tenant fixture ───────────────────────────────────────────────────
     await prisma.business.create({
       data: {
-        id: E2E_STAFF_OTHER_BIZ_ID,
-        name: 'E2E Other Staff Business',
-        slug: 'e2e-other-staff-business',
+        id: E2E_SP_OTHER_BIZ_ID,
+        name: 'E2E Other ServiceProvider Business',
+        slug: 'e2e-other-service-provider-business',
         status: 'ACTIVE',
       },
     });
 
     const otherUser = await prisma.user.create({
       data: {
-        id: E2E_STAFF_OTHER_USER_ID,
+        id: E2E_SP_OTHER_USER_ID,
         phoneNormalized: '+19990003010',
         status: 'ACTIVE',
         platformRole: 'USER',
@@ -256,7 +256,7 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     const otherBU = await prisma.businessUser.create({
       data: {
-        businessId: E2E_STAFF_OTHER_BIZ_ID,
+        businessId: E2E_SP_OTHER_BIZ_ID,
         userId: otherUser.id,
         role: 'OWNER',
         status: 'ACTIVE',
@@ -265,8 +265,8 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
     await prisma.service.create({
       data: {
-        id: E2E_STAFF_OTHER_SVC_ID,
-        businessId: E2E_STAFF_OTHER_BIZ_ID,
+        id: E2E_SP_OTHER_SVC_ID,
+        businessId: E2E_SP_OTHER_BIZ_ID,
         name: 'Other Service',
         durationMinutes: 30,
         isActive: true,
@@ -275,51 +275,51 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
       },
     });
 
-    await prisma.staffMember.create({
+    await prisma.serviceProvider.create({
       data: {
-        id: E2E_STAFF_OTHER_SM_ID,
-        businessId: E2E_STAFF_OTHER_BIZ_ID,
+        id: E2E_SP_OTHER_SM_ID,
+        businessId: E2E_SP_OTHER_BIZ_ID,
         businessUserId: otherBU.id,
         displayName: 'Other Staff',
         isActive: true,
         services: {
-          create: [{ serviceId: E2E_STAFF_OTHER_SVC_ID }],
+          create: [{ serviceId: E2E_SP_OTHER_SVC_ID }],
         },
       },
     });
   });
 
   afterAll(async () => {
-    // FK-safe order: StaffMember (cascades StaffMemberService) → Service → BusinessUser → Business → User
-    await prisma.staffMember.deleteMany({
+    // FK-safe order: ServiceProvider (cascades ServiceProviderService) → Service → BusinessUser → Business → User
+    await prisma.serviceProvider.deleteMany({
       where: {
-        businessId: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        businessId: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.service.deleteMany({
       where: {
-        businessId: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        businessId: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.businessUser.deleteMany({
       where: {
-        businessId: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        businessId: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.business.deleteMany({
       where: {
-        id: { in: [E2E_STAFF_BIZ_ID, E2E_STAFF_OTHER_BIZ_ID] },
+        id: { in: [E2E_SP_BIZ_ID, E2E_SP_OTHER_BIZ_ID] },
       },
     });
     await prisma.user.deleteMany({
       where: {
         id: {
           in: [
-            E2E_STAFF_OWNER_USER_ID,
-            E2E_STAFF_MGR_USER_ID,
-            E2E_STAFF_MBR_USER_ID,
-            E2E_STAFF_OUT_USER_ID,
-            E2E_STAFF_OTHER_USER_ID,
+            E2E_SP_OWNER_USER_ID,
+            E2E_SP_MGR_USER_ID,
+            E2E_SP_MBR_USER_ID,
+            E2E_SP_OUT_USER_ID,
+            E2E_SP_OTHER_USER_ID,
           ],
         },
       },
@@ -333,82 +333,82 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
 
   // ── Test cases ──────────────────────────────────────────────────────────────
 
-  it('owner returns 200 with staff members and correct shape', async () => {
+  it('owner returns 200 with service providers and correct shape', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     const res = await request(app.getHttpServer())
-      .get(`/dashboard/businesses/${E2E_STAFF_BIZ_ID}/staff`)
+      .get(`/dashboard/businesses/${E2E_SP_BIZ_ID}/service-providers`)
       .expect(200);
 
-    const body = res.body as StaffMemberDto[];
-    // Only the two staff members for this business — the cross-tenant staff
-    // member (E2E_STAFF_OTHER_SM_ID) must not appear.
+    const body = res.body as ServiceProviderDto[];
+    // Only the two service providers for this business — the cross-tenant
+    // provider (E2E_SP_OTHER_SM_ID) must not appear.
     expect(body).toHaveLength(2);
     const ids = body.map((s) => s.id);
-    expect(ids).not.toContain(E2E_STAFF_OTHER_SM_ID);
+    expect(ids).not.toContain(E2E_SP_OTHER_SM_ID);
 
     // Ordered by displayName asc: "Alice Staff" → index 0, "Bob Staff" → index 1
-    expect(body[0]).toMatchObject<StaffMemberDto>({
-      id: E2E_STAFF_SM_1_ID,
+    expect(body[0]).toMatchObject<ServiceProviderDto>({
+      id: E2E_SP_SM_1_ID,
       displayName: 'Alice Staff',
       isActive: true,
       businessUserId: ownerBUId,
       serviceIds: expect.arrayContaining([
-        E2E_STAFF_SVC_1_ID,
-        E2E_STAFF_SVC_2_ID,
+        E2E_SP_SVC_1_ID,
+        E2E_SP_SVC_2_ID,
       ]) as string[],
       createdAt: expect.any(String) as string,
       updatedAt: expect.any(String) as string,
     });
     expect(body[0].serviceIds).toHaveLength(2);
 
-    expect(body[1]).toMatchObject<StaffMemberDto>({
-      id: E2E_STAFF_SM_2_ID,
+    expect(body[1]).toMatchObject<ServiceProviderDto>({
+      id: E2E_SP_SM_2_ID,
       displayName: 'Bob Staff',
       isActive: true,
       businessUserId: managerBUId,
-      serviceIds: [E2E_STAFF_SVC_1_ID],
+      serviceIds: [E2E_SP_SVC_1_ID],
       createdAt: expect.any(String) as string,
       updatedAt: expect.any(String) as string,
     });
     expect(body[1].serviceIds).toHaveLength(1);
   });
 
-  it('manager returns 200 with staff members', async () => {
+  it('manager returns 200 with service providers', async () => {
     // assertAccess allows any BusinessUser regardless of role
     MockClerkAuthGuard.currentUser = managerUser;
     const res = await request(app.getHttpServer())
-      .get(`/dashboard/businesses/${E2E_STAFF_BIZ_ID}/staff`)
+      .get(`/dashboard/businesses/${E2E_SP_BIZ_ID}/service-providers`)
       .expect(200);
 
-    const body = res.body as StaffMemberDto[];
+    const body = res.body as ServiceProviderDto[];
     expect(body).toHaveLength(2);
-    const smIds = body.map((s) => s.id);
-    expect(smIds).toContain(E2E_STAFF_SM_1_ID);
-    expect(smIds).toContain(E2E_STAFF_SM_2_ID);
+    const spIds = body.map((s) => s.id);
+    expect(spIds).toContain(E2E_SP_SM_1_ID);
+    expect(spIds).toContain(E2E_SP_SM_2_ID);
   });
 
-  it('member returns 200 with staff members', async () => {
+  it('member returns 200 with service providers', async () => {
     // assertAccess allows any BusinessUser regardless of role
     MockClerkAuthGuard.currentUser = memberUser;
     const res = await request(app.getHttpServer())
-      .get(`/dashboard/businesses/${E2E_STAFF_BIZ_ID}/staff`)
+      .get(`/dashboard/businesses/${E2E_SP_BIZ_ID}/service-providers`)
       .expect(200);
 
-    const body = res.body as StaffMemberDto[];
+    const body = res.body as ServiceProviderDto[];
     expect(body).toHaveLength(2);
   });
 
   it('authenticated outsider not a member returns 403', async () => {
     MockClerkAuthGuard.currentUser = outsiderUser;
     await request(app.getHttpServer())
-      .get(`/dashboard/businesses/${E2E_STAFF_BIZ_ID}/staff`)
+      .get(`/dashboard/businesses/${E2E_SP_BIZ_ID}/service-providers`)
       .expect(403);
   });
 
   it('missing auth returns 401', async () => {
     // currentUser is null (reset by beforeEach)
     await request(app.getHttpServer())
-      .get(`/dashboard/businesses/${E2E_STAFF_BIZ_ID}/staff`)
+      .get(`/dashboard/businesses/${E2E_SP_BIZ_ID}/service-providers`)
       .expect(401);
   });
 
@@ -416,7 +416,9 @@ describe('GET /dashboard/businesses/:businessId/staff', () => {
     // assertAccess finds no BusinessUser for this combination → ForbiddenException
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
-      .get('/dashboard/businesses/00000000-0000-4000-8000-000000000000/staff')
+      .get(
+        '/dashboard/businesses/00000000-0000-4000-8000-000000000000/service-providers',
+      )
       .expect(403);
   });
 });

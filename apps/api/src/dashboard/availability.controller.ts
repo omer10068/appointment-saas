@@ -49,32 +49,32 @@ export class AvailabilityController {
     );
   }
 
-  // ─── Staff working hours ──────────────────────────────────────────────────────
+  // ─── Service provider working hours ──────────────────────────────────────────
 
-  @Get(':businessId/staff/:staffMemberId/working-hours')
-  getStaffWorkingHours(
+  @Get(':businessId/service-providers/:serviceProviderId/working-hours')
+  getServiceProviderWorkingHours(
     @Param('businessId') businessId: string,
-    @Param('staffMemberId') staffMemberId: string,
+    @Param('serviceProviderId') serviceProviderId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.availabilityService.getStaffWorkingHours(
+    return this.availabilityService.getServiceProviderWorkingHours(
       req.user.id,
       businessId,
-      staffMemberId,
+      serviceProviderId,
     );
   }
 
-  @Put(':businessId/staff/:staffMemberId/working-hours')
-  setStaffWorkingHours(
+  @Put(':businessId/service-providers/:serviceProviderId/working-hours')
+  setServiceProviderWorkingHours(
     @Param('businessId') businessId: string,
-    @Param('staffMemberId') staffMemberId: string,
+    @Param('serviceProviderId') serviceProviderId: string,
     @Body() dto: UpsertWorkingHoursDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.availabilityService.setStaffWorkingHours(
+    return this.availabilityService.setServiceProviderWorkingHours(
       req.user.id,
       businessId,
-      staffMemberId,
+      serviceProviderId,
       dto,
     );
   }

@@ -5,11 +5,11 @@ export class UpdateDashboardAppointmentDto {
   @IsOptional()
   serviceId?: string;
 
-  // May be provided to change staff; if omitted, keeps existing value.
-  // Cannot be set to null — staffMemberId is always required on an Appointment.
+  // May be provided to change the provider; if omitted, keeps existing value.
+  // Cannot be set to null — serviceProviderId is always required on an Appointment.
   @IsUUID()
   @IsOptional()
-  staffMemberId?: string;
+  serviceProviderId?: string;
 
   @IsDateString()
   @IsOptional()

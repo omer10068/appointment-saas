@@ -8,7 +8,7 @@ export class CreateDashboardAppointmentDto {
   serviceId!: string;
 
   @IsUUID()
-  staffMemberId!: string;
+  serviceProviderId!: string;
 
   @IsDateString()
   startsAt!: string;

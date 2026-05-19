@@ -11,7 +11,7 @@ import {
   type BusinessUser,
   type CustomerProfile,
   type Service,
-  type StaffMember,
+  type ServiceProvider,
   type User,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,7 +39,7 @@ const mockManagerMembership: BusinessUser = {
   role: 'MANAGER',
 };
 
-const mockStaffMembership: BusinessUser = {
+const mockServiceProvidership: BusinessUser = {
   ...mockMembership,
   id: STAFF_BU_ID,
   role: 'MEMBER',
@@ -108,7 +108,7 @@ const mockBusinessCustomerOtherBiz: BusinessCustomer = {
 };
 
 // Shape returned by STAFF_SELECT (includes services relation)
-const mockStaffMemberRow = {
+const mockServiceProviderRow = {
   id: 'sm-1',
   businessId: BUSINESS_ID,
   displayName: 'Alice',
@@ -119,8 +119,8 @@ const mockStaffMemberRow = {
   services: [{ serviceId: 'svc-1' }],
 };
 
-// Raw StaffMember (no services relation) — used for mock typing
-const mockStaffMember: StaffMember = {
+// Raw ServiceProvider (no services relation) — used for mock typing
+const mockServiceProvider: ServiceProvider = {
   id: 'sm-1',
   businessId: BUSINESS_ID,
   displayName: 'Alice',
@@ -130,7 +130,7 @@ const mockStaffMember: StaffMember = {
   updatedAt: new Date('2024-01-01'),
 };
 
-const mockStaffMemberOtherBiz: StaffMember = {
+const mockServiceProviderOtherBiz: ServiceProvider = {
   id: 'sm-2',
   businessId: OTHER_BUSINESS_ID,
   displayName: 'Bob',
@@ -211,15 +211,17 @@ const mockPrisma = {
     create: jest.fn<(...args: unknown[]) => Promise<CustomerProfile>>(),
     update: jest.fn<(...args: unknown[]) => Promise<CustomerProfile>>(),
   },
-  staffMember: {
-    findMany: jest.fn<(...args: unknown[]) => Promise<StaffMember[]>>(),
-    findFirst: jest.fn<(...args: unknown[]) => Promise<StaffMember | null>>(),
-    findUnique: jest.fn<(...args: unknown[]) => Promise<StaffMember | null>>(),
-    create: jest.fn<(...args: unknown[]) => Promise<StaffMember>>(),
-    update: jest.fn<(...args: unknown[]) => Promise<StaffMember>>(),
+  serviceProvider: {
+    findMany: jest.fn<(...args: unknown[]) => Promise<ServiceProvider[]>>(),
+    findFirst:
+      jest.fn<(...args: unknown[]) => Promise<ServiceProvider | null>>(),
+    findUnique:
+      jest.fn<(...args: unknown[]) => Promise<ServiceProvider | null>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<ServiceProvider>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<ServiceProvider>>(),
     count: jest.fn<(...args: unknown[]) => Promise<number>>(),
   },
-  staffMemberService: {
+  serviceProviderService: {
     createMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>(),
     deleteMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>(),
   },
@@ -427,7 +429,9 @@ describe('DashboardDataService', () => {
     });
 
     it('MEMBER cannot create a service', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.createService(USER_ID, BUSINESS_ID, createDto),
@@ -497,7 +501,9 @@ describe('DashboardDataService', () => {
     });
 
     it('MEMBER cannot update a service', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.updateService(USER_ID, BUSINESS_ID, 'svc-1', updateDto),
@@ -642,7 +648,9 @@ describe('DashboardDataService', () => {
     });
 
     it('MEMBER cannot create a customer', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.createCustomer(USER_ID, BUSINESS_ID, createDto),
@@ -699,7 +707,9 @@ describe('DashboardDataService', () => {
     });
 
     it('MEMBER cannot update a customer', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.updateCustomer(USER_ID, BUSINESS_ID, 'bc-1', updateDto),
@@ -755,7 +765,9 @@ describe('DashboardDataService', () => {
     });
 
     it('MEMBER cannot change customer status', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.setCustomerStatus(USER_ID, BUSINESS_ID, 'bc-1', 'BLOCKED'),
@@ -763,16 +775,18 @@ describe('DashboardDataService', () => {
     });
   });
 
-  // ─── getStaff ──────────────────────────────────────────────────────────────
+  // ─── getServiceProviders ───────────────────────────────────────────────────
 
-  describe('getStaff', () => {
-    it('returns staff when user is a member of the business', async () => {
+  describe('getServiceProviders', () => {
+    it('returns service providers when user is a member of the business', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.staffMember.findMany.mockResolvedValue([mockStaffMemberRow]);
+      mockPrisma.serviceProvider.findMany.mockResolvedValue([
+        mockServiceProviderRow,
+      ]);
 
-      const result = await service.getStaff(USER_ID, BUSINESS_ID);
+      const result = await service.getServiceProviders(USER_ID, BUSINESS_ID);
 
-      expect(mockPrisma.staffMember.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.serviceProvider.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { businessId: BUSINESS_ID } }),
       );
       expect(result).toHaveLength(1);
@@ -788,38 +802,42 @@ describe('DashboardDataService', () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.getStaff(OTHER_USER_ID, BUSINESS_ID),
+        service.getServiceProviders(OTHER_USER_ID, BUSINESS_ID),
       ).rejects.toThrow(ForbiddenException);
 
-      expect(mockPrisma.staffMember.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.findMany).not.toHaveBeenCalled();
     });
   });
 
-  // ─── createStaffMember ─────────────────────────────────────────────────────
+  // ─── createServiceProvider ─────────────────────────────────────────────────
 
-  describe('createStaffMember', () => {
+  describe('createServiceProvider', () => {
     const createDto = {
       displayName: 'Alice',
       businessUserId: STAFF_BU_ID,
       serviceIds: ['svc-1'],
     };
 
-    it('OWNER can create a staff member with businessUserId and serviceIds', async () => {
+    it('OWNER can create a service provider with businessUserId and serviceIds', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership); // caller access
-      mockPrisma.businessUser.findFirst.mockResolvedValue(mockStaffMembership); // BU in business, ACTIVE
-      mockPrisma.staffMember.findUnique.mockResolvedValue(null); // no duplicate
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        mockServiceProvidership,
+      ); // BU in business, ACTIVE
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue(null); // no duplicate
       mockPrisma.service.findMany.mockResolvedValue([mockService]); // services valid
-      mockPrisma.staffMember.create.mockResolvedValue(mockStaffMember);
-      mockPrisma.staffMemberService.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.serviceProvider.create.mockResolvedValue(mockServiceProvider);
+      mockPrisma.serviceProviderService.createMany.mockResolvedValue({
+        count: 1,
+      });
 
-      const result = await service.createStaffMember(
+      const result = await service.createServiceProvider(
         USER_ID,
         BUSINESS_ID,
         createDto,
       );
 
       expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockPrisma.staffMember.create).toHaveBeenCalledWith(
+      expect(mockPrisma.serviceProvider.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             businessId: BUSINESS_ID,
@@ -828,7 +846,7 @@ describe('DashboardDataService', () => {
           }),
         }),
       );
-      expect(mockPrisma.staffMemberService.createMany).toHaveBeenCalled();
+      expect(mockPrisma.serviceProviderService.createMany).toHaveBeenCalled();
       expect(result).toMatchObject({
         id: 'sm-1',
         displayName: 'Alice',
@@ -837,14 +855,16 @@ describe('DashboardDataService', () => {
       });
     });
 
-    it('MEMBER cannot create a staff member', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+    it('MEMBER cannot create a service provider', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
-        service.createStaffMember(USER_ID, BUSINESS_ID, createDto),
+        service.createServiceProvider(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(ForbiddenException);
 
-      expect(mockPrisma.staffMember.create).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.create).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when businessUserId does not belong to this business', async () => {
@@ -852,39 +872,45 @@ describe('DashboardDataService', () => {
       mockPrisma.businessUser.findFirst.mockResolvedValue(null); // BU not in business
 
       await expect(
-        service.createStaffMember(USER_ID, BUSINESS_ID, createDto),
+        service.createServiceProvider(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrisma.staffMember.create).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.create).not.toHaveBeenCalled();
     });
 
-    it('throws ConflictException when businessUserId already has a StaffMember', async () => {
+    it('throws ConflictException when businessUserId already has a ServiceProvider', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.businessUser.findFirst.mockResolvedValue(mockStaffMembership);
-      mockPrisma.staffMember.findUnique.mockResolvedValue(mockStaffMember); // already exists
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        mockServiceProvidership,
+      );
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue(
+        mockServiceProvider,
+      ); // already exists
 
       await expect(
-        service.createStaffMember(USER_ID, BUSINESS_ID, createDto),
+        service.createServiceProvider(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(ConflictException);
 
-      expect(mockPrisma.staffMember.create).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.create).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when a serviceId does not belong to this business', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.businessUser.findFirst.mockResolvedValue(mockStaffMembership);
-      mockPrisma.staffMember.findUnique.mockResolvedValue(null);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        mockServiceProvidership,
+      );
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue(null);
       mockPrisma.service.findMany.mockResolvedValue([]); // service not found in this business
 
       await expect(
-        service.createStaffMember(USER_ID, BUSINESS_ID, createDto),
+        service.createServiceProvider(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
-  // ─── updateStaffMember ─────────────────────────────────────────────────────
+  // ─── updateServiceProvider ─────────────────────────────────────────────────
 
-  describe('updateStaffMember', () => {
+  describe('updateServiceProvider', () => {
     const updateDto = { displayName: 'Alice Updated' };
 
     const existingStaffRow = {
@@ -894,98 +920,108 @@ describe('DashboardDataService', () => {
       services: [{ serviceId: 'svc-1' }],
     };
 
-    it('OWNER can update a staff member', async () => {
+    it('OWNER can update a service provider', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(
-        existingStaffRow as unknown as StaffMember,
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        existingStaffRow as unknown as ServiceProvider,
       );
-      mockPrisma.staffMember.update.mockResolvedValue(mockStaffMemberRow);
+      mockPrisma.serviceProvider.update.mockResolvedValue(
+        mockServiceProviderRow,
+      );
 
-      const result = await service.updateStaffMember(
+      const result = await service.updateServiceProvider(
         USER_ID,
         BUSINESS_ID,
         'sm-1',
         updateDto,
       );
 
-      expect(mockPrisma.staffMember.update).toHaveBeenCalledWith(
+      expect(mockPrisma.serviceProvider.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'sm-1' } }),
       );
       expect(result).toMatchObject({ id: 'sm-1' });
     });
 
-    it('cannot update a staff member from another business', async () => {
+    it('cannot update a service provider from another business', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateStaffMember(
+        service.updateServiceProvider(
           USER_ID,
           BUSINESS_ID,
-          mockStaffMemberOtherBiz.id,
+          mockServiceProviderOtherBiz.id,
           updateDto,
         ),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrisma.staffMember.update).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.update).not.toHaveBeenCalled();
     });
 
-    it('MEMBER cannot update a staff member', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+    it('MEMBER cannot update a service provider', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
-        service.updateStaffMember(USER_ID, BUSINESS_ID, 'sm-1', updateDto),
+        service.updateServiceProvider(USER_ID, BUSINESS_ID, 'sm-1', updateDto),
       ).rejects.toThrow(ForbiddenException);
 
-      expect(mockPrisma.staffMember.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.findFirst).not.toHaveBeenCalled();
     });
 
     it('replaces services when serviceIds provided', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(
-        existingStaffRow as unknown as StaffMember,
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        existingStaffRow as unknown as ServiceProvider,
       );
       mockPrisma.service.findMany.mockResolvedValue([mockService]);
-      mockPrisma.staffMemberService.deleteMany.mockResolvedValue({ count: 1 });
-      mockPrisma.staffMemberService.createMany.mockResolvedValue({ count: 1 });
-      mockPrisma.staffMember.update.mockResolvedValue(mockStaffMemberRow);
+      mockPrisma.serviceProviderService.deleteMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrisma.serviceProviderService.createMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrisma.serviceProvider.update.mockResolvedValue(
+        mockServiceProviderRow,
+      );
 
-      await service.updateStaffMember(USER_ID, BUSINESS_ID, 'sm-1', {
+      await service.updateServiceProvider(USER_ID, BUSINESS_ID, 'sm-1', {
         serviceIds: ['svc-1'],
       });
 
-      expect(mockPrisma.staffMemberService.deleteMany).toHaveBeenCalled();
-      expect(mockPrisma.staffMemberService.createMany).toHaveBeenCalled();
+      expect(mockPrisma.serviceProviderService.deleteMany).toHaveBeenCalled();
+      expect(mockPrisma.serviceProviderService.createMany).toHaveBeenCalled();
     });
   });
 
-  // ─── setStaffMemberStatus ──────────────────────────────────────────────────
+  // ─── setServiceProviderStatus ──────────────────────────────────────────────
 
-  describe('setStaffMemberStatus', () => {
+  describe('setServiceProviderStatus', () => {
     const existingStaffRow = {
       id: 'sm-1',
       businessUserId: STAFF_BU_ID,
       services: [{ serviceId: 'svc-1' }],
     };
 
-    it('can deactivate a staff member', async () => {
+    it('can deactivate a service provider', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(
-        existingStaffRow as unknown as StaffMember,
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        existingStaffRow as unknown as ServiceProvider,
       );
-      mockPrisma.staffMember.update.mockResolvedValue({
-        ...mockStaffMemberRow,
+      mockPrisma.serviceProvider.update.mockResolvedValue({
+        ...mockServiceProviderRow,
         isActive: false,
       });
 
-      const result = await service.setStaffMemberStatus(
+      const result = await service.setServiceProviderStatus(
         USER_ID,
         BUSINESS_ID,
         'sm-1',
         false,
       );
 
-      expect(mockPrisma.staffMember.update).toHaveBeenCalledWith(
+      expect(mockPrisma.serviceProvider.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'sm-1' },
           data: { isActive: false },
@@ -994,56 +1030,58 @@ describe('DashboardDataService', () => {
       expect(result).toMatchObject({ isActive: false });
     });
 
-    it('cannot activate a staff member with no services', async () => {
+    it('cannot activate a service provider with no services', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.staffMember.findFirst.mockResolvedValue({
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue({
         ...existingStaffRow,
         services: [],
-      } as unknown as StaffMember);
+      } as unknown as ServiceProvider);
 
       await expect(
-        service.setStaffMemberStatus(USER_ID, BUSINESS_ID, 'sm-1', true),
+        service.setServiceProviderStatus(USER_ID, BUSINESS_ID, 'sm-1', true),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrisma.staffMember.update).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.update).not.toHaveBeenCalled();
     });
 
-    it('cannot activate a staff member whose BusinessUser is not ACTIVE', async () => {
+    it('cannot activate a service provider whose BusinessUser is not ACTIVE', async () => {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership) // caller access
         .mockResolvedValueOnce({
           status: 'INVITED',
         } as unknown as BusinessUser); // staff's BU
-      mockPrisma.staffMember.findFirst.mockResolvedValue(
-        existingStaffRow as unknown as StaffMember,
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        existingStaffRow as unknown as ServiceProvider,
       );
 
       await expect(
-        service.setStaffMemberStatus(USER_ID, BUSINESS_ID, 'sm-1', true),
+        service.setServiceProviderStatus(USER_ID, BUSINESS_ID, 'sm-1', true),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('cannot change status of a staff member from another business', async () => {
+    it('cannot change status of a service provider from another business', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.staffMember.findFirst.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.setStaffMemberStatus(
+        service.setServiceProviderStatus(
           USER_ID,
           BUSINESS_ID,
-          mockStaffMemberOtherBiz.id,
+          mockServiceProviderOtherBiz.id,
           false,
         ),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrisma.staffMember.update).not.toHaveBeenCalled();
+      expect(mockPrisma.serviceProvider.update).not.toHaveBeenCalled();
     });
 
-    it('MEMBER cannot change staff member status', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+    it('MEMBER cannot change service provider status', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
-        service.setStaffMemberStatus(USER_ID, BUSINESS_ID, 'sm-1', false),
+        service.setServiceProviderStatus(USER_ID, BUSINESS_ID, 'sm-1', false),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -1056,7 +1094,7 @@ describe('DashboardDataService', () => {
       userId: USER_ID,
       role: 'OWNER',
       status: 'ACTIVE',
-      staffMember: null,
+      serviceProvider: null,
     };
 
     it('OWNER can list business users', async () => {
@@ -1076,7 +1114,7 @@ describe('DashboardDataService', () => {
         userId: USER_ID,
         role: 'OWNER',
         status: 'ACTIVE',
-        hasStaffProfile: false,
+        hasServiceProviderProfile: false,
       });
     });
 
@@ -1093,7 +1131,9 @@ describe('DashboardDataService', () => {
     });
 
     it('MEMBER cannot list business users', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.getBusinessUsers(USER_ID, BUSINESS_ID),
@@ -1129,7 +1169,7 @@ describe('DashboardDataService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(mockNewUser);
       mockPrisma.businessUser.create.mockResolvedValue(mockNewBu);
-      mockPrisma.staffMember.findUnique.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue(null);
 
       const result = await service.createBusinessUser(
         USER_ID,
@@ -1164,7 +1204,7 @@ describe('DashboardDataService', () => {
         status: 'ACTIVE',
         phoneNormalized: '+972529900099',
         email: 'new@example.com',
-        staffMemberId: null,
+        serviceProviderId: null,
       });
     });
 
@@ -1174,7 +1214,7 @@ describe('DashboardDataService', () => {
         .mockResolvedValueOnce(null);
       mockPrisma.user.findUnique.mockResolvedValue(mockNewUser);
       mockPrisma.businessUser.create.mockResolvedValue(mockNewBu);
-      mockPrisma.staffMember.findUnique.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue(null);
 
       await service.createBusinessUser(USER_ID, BUSINESS_ID, createDto);
 
@@ -1196,7 +1236,9 @@ describe('DashboardDataService', () => {
     });
 
     it('MEMBER cannot create a BusinessUser', async () => {
-      mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockServiceProvidership,
+      );
 
       await expect(
         service.createBusinessUser(USER_ID, BUSINESS_ID, createDto),
@@ -1212,22 +1254,22 @@ describe('DashboardDataService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(mockNewUser);
       mockPrisma.businessUser.create.mockResolvedValue(mockNewBu);
-      mockPrisma.staffMember.findUnique.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue(null);
 
       await expect(
         service.createBusinessUser(USER_ID, BUSINESS_ID, createDto),
       ).resolves.toMatchObject({ id: 'bu-new', role: 'MEMBER' });
     });
 
-    it('includes staffMemberId when a StaffMember already exists for the BusinessUser', async () => {
+    it('includes serviceProviderId when a ServiceProvider already exists for the BusinessUser', async () => {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership)
         .mockResolvedValueOnce(null);
       mockPrisma.user.findUnique.mockResolvedValue(mockNewUser);
       mockPrisma.businessUser.create.mockResolvedValue(mockNewBu);
-      mockPrisma.staffMember.findUnique.mockResolvedValue({
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue({
         id: 'sm-existing',
-      } as StaffMember);
+      } as ServiceProvider);
 
       const result = await service.createBusinessUser(
         USER_ID,
@@ -1235,7 +1277,7 @@ describe('DashboardDataService', () => {
         createDto,
       );
 
-      expect(result.staffMemberId).toBe('sm-existing');
+      expect(result.serviceProviderId).toBe('sm-existing');
     });
 
     it('throws BadRequestException for an invalid phone number', async () => {
@@ -1258,7 +1300,7 @@ describe('DashboardDataService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue({ ...mockNewUser, email: null });
       mockPrisma.businessUser.create.mockResolvedValue(mockNewBu);
-      mockPrisma.staffMember.findUnique.mockResolvedValue(null);
+      mockPrisma.serviceProvider.findUnique.mockResolvedValue(null);
 
       await service.createBusinessUser(USER_ID, BUSINESS_ID, {
         phone: '052-990-0099',

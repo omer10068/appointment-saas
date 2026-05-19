@@ -47,7 +47,7 @@ The backend starts as one deployable NestJS API, divided into clear modules. Thi
 - BusinessUsersModule
 - CustomersModule
 - ServicesModule
-- StaffModule
+- ServiceProvidersModule
 - AvailabilityModule
 - AppointmentsModule
 - NotificationsModule
@@ -63,7 +63,7 @@ Each business is a tenant. Most business-owned tables must include businessId.
 Examples:
 
 - services
-- staff_members
+- service_providers
 - business_customers
 - appointments
 - availability_rules
@@ -101,7 +101,7 @@ A customer may access a business only if:
 - BusinessUser connects users to businesses as owners, managers, or staff.
 - CustomerProfile represents the person.
 - BusinessCustomer represents the relationship between a customer and a specific business.
-- StaffMember is separated from BusinessUser.
+- ServiceProvider is separated from BusinessUser.
 - Appointment belongs to a business and is created only through appointment use cases.
 
 ## Time Handling
@@ -123,7 +123,7 @@ Use an outbox or event pattern later:
 
 - CustomerProfile represents the person.
 - BusinessCustomer represents the relationship between a customer and a specific business.
-- StaffMember is separated from Business.
+- ServiceProvider is separated from Business.
 
 ## Current Foundation Status
 

@@ -5,7 +5,7 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 export class UpdateAvailabilityExceptionDto {
   @IsString()
   @IsOptional()
-  staffMemberId?: string | null;
+  serviceProviderId?: string | null;
 
   @IsBoolean()
   @IsOptional()
