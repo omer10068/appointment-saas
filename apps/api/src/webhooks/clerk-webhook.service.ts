@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Webhook } from 'svix';
+import { PlatformRole, UserStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizePhone } from '../dashboard/phone.util';
 
@@ -155,7 +156,7 @@ export class ClerkWebhookService {
           where: { id: byPhone.id },
           data: {
             clerkUserId,
-            status: 'ACTIVE',
+            status: UserStatus.ACTIVE,
             ...(email && { email }),
           },
         });
@@ -170,7 +171,7 @@ export class ClerkWebhookService {
           where: { id: byEmail.id },
           data: {
             clerkUserId,
-            status: 'ACTIVE',
+            status: UserStatus.ACTIVE,
             ...(phoneNormalized && { phoneNormalized }),
           },
         });
@@ -193,8 +194,8 @@ export class ClerkWebhookService {
         clerkUserId,
         email,
         phoneNormalized,
-        status: 'ACTIVE',
-        platformRole: 'USER',
+        status: UserStatus.ACTIVE,
+        platformRole: PlatformRole.USER,
       },
     });
   }

@@ -1,34 +1,58 @@
+export const BusinessStatus = {
+  ACTIVE: 'ACTIVE',
+  TRIAL: 'TRIAL',
+  SUSPENDED: 'SUSPENDED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
 export type BusinessStatus =
-  | 'ACTIVE'
-  | 'TRIAL'
-  | 'SUSPENDED'
-  | 'CANCELLED';
+  (typeof BusinessStatus)[keyof typeof BusinessStatus];
+
+export const BusinessUserRole = {
+  OWNER: 'OWNER',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+} as const;
 
 export type BusinessUserRole =
-  | 'OWNER'
-  | 'MANAGER'
-  | 'MEMBER';
+  (typeof BusinessUserRole)[keyof typeof BusinessUserRole];
+
+export const BusinessUserStatus = {
+  INVITED: 'INVITED',
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+} as const;
 
 export type BusinessUserStatus =
-  | 'INVITED'
-  | 'ACTIVE'
-  | 'BLOCKED';
+  (typeof BusinessUserStatus)[keyof typeof BusinessUserStatus];
+
+export const CustomerStatus = {
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+  ARCHIVED: 'ARCHIVED',
+} as const;
 
 export type CustomerStatus =
-  | 'ACTIVE'
-  | 'BLOCKED'
-  | 'ARCHIVED';
+  (typeof CustomerStatus)[keyof typeof CustomerStatus];
+
+export const PlatformRole = {
+  USER: 'USER',
+  SUPPORT: 'SUPPORT',
+  ADMIN: 'ADMIN',
+  SUPER_ADMIN: 'SUPER_ADMIN',
+} as const;
 
 export type PlatformRole =
-  | 'USER'
-  | 'SUPPORT'
-  | 'ADMIN'
-  | 'SUPER_ADMIN';
+  (typeof PlatformRole)[keyof typeof PlatformRole];
+
+export const AppointmentStatus = {
+  SCHEDULED: 'SCHEDULED',
+  CONFIRMED: 'CONFIRMED',
+  CANCELLED_BY_CUSTOMER: 'CANCELLED_BY_CUSTOMER',
+  CANCELLED_BY_BUSINESS: 'CANCELLED_BY_BUSINESS',
+  COMPLETED: 'COMPLETED',
+  NO_SHOW: 'NO_SHOW',
+} as const;
 
 export type AppointmentStatus =
-  | 'SCHEDULED'
-  | 'CONFIRMED'
-  | 'CANCELLED_BY_CUSTOMER'
-  | 'CANCELLED_BY_BUSINESS'
-  | 'COMPLETED'
-  | 'NO_SHOW';
+  (typeof AppointmentStatus)[keyof typeof AppointmentStatus];

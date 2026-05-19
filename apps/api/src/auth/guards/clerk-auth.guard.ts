@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClerkClient, verifyToken } from '@clerk/backend';
-import { User } from '../../generated/prisma/client';
+import { PlatformRole, User, UserStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../types/authenticated-request';
 import { normalizePhone } from '../../dashboard/phone.util';
@@ -111,7 +111,7 @@ export class ClerkAuthGuard implements CanActivate {
       );
       return this.prisma.user.update({
         where: { id: byPhone.id },
-        data: { clerkUserId, status: 'ACTIVE' },
+        data: { clerkUserId, status: UserStatus.ACTIVE },
       });
     }
 
@@ -131,7 +131,7 @@ export class ClerkAuthGuard implements CanActivate {
         );
         return this.prisma.user.update({
           where: { id: byEmail.id },
-          data: { clerkUserId, phoneNormalized, status: 'ACTIVE' },
+          data: { clerkUserId, phoneNormalized, status: UserStatus.ACTIVE },
         });
       }
     }
@@ -145,8 +145,8 @@ export class ClerkAuthGuard implements CanActivate {
         email,
         phoneNormalized,
         clerkUserId,
-        platformRole: 'USER',
-        status: 'ACTIVE',
+        platformRole: PlatformRole.USER,
+        status: UserStatus.ACTIVE,
       },
     });
   }

@@ -8,6 +8,7 @@ import {
 import {
   AppointmentStatus,
   BusinessUserRole,
+  BusinessUserStatus,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AppointmentQueryDto } from './dto/appointment-query.dto';
@@ -194,10 +195,10 @@ export class AppointmentsService {
     if (!existing) throw new NotFoundException('Appointment not found');
 
     if (
-      existing.status === 'CANCELLED_BY_CUSTOMER' ||
-      existing.status === 'CANCELLED_BY_BUSINESS' ||
-      existing.status === 'COMPLETED' ||
-      existing.status === 'NO_SHOW'
+      existing.status === AppointmentStatus.CANCELLED_BY_CUSTOMER ||
+      existing.status === AppointmentStatus.CANCELLED_BY_BUSINESS ||
+      existing.status === AppointmentStatus.COMPLETED ||
+      existing.status === AppointmentStatus.NO_SHOW
     ) {
       throw new BadRequestException('Cannot update a closed appointment');
     }
@@ -353,7 +354,7 @@ export class AppointmentsService {
       where: { id: sp.businessUserId },
       select: { status: true },
     });
-    if (!businessUser || businessUser.status !== 'ACTIVE') {
+    if (!businessUser || businessUser.status !== BusinessUserStatus.ACTIVE) {
       throw new BadRequestException(
         "Service provider's linked user account is not active",
       );
@@ -387,7 +388,10 @@ export class AppointmentsService {
       where: {
         serviceProviderId,
         status: {
-          notIn: ['CANCELLED_BY_CUSTOMER', 'CANCELLED_BY_BUSINESS'],
+          notIn: [
+            AppointmentStatus.CANCELLED_BY_CUSTOMER,
+            AppointmentStatus.CANCELLED_BY_BUSINESS,
+          ],
         },
         startsAt: { lt: endsAt },
         endsAt: { gt: startsAt },

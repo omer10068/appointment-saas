@@ -5,7 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BusinessUserRole } from '../generated/prisma/client';
+import {
+  BusinessUserRole,
+  BusinessUserStatus,
+  CustomerStatus,
+  PlatformRole,
+  UserStatus,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizePhone } from './phone.util';
 import type { CreateServiceDto } from './dto/create-service.dto';
@@ -33,7 +39,7 @@ export interface CustomerDto {
   fullName: string;
   email: string | null;
   phone: string;
-  status: 'ACTIVE' | 'BLOCKED' | 'ARCHIVED';
+  status: CustomerStatus;
   notes: string | null;
 }
 
@@ -182,8 +188,8 @@ export class DashboardDataService {
           data: {
             phoneNormalized,
             email: dto.email ?? null,
-            status: 'ACTIVE',
-            platformRole: 'USER',
+            status: UserStatus.ACTIVE,
+            platformRole: PlatformRole.USER,
           },
         });
       }
@@ -202,7 +208,7 @@ export class DashboardDataService {
           businessId,
           userId: user.id,
           role: dto.role,
-          status: 'ACTIVE',
+          status: BusinessUserStatus.ACTIVE,
         },
       });
 
@@ -236,7 +242,7 @@ export class DashboardDataService {
       this.prisma.service.count({ where: { businessId, isActive: true } }),
       this.prisma.businessCustomer.count({ where: { businessId } }),
       this.prisma.businessCustomer.count({
-        where: { businessId, status: 'ACTIVE' },
+        where: { businessId, status: CustomerStatus.ACTIVE },
       }),
     ]);
     return {
@@ -381,7 +387,7 @@ export class DashboardDataService {
         data: {
           businessId,
           customerProfileId: profile.id,
-          status: dto.status ?? 'ACTIVE',
+          status: dto.status ?? CustomerStatus.ACTIVE,
           notes: dto.notes ?? null,
         },
       });
@@ -462,7 +468,7 @@ export class DashboardDataService {
     userId: string,
     businessId: string,
     businessCustomerId: string,
-    status: 'ACTIVE' | 'BLOCKED' | 'ARCHIVED',
+    status: CustomerStatus,
   ): Promise<CustomerDto> {
     await this.assertMutationAccess(userId, businessId);
     const existing = await this.prisma.businessCustomer.findFirst({
@@ -505,7 +511,7 @@ export class DashboardDataService {
     }
 
     const isActive = dto.isActive ?? true;
-    if (isActive && businessUser.status !== 'ACTIVE') {
+    if (isActive && businessUser.status !== BusinessUserStatus.ACTIVE) {
       throw new BadRequestException(
         'Cannot create an active ServiceProvider for a non-ACTIVE BusinessUser',
       );
@@ -671,7 +677,7 @@ export class DashboardDataService {
         where: { id: existing.businessUserId },
         select: { status: true },
       });
-      if (!businessUser || businessUser.status !== 'ACTIVE') {
+      if (!businessUser || businessUser.status !== BusinessUserStatus.ACTIVE) {
         throw new BadRequestException(
           'Cannot activate ServiceProvider whose linked BusinessUser is not ACTIVE',
         );
@@ -763,7 +769,7 @@ function toServiceProviderDto(row: {
 function mapToCustomerDto(bc: {
   id: string;
   customerProfileId: string;
-  status: 'ACTIVE' | 'BLOCKED' | 'ARCHIVED';
+  status: CustomerStatus;
   notes: string | null;
   customerProfile: {
     fullName: string;

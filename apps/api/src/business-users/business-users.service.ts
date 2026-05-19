@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BusinessUser, BusinessUserRole } from '../generated/prisma/client';
+import {
+  BusinessUser,
+  BusinessUserRole,
+  BusinessUserStatus,
+  UserStatus,
+} from '../generated/prisma/client';
 import { CreateBusinessOwnerDto } from '../admin/dto/create-business-owner.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizePhone } from '../dashboard/phone.util';
@@ -50,7 +55,7 @@ export class BusinessUsersService {
 
       if (!user) {
         user = await tx.user.create({
-          data: { phoneNormalized, email, status: 'INVITED' },
+          data: { phoneNormalized, email, status: UserStatus.INVITED },
         });
       }
 
@@ -60,7 +65,7 @@ export class BusinessUsersService {
             businessId,
             userId: user.id,
             role: BusinessUserRole.OWNER,
-            status: 'INVITED',
+            status: BusinessUserStatus.INVITED,
           },
         });
       } catch (err: unknown) {
