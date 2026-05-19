@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BusinessUser } from '../generated/prisma/client';
+import { BusinessUser, BusinessUserRole } from '../generated/prisma/client';
 import { CreateBusinessOwnerDto } from '../admin/dto/create-business-owner.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizePhone } from '../dashboard/phone.util';
@@ -35,7 +35,7 @@ export class BusinessUsersService {
       }
 
       const existingOwner = await tx.businessUser.findFirst({
-        where: { businessId, role: 'OWNER' },
+        where: { businessId, role: BusinessUserRole.OWNER },
       });
       if (existingOwner) {
         throw new ConflictException('Business already has an owner');
@@ -59,7 +59,7 @@ export class BusinessUsersService {
           data: {
             businessId,
             userId: user.id,
-            role: 'OWNER',
+            role: BusinessUserRole.OWNER,
             status: 'INVITED',
           },
         });

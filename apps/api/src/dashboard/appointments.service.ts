@@ -5,7 +5,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AppointmentStatus } from '../generated/prisma/client';
+import {
+  AppointmentStatus,
+  BusinessUserRole,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AppointmentQueryDto } from './dto/appointment-query.dto';
 import type { CreateDashboardAppointmentDto } from './dto/create-dashboard-appointment.dto';
@@ -311,7 +314,8 @@ export class AppointmentsService {
     });
     if (
       !membership ||
-      (membership.role !== 'OWNER' && membership.role !== 'MANAGER')
+      (membership.role !== BusinessUserRole.OWNER &&
+        membership.role !== BusinessUserRole.MANAGER)
     ) {
       throw new ForbiddenException();
     }
