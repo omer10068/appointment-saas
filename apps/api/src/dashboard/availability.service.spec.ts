@@ -41,13 +41,13 @@ const mockManagerMembership: BusinessUser = {
 const mockStaffMembership: BusinessUser = {
   ...mockMembership,
   id: 'bu-3',
-  role: 'STAFF',
+  role: 'MEMBER',
 };
 
 const mockStaffRecord: StaffMember = {
   id: STAFF_ID,
   businessId: BUSINESS_ID,
-  businessUserId: null,
+  businessUserId: 'bu-3',
   displayName: 'Alice',
   isActive: true,
   createdAt: new Date('2024-01-01'),
@@ -233,7 +233,7 @@ describe('AvailabilityService', () => {
       ).resolves.toBeDefined();
     });
 
-    it('STAFF cannot update business working hours', async () => {
+    it('MEMBER cannot update business working hours', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -397,7 +397,7 @@ describe('AvailabilityService', () => {
       expect(mockPrisma.availabilityException.create).not.toHaveBeenCalled();
     });
 
-    it('STAFF user cannot create an exception', async () => {
+    it('MEMBER user cannot create an exception', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(

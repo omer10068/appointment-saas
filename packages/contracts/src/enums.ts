@@ -7,7 +7,7 @@ export type BusinessStatus =
 export type BusinessUserRole =
   | 'OWNER'
   | 'MANAGER'
-  | 'STAFF';
+  | 'MEMBER';
 
 export type BusinessUserStatus =
   | 'INVITED'

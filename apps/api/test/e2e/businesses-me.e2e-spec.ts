@@ -100,7 +100,7 @@ describe('GET /businesses/me', () => {
       data: {
         businessId: E2E_BUSINESS_ID,
         userId: staffUser.id,
-        role: 'STAFF',
+        role: 'MEMBER',
         status: 'ACTIVE',
       },
     });
@@ -145,7 +145,7 @@ describe('GET /businesses/me', () => {
     expect(body[0].business.name).toBe('E2E Test Business');
   });
 
-  it('staff returns 200 with their business and role STAFF', async () => {
+  it('member returns 200 with their business and role MEMBER', async () => {
     MockClerkAuthGuard.currentUser = staffUser;
     const res = await request(app.getHttpServer())
       .get('/businesses/me')
@@ -153,7 +153,7 @@ describe('GET /businesses/me', () => {
 
     const body = res.body as BusinessMembership[];
     expect(body).toHaveLength(1);
-    expect(body[0].role).toBe('STAFF');
+    expect(body[0].role).toBe('MEMBER');
     expect(body[0].business.id).toBe(E2E_BUSINESS_ID);
   });
 

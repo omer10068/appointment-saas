@@ -42,7 +42,7 @@ const mockManagerMembership: BusinessUser = {
 const mockStaffMembership: BusinessUser = {
   ...mockMembership,
   id: STAFF_BU_ID,
-  role: 'STAFF',
+  role: 'MEMBER',
 };
 
 const mockService: Service = {
@@ -156,7 +156,7 @@ const mockNewBu: BusinessUser = {
   id: 'bu-new',
   businessId: BUSINESS_ID,
   userId: 'user-new',
-  role: 'STAFF',
+  role: 'MEMBER',
   status: 'ACTIVE',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
@@ -426,7 +426,7 @@ describe('DashboardDataService', () => {
       ).resolves.toMatchObject({ id: 'svc-1' });
     });
 
-    it('STAFF cannot create a service', async () => {
+    it('MEMBER cannot create a service', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -496,7 +496,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.service.update).not.toHaveBeenCalled();
     });
 
-    it('STAFF cannot update a service', async () => {
+    it('MEMBER cannot update a service', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -641,7 +641,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.businessCustomer.create).not.toHaveBeenCalled();
     });
 
-    it('STAFF cannot create a customer', async () => {
+    it('MEMBER cannot create a customer', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -698,7 +698,7 @@ describe('DashboardDataService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('STAFF cannot update a customer', async () => {
+    it('MEMBER cannot update a customer', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -754,7 +754,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.businessCustomer.update).not.toHaveBeenCalled();
     });
 
-    it('STAFF cannot change customer status', async () => {
+    it('MEMBER cannot change customer status', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -837,7 +837,7 @@ describe('DashboardDataService', () => {
       });
     });
 
-    it('STAFF cannot create a staff member', async () => {
+    it('MEMBER cannot create a staff member', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -930,7 +930,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.staffMember.update).not.toHaveBeenCalled();
     });
 
-    it('STAFF cannot update a staff member', async () => {
+    it('MEMBER cannot update a staff member', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -1039,7 +1039,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.staffMember.update).not.toHaveBeenCalled();
     });
 
-    it('STAFF cannot change staff member status', async () => {
+    it('MEMBER cannot change staff member status', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -1054,10 +1054,10 @@ describe('DashboardDataService', () => {
     const createDto = {
       phone: '052-990-0099',
       email: 'new@example.com',
-      role: 'STAFF' as const,
+      role: 'MEMBER' as const,
     };
 
-    it('OWNER can create a STAFF BusinessUser — creates new User when phone is new', async () => {
+    it('OWNER can create a MEMBER BusinessUser — creates new User when phone is new', async () => {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership) // assertMutationAccess
         .mockResolvedValueOnce(null); // no existing BusinessUser
@@ -1086,7 +1086,7 @@ describe('DashboardDataService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             businessId: BUSINESS_ID,
-            role: 'STAFF',
+            role: 'MEMBER',
             status: 'ACTIVE',
           }),
         }),
@@ -1095,7 +1095,7 @@ describe('DashboardDataService', () => {
         id: 'bu-new',
         userId: 'user-new',
         businessId: BUSINESS_ID,
-        role: 'STAFF',
+        role: 'MEMBER',
         status: 'ACTIVE',
         phoneNormalized: '+972529900099',
         email: 'new@example.com',
@@ -1130,7 +1130,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.businessUser.create).not.toHaveBeenCalled();
     });
 
-    it('STAFF cannot create a BusinessUser', async () => {
+    it('MEMBER cannot create a BusinessUser', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockStaffMembership);
 
       await expect(
@@ -1140,7 +1140,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('MANAGER can create a STAFF BusinessUser', async () => {
+    it('MANAGER can create a MEMBER BusinessUser', async () => {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockManagerMembership)
         .mockResolvedValueOnce(null);
@@ -1151,7 +1151,7 @@ describe('DashboardDataService', () => {
 
       await expect(
         service.createBusinessUser(USER_ID, BUSINESS_ID, createDto),
-      ).resolves.toMatchObject({ id: 'bu-new', role: 'STAFF' });
+      ).resolves.toMatchObject({ id: 'bu-new', role: 'MEMBER' });
     });
 
     it('includes staffMemberId when a StaffMember already exists for the BusinessUser', async () => {
@@ -1179,7 +1179,7 @@ describe('DashboardDataService', () => {
       await expect(
         service.createBusinessUser(USER_ID, BUSINESS_ID, {
           phone: 'not-a-phone',
-          role: 'STAFF',
+          role: 'MEMBER',
         }),
       ).rejects.toThrow(BadRequestException);
 
@@ -1197,7 +1197,7 @@ describe('DashboardDataService', () => {
 
       await service.createBusinessUser(USER_ID, BUSINESS_ID, {
         phone: '052-990-0099',
-        role: 'STAFF',
+        role: 'MEMBER',
       });
 
       expect(mockPrisma.user.create).toHaveBeenCalledWith(
