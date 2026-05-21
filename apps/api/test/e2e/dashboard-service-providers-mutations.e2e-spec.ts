@@ -431,6 +431,21 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
       .expect(403);
   });
 
+  it('owner of another tenant calls other businessId → 403', async () => {
+    // ownerUser belongs to E2E_SP_MUT_BIZ_ID, not E2E_SP_MUT_OTHER_BIZ_ID
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(
+        `/dashboard/businesses/${E2E_SP_MUT_OTHER_BIZ_ID}/service-providers`,
+      )
+      .send({
+        displayName: 'Provider',
+        businessUserId: ownerBUId,
+        serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
+      })
+      .expect(403);
+  });
+
   it('missing displayName → 400', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
@@ -605,6 +620,16 @@ describe('PATCH /dashboard/businesses/:businessId/service-providers/:serviceProv
       .expect(403);
   });
 
+  it('owner of another tenant calls other businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_OTHER_BIZ_ID}/service-providers/${otherSpId}`,
+      )
+      .send({ displayName: 'Update' })
+      .expect(403);
+  });
+
   it('non-existent serviceProviderId → 404', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
@@ -721,6 +746,16 @@ describe('PATCH /dashboard/businesses/:businessId/service-providers/:serviceProv
     await request(app.getHttpServer())
       .patch(
         `/dashboard/businesses/00000000-0000-4000-8000-000000000000/service-providers/${existingSpId}/status`,
+      )
+      .send({ isActive: false })
+      .expect(403);
+  });
+
+  it('owner of another tenant calls other businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_OTHER_BIZ_ID}/service-providers/${otherSpId}/status`,
       )
       .send({ isActive: false })
       .expect(403);

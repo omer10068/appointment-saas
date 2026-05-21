@@ -376,6 +376,15 @@ describe('POST /dashboard/businesses/:businessId/customers', () => {
       .expect(403);
   });
 
+  it('owner of another tenant calls other businessId → 403', async () => {
+    // ownerUser belongs to E2E_CUST_MUT_BIZ_ID, not E2E_CUST_MUT_OTHER_BIZ_ID
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_CUST_MUT_OTHER_BIZ_ID}/customers`)
+      .send({ fullName: 'Customer', phone: '+18880010040' })
+      .expect(403);
+  });
+
   it('missing fullName → 400', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
@@ -502,6 +511,16 @@ describe('PATCH /dashboard/businesses/:businessId/customers/:businessCustomerId'
       .expect(403);
   });
 
+  it('owner of another tenant calls other businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_CUST_MUT_OTHER_BIZ_ID}/customers/${otherBCId}`,
+      )
+      .send({ fullName: 'Update' })
+      .expect(403);
+  });
+
   it('non-existent businessCustomerId → 404', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
@@ -607,6 +626,16 @@ describe('PATCH /dashboard/businesses/:businessId/customers/:businessCustomerId/
     await request(app.getHttpServer())
       .patch(
         `/dashboard/businesses/00000000-0000-4000-8000-000000000000/customers/${existingBCId}/status`,
+      )
+      .send({ status: CustomerStatus.BLOCKED })
+      .expect(403);
+  });
+
+  it('owner of another tenant calls other businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_CUST_MUT_OTHER_BIZ_ID}/customers/${otherBCId}/status`,
       )
       .send({ status: CustomerStatus.BLOCKED })
       .expect(403);

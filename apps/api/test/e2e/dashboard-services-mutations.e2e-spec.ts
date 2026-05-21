@@ -330,6 +330,15 @@ describe('POST /dashboard/businesses/:businessId/services', () => {
       .expect(403);
   });
 
+  it('owner of another tenant calls other businessId → 403', async () => {
+    // ownerUser belongs to E2E_SVC_MUT_BIZ_ID, not E2E_SVC_MUT_OTHER_BIZ_ID
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_SVC_MUT_OTHER_BIZ_ID}/services`)
+      .send(VALID_BODY)
+      .expect(403);
+  });
+
   it('missing required name → 400', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
@@ -458,6 +467,16 @@ describe('PATCH /dashboard/businesses/:businessId/services/:serviceId', () => {
       .expect(403);
   });
 
+  it('owner of another tenant calls other businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SVC_MUT_OTHER_BIZ_ID}/services/${E2E_SVC_MUT_OTHER_SVC_ID}`,
+      )
+      .send({ name: 'Update' })
+      .expect(403);
+  });
+
   it('non-existent serviceId → 404', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
@@ -555,6 +574,16 @@ describe('PATCH /dashboard/businesses/:businessId/services/:serviceId/status', (
     await request(app.getHttpServer())
       .patch(
         `/dashboard/businesses/00000000-0000-4000-8000-000000000000/services/${E2E_SVC_MUT_EXISTING_SVC_ID}/status`,
+      )
+      .send({ isActive: false })
+      .expect(403);
+  });
+
+  it('owner of another tenant calls other businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SVC_MUT_OTHER_BIZ_ID}/services/${E2E_SVC_MUT_OTHER_SVC_ID}/status`,
       )
       .send({ isActive: false })
       .expect(403);
