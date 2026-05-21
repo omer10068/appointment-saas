@@ -9,5 +9,6 @@
   "moduleNameMapper": {
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
-  "setupFiles": ["<rootDir>/jest-e2e.setup.ts"]
+  "setupFiles": ["<rootDir>/jest-e2e.setup.ts"],
+  "maxWorkers": 1
 }

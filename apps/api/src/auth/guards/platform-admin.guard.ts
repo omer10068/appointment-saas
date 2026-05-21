@@ -5,6 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { PlatformRole } from '../../generated/prisma/client';
 import { AuthenticatedRequest } from '../types/authenticated-request';
 
 @Injectable()
@@ -17,7 +18,10 @@ export class PlatformAdminGuard implements CanActivate {
     }
 
     const { platformRole } = request.user;
-    if (platformRole !== 'ADMIN' && platformRole !== 'SUPER_ADMIN') {
+    if (
+      platformRole !== PlatformRole.ADMIN &&
+      platformRole !== PlatformRole.SUPER_ADMIN
+    ) {
       throw new ForbiddenException();
     }
 
