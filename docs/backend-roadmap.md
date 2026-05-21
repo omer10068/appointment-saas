@@ -155,11 +155,40 @@ These must be decided and documented before writing appointment mutation tests.
 
 ### Remaining order
 
-1. **Working hours** — `PUT` business working hours, `PUT` service-provider working hours
+1. ~~**Working hours**~~ — done (see Completed — Phase 2)
 2. **Availability exceptions** — `POST`, `PATCH`, `DELETE`
 3. **Appointments** — last; depends on all other domain entities and status transition rules
 
 **Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, availability exceptions, and unresolved MEMBER permission decisions.
+
+### Future business-rule validation — working hours and availability exceptions
+
+Not part of current e2e coverage. Belongs to a future appointment/availability business-rule validation phase.
+
+#### Working hours updates and existing appointments
+
+When an OWNER or MANAGER shortens business or service-provider working hours, future appointments that fall outside the new hours become invalid. The current implementation does not check for this.
+
+Preferred future behavior:
+
+- Return `409 Conflict` and reject the update.
+- Include conflict details (which appointments are affected) so the frontend can prompt the user to reschedule before applying the change.
+- Do not silently allow a working-hours update that invalidates existing bookings.
+
+Applies to both `PUT …/working-hours` (business-level) and `PUT …/service-providers/:serviceProviderId/working-hours` (SP-level).
+
+#### Availability exceptions and existing appointments
+
+When creating or updating an availability exception, the system should check for future appointments that overlap the affected time/date range.
+
+- **Business-level exception:** check future appointments for the entire business in that date/time range.
+- **ServiceProvider-level exception:** check future appointments for that ServiceProvider only.
+
+Preferred future behavior:
+
+- Return `409 Conflict` if overlapping future appointments exist.
+- Include conflict details.
+- Do not silently create an exception that makes existing bookings invalid.
 
 ### Reminder for future mutation tests
 
