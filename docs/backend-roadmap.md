@@ -99,7 +99,7 @@ Approach: one task per domain, read code before assuming DTOs, implement tests o
 
 ### Recommended order
 
-1. **Services** — `POST`, `PATCH`, `DELETE /dashboard/businesses/:businessId/services/:serviceId`
+1. **Services** — inspect implemented service mutation endpoints first; test only existing create/update/status/delete routes
 2. **Customers** — create, update, change status
 3. **Service providers** — create, update, link/unlink services
 4. **Business users** — invite/update role (if endpoints exist)
