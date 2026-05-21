@@ -14,8 +14,10 @@ End customers can access only businesses that explicitly added them and did not 
 - Backend: NestJS + TypeScript
 - Database: PostgreSQL
 - ORM: Prisma 7
+- Authentication: Clerk
 - Local infrastructure: Docker Compose
-- Frontend (planned): Next.js + React
+- Testing: Jest + Supertest (unit + e2e); e2e tests run against a real PostgreSQL test database
+- Frontend (in progress): Next.js + React
 
 ## Project Structure
 
@@ -90,40 +92,31 @@ Run from `apps/api/`:
 pnpm exec prisma validate          # Validate schema
 pnpm exec prisma generate          # Regenerate Prisma client
 pnpm exec prisma migrate deploy    # Apply pending migrations
-pnpm exec prisma migrate dev --name <name>  # Create a new migration (interactive)
+pnpm exec prisma migrate dev --name <name>  # Create a new migration
 pnpm exec prisma format            # Format schema file
 ```
 
 ## Test Database Setup
 
-E2E tests use a separate `appointment_saas_test` database. Start it alongside the dev DB:
+DB-based e2e tests require a separate test database. Both databases start with:
 
 ```bash
 docker compose up -d
 ```
 
-The test database URL is configured in `apps/api/test/jest-e2e.json` via `TEST_DATABASE_URL`.
+Set `TEST_DATABASE_URL` in `apps/api/.env.test` pointing at the test database (never the dev database). Every e2e suite that writes real rows calls `requireTestDatabase()` at module level — this aborts the suite immediately if `TEST_DATABASE_URL` is not set.
+
+E2E tests use `MockClerkAuthGuard` instead of real Clerk JWTs. Tests are serialized with `maxWorkers: 1` to avoid DB connection exhaustion under parallel NestJS app instances.
 
 ## Running Tests
 
-### Unit tests
+Prefer monorepo-filtered commands from the repo root:
 
 ```bash
-pnpm test
-# or from apps/api:
-cd apps/api && pnpm test
-```
-
-### E2E tests
-
-```bash
-cd apps/api && pnpm run test:e2e
-```
-
-### Build
-
-```bash
-pnpm build
+pnpm --filter api test         # Unit tests
+pnpm --filter api test:e2e     # E2E tests
+pnpm --filter api lint         # Lint
+pnpm --filter api build        # Build
 ```
 
 ## Role Model
@@ -133,9 +126,15 @@ Business users have one of three dashboard roles:
 | Role | Description |
 | --- | --- |
 | `OWNER` | Full control — settings, users, billing |
-| `MANAGER` | Operational access — services, customers, appointments, staff |
-| `MEMBER` | Read access plus limited operational permissions |
+| `MANAGER` | Operational access — services, customers, appointments, service providers |
+| `MEMBER` | Basic dashboard user — can read dashboard data; mutation permissions are reviewed explicitly per domain |
 
-`StaffMember` is a separate concept — a bookable calendar entity that may be linked to a `BusinessUser` but is independent of the dashboard role.
+`ServiceProvider` is a separate concept from the `MEMBER` role — it is a bookable calendar entity that may be linked to a `BusinessUser` but is independent of the dashboard role. Routes use `/service-providers`.
 
 See [docs/rbac.md](docs/rbac.md) for the full permission matrix.
+
+## Current Backend Status
+
+Read-only dashboard E2E coverage is green for the currently implemented read endpoints (9 suites / 67 tests).  
+The next phase is mutation tests by domain, starting with services.  
+See [docs/backend-roadmap.md](docs/backend-roadmap.md) for detailed progress and the recommended mutation test order.

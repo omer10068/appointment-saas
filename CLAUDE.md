@@ -14,8 +14,11 @@ End customers can access only businesses that explicitly added them and did not 
 - Backend: NestJS + TypeScript
 - Database: PostgreSQL
 - ORM: Prisma 7
+- Authentication: Clerk
+- Testing: Jest + Supertest; DB-based e2e tests run against a real PostgreSQL test database
 - Local infrastructure: Docker Compose
-- Frontend later: Next.js + React + TypeScript
+- Frontend: Next.js + React + TypeScript (in progress, under `apps/web`)
+- Shared contracts: `packages/contracts`
 - Architecture: Modular Monolith
 
 ## Current Backend Foundation
@@ -28,15 +31,67 @@ End customers can access only businesses that explicitly added them and did not 
 - Generated Prisma Client must not be committed to Git.
 - Prisma 7 uses `moduleFormat = "cjs"` for NestJS/CommonJS compatibility.
 - NestJS uses `@nestjs/config` to load `.env`.
+- Authentication uses Clerk via `ClerkAuthGuard`.
+- Automated e2e tests override `ClerkAuthGuard` with `MockClerkAuthGuard`.
+- DB-based e2e tests use a real test database and must call `requireTestDatabase()`.
+- E2E tests are serialized with `maxWorkers: 1` to avoid DB connection exhaustion.
+- Backend code should use Prisma generated enums where available.
+
+## Domain Naming Rules
+
+These names are locked. Do not reintroduce old names.
+
+| Concept | Correct name | Rejected name |
+| --- | --- | --- |
+| Permission role | OWNER / MANAGER / MEMBER | STAFF (removed) |
+| Bookable entity | `ServiceProvider` | `StaffMember` (renamed) |
+| Route segment | `/service-providers` | `/staff` |
+| FK field | `serviceProviderId` | `staffMemberId` |
+
+- `MEMBER` is a `BusinessUser` permission role — not a bookable entity.
+- `ServiceProvider` is the bookable calendar entity that can receive appointments. It may be linked to a `BusinessUser` but is not the same thing as `MEMBER`.
+- Do not use `staffMemberId` or `StaffMember` anywhere in new code.
+
+## Permission Rules
+
+- `assertAccess` — any `BusinessUser` (OWNER, MANAGER, MEMBER). Used on most dashboard read endpoints.
+- `assertOwnerAccess` — OWNER only. Used on user-management endpoints.
+- `assertMutationAccess` — OWNER or MANAGER. Used by current write endpoints where implemented; inspect the actual controller/service code before assuming permissions.
+- Outsider (authenticated but no `BusinessUser` row for that business) → 403.
+- Missing auth → 401.
+- Non-existent `businessId` → 403 when access assertion runs first.
+
+Role intent:
+
+- **OWNER**: full business access — settings, users, billing, everything.
+- **MANAGER**: operational access — services, customers, appointments, service providers, working hours. Cannot manage users, roles, ownership, or billing.
+- **MEMBER**: can read dashboard data. Should not manage users, roles, services, service providers, working hours, availability, business settings, or billing unless explicitly decided and documented.
+
+`GET /dashboard/businesses/:businessId/users` is **OWNER-only** (`assertOwnerAccess`).
+
+Unresolved permission decisions (do not implement without explicit instruction):
+
+- Whether MEMBER can create appointments.
+- Whether MEMBER can change appointment status.
+- Whether MEMBER can create or update customers.
+
+**Do not change permission behavior while adding tests unless explicitly requested.**
+
+## Prisma / Enum Rules
+
+- In `apps/api` backend logic and test code, prefer Prisma generated enums over string literals where available.
+- Examples: `BusinessUserRole.OWNER`, `BusinessUserRole.MANAGER`, `BusinessUserRole.MEMBER`, `AppointmentStatus.SCHEDULED`, `UserStatus.ACTIVE`, `CustomerStatus.ACTIVE`, `BusinessUserStatus.ACTIVE`.
+- Do not edit files inside `apps/api/src/generated/` directly.
+- Do not commit `apps/api/src/generated/`.
 
 ## Core Architecture Rules
 
 - Every business-owned table must include `businessId`.
 - Do not trust `businessId` from the client.
 - Tenant isolation must be enforced in backend guards/services.
-- Keep modules isolated and focused.
-- Do not create microservices at this stage.
-- Use Modular Monolith architecture.
+- Keep backend domains separated by NestJS modules inside the same API app.
+- Do not split the backend into microservices at this stage.
+- Avoid distributed-system complexity unless explicitly required later.
 - Do not send emails/SMS directly inside critical request flows.
 - Use outbox/event pattern for async actions later.
 
@@ -51,40 +106,81 @@ End customers can access only businesses that explicitly added them and did not 
 - Prefer service/use-case methods over business logic in controllers.
 - Always run build/lint after meaningful changes.
 
+## Testing Rules
+
+E2E test files live under `apps/api/test/e2e/`. Helpers live under `apps/api/test/helpers/`.
+
+Key helpers:
+
+- `create-test-app.ts` — bootstraps a NestJS test app.
+- `mock-clerk-auth.guard.ts` — `MockClerkAuthGuard` with static `currentUser`; reset in `beforeEach`.
+- `test-db.ts` — `requireTestDatabase()` aborts a suite if `TEST_DATABASE_URL` is not set.
+
+Rules:
+
+- DB-based e2e suites must call `requireTestDatabase()` at module level.
+- Use real Prisma and the real test DB for endpoint e2e tests. Do not mock the database.
+- Do not use real Clerk JWTs in automated tests — use `MockClerkAuthGuard`.
+- Seed minimal deterministic data inside each suite's `beforeAll`.
+- Use valid UUID-formatted deterministic IDs only (hex characters 0-9 and a-f in all segments).
+- Add cross-tenant fixtures where tenant isolation needs proof.
+- Clean up in FK-safe order in both idempotent pre-cleanup (`beforeAll`) and `afterAll`.
+- Do not rely on the dev seed.
+- Keep e2e suites serialized — `maxWorkers: 1` in `jest-e2e.json`.
+- `PrismaModule` must be explicitly imported in isolated test modules (it is `@Global()` only when `AppModule` loads it).
+
+Expected HTTP responses:
+
+- Missing auth → 401.
+- Authenticated outsider / non-member → 403.
+- Non-existent `businessId` → 403 when `assertAccess` / `assertOwnerAccess` runs first.
+
+## Current Backend Testing Status
+
+- Read-only dashboard E2E coverage is green for all currently implemented read endpoints (9 suites / 67 tests).
+- Current next phase is mutation tests by domain.
+- Start mutation coverage with **services mutations** — inspect implemented service mutation endpoints first; test only existing create/update/status/delete routes.
+- Do not assume DELETE or status-update endpoints exist before inspecting the controller.
+- Appointments mutations come last — they depend on business, customers, services, service providers, working hours, availability, and appointment status rules.
+- Detailed roadmap and mutation order live in `docs/backend-roadmap.md`.
+
 ## Workflow
 
 Before editing:
 
 1. Inspect relevant files.
-2. Explain what you found.
-3. Propose a plan.
-4. Wait for approval.
+2. If the task is clear and well-scoped, implement it.
+3. If route names, DTOs, permissions, or domain behavior are ambiguous, stop and ask before changing behavior.
 
 After editing:
 
 1. Summarize changed files.
 2. Explain risks.
-3. Run relevant build/test command if possible.
+3. Run relevant build/test commands.
 4. Show what passed or failed.
+
+Do not refactor unrelated files. Do not change permission behavior while adding tests unless explicitly requested.
 
 ## Commands
 
-From root:
+Prefer monorepo-filtered commands from the repo root:
 
-- `pnpm build`
-- `pnpm lint`
-- `pnpm test`
+- `pnpm --filter api test`
+- `pnpm --filter api test:e2e`
+- `pnpm --filter api lint`
+- `pnpm --filter api build`
+- `pnpm --filter api prisma validate`
+- `pnpm --filter api prisma generate`
+
+Docker:
+
 - `docker compose up -d`
 - `docker ps`
 
-From `apps/api`:
+From `apps/api` directly (when inside that directory):
 
 - `pnpm start:dev`
-- `pnpm build`
-- `pnpm lint`
-- `pnpm prisma validate`
 - `pnpm prisma migrate dev`
-- `pnpm prisma generate`
 
 ## Do Not Commit
 

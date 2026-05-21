@@ -1,109 +1,146 @@
 # Backend Roadmap
 
-## Foundation - Completed
+## Completed — Foundation
 
-- Monorepo with pnpm and Turborepo.
+- Monorepo: pnpm + Turborepo.
 - NestJS API under `apps/api`.
 - PostgreSQL via Docker Compose.
-- Prisma 7 configured.
-- Prisma schema initialized.
-- Prisma Client generation integrated into build.
-- NestJS ConfigModule configured.
-- PrismaModule and PrismaService added.
-- Health endpoint checks real database connectivity.
+- Prisma 7 configured with `moduleFormat = "cjs"`.
+- Prisma Client generated into `apps/api/src/generated/prisma` (not committed).
+- NestJS `ConfigModule` wired globally.
+- `PrismaModule` (`@Global()`) and `PrismaService` added.
+- `GET /health` endpoint verifies real DB connectivity.
 
-## Phase 1 - Platform Admin and Businesses
+## Completed — Authentication
 
-Goal: allow platform admin to create tenants.
+- Clerk-based authentication via `ClerkAuthGuard`.
+- `ClerkAuthGuard` resolves a `User` row from the DB (keyed to Clerk session).
+- All dashboard routes require `ClerkAuthGuard`.
+- `GET /businesses/me` — returns the business(es) the authenticated user belongs to.
+- E2E tests use `MockClerkAuthGuard` (static `currentUser` property, reset in `beforeEach`).
 
-Tasks:
+## Completed — Dashboard Read Endpoints
 
-- Create AdminModule.
-- Create BusinessesModule.
-- Create DTOs for business creation.
-- Add validation with class-validator.
-- Add `POST /admin/businesses`.
-- Add `GET /admin/businesses`.
-- Add platform admin seed.
-- Add basic tests for business creation.
+All read endpoints below are implemented and covered by e2e tests.
 
-## Phase 2 - Business Owner Onboarding
+### Access model
 
-Goal: business owners cannot self-register; they are invited.
+- `assertAccess` — any `BusinessUser` (OWNER, MANAGER, MEMBER). Used on most read endpoints.
+- `assertOwnerAccess` — OWNER only. Used on user-management endpoint.
+- `assertMutationAccess` — OWNER or MANAGER. Used on all write endpoints.
+- Outsider (no `BusinessUser` row) → 403.
+- Missing auth → 401.
+- Non-existent `businessId` → 403 (access assertion fails first, before a 404 is reached).
 
-Tasks:
+### Covered endpoints
 
-- Add Invitation model.
-- Create owner invitation flow.
-- Hash invitation tokens.
-- Accept invitation endpoint.
-- Create owner user.
-- Create BusinessUser with OWNER role.
-- Mark invitation as accepted.
+| Endpoint | Guard | Notes |
+| --- | --- | --- |
+| `GET /health` | none | DB ping |
+| `GET /businesses/me` | ClerkAuthGuard | Returns user's business list |
+| `GET /dashboard/businesses/:businessId/services` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/customers` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/service-providers` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/users` | assertOwnerAccess | OWNER only |
+| `GET /dashboard/businesses/:businessId/summary` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/readiness` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/working-hours` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/availability-exceptions` | assertAccess | |
+| `GET /dashboard/businesses/:businessId/appointments` | assertAccess | Supports `from`, `to`, `status` query params |
 
-## Phase 3 - Customer Management
+### Key response shapes
 
-Goal: business owner can add and block customers.
+**Readiness** (`GET …/readiness`):
 
-Tasks:
+```json
+{ "hasActiveServiceProviders": true, "hasActiveService": true, "isReady": true }
+```
 
-- Implement CustomerProfile.
-- Implement BusinessCustomer.
-- Add customer to business.
-- Block customer.
-- Archive customer.
-- Enforce customer access rules.
+**Appointment** (`GET …/appointments` items):
 
-## Phase 4 - Services and Staff
+```json
+{
+  "id", "businessId", "businessCustomerId", "customerName",
+  "serviceId", "serviceName",
+  "serviceProviderId", "serviceProviderName",
+  "startsAt", "endsAt", "status",
+  "createdAt", "updatedAt"
+}
+```
 
-Goal: business can configure bookable services and staff.
+### E2E test infrastructure
 
-Tasks:
+- Real Prisma + real test DB (`TEST_DATABASE_URL`).
+- `requireTestDatabase()` called at module level in every DB-based suite.
+- `MockClerkAuthGuard` overrides `ClerkAuthGuard` in test modules.
+- `PrismaModule` must be explicitly imported in isolated test modules (it is `@Global()` only when `AppModule` loads it).
+- `maxWorkers: 1` in `jest-e2e.json` — suites run serially to avoid DB connection exhaustion.
+- Stable deterministic UUID IDs use hex-only prefixes (`e2e50000…`, `e2e60000…`, etc.).
+- Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
+- Dev seed is never used in tests.
 
-- Create services endpoints.
-- Add service validation.
-- Create staff endpoints.
-- Separate StaffMember from BusinessUser.
-- Assign services to staff later.
+**Current test counts:** 9 e2e suites / 67 tests — 13 unit suites / 153 tests — build clean.
 
-## Phase 5 - Availability and Appointments
+## Domain naming — locked decisions
 
-Goal: allow safe appointment booking.
+| Term | Correct name | Rejected name |
+| --- | --- | --- |
+| Permission role | OWNER / MANAGER / MEMBER | STAFF (removed) |
+| Bookable entity | `ServiceProvider` | `StaffMember` (renamed) |
+| Route segment | `/service-providers` | `/staff` |
+| FK field | `serviceProviderId` | `staffMemberId` |
 
-Tasks:
+`ServiceProvider` is a separate entity from `BusinessUser`. A `BusinessUser` is a platform user with a role; a `ServiceProvider` is a bookable profile linked to a `BusinessUser`. The two are not interchangeable.
 
-- Add availability rules.
-- Add availability exceptions.
-- Calculate available slots.
-- Create appointment use case.
-- Prevent double booking.
-- Return 409 Conflict on booking conflict.
-- Add appointment status transitions.
+## Next — Phase 2: Mutation E2E Tests
 
-## Phase 6 - Notifications and Outbox
+Approach: one task per domain, read code before assuming DTOs, implement tests only, no permission changes without explicit discussion.
 
-Goal: support reliable async notifications.
+### Recommended order
 
-Tasks:
+1. **Services** — inspect implemented service mutation endpoints first; test only existing create/update/status/delete routes
+2. **Customers** — create, update, change status
+3. **Service providers** — create, update, link/unlink services
+4. **Business users** — invite/update role (if endpoints exist)
+5. **Working hours** — `PUT` business working hours, `PUT` service provider working hours
+6. **Availability exceptions** — `POST`, `PATCH`, `DELETE`
+7. **Appointments** — last; depends on all other domain entities and status transition rules
 
-- Add OutboxEvent model.
-- Add Notification model.
-- Add worker process.
-- Add retry logic.
-- Add email provider abstraction.
-- Add appointment created and cancelled notifications.
+**Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, and availability exceptions all being correct.
 
-## Phase 7 - Hardening
+### Starting point
 
-Goal: prepare the backend for real product usage.
+Begin with **services mutations** only.
 
-Tasks:
+Expected permission model for services mutations:
 
-- Add audit logs.
-- Add role and permission guards.
-- Add integration tests with PostgreSQL.
-- Add CI pipeline.
-- Add staging environment.
-- Add smoke tests.
-- Add feature flags.
-- Add billing and subscriptions later.
+- OWNER → allowed
+- MANAGER → allowed
+- MEMBER → 403
+- outsider → 403
+- missing auth → 401
+
+### Pending permission decisions (not yet tested, not yet decided)
+
+- Whether MEMBER can create appointments.
+- Whether MEMBER can change appointment status.
+- Whether MEMBER can create or update customers.
+
+These must be decided and documented before writing mutation tests for those domains.
+
+### Reminder for future mutation tests
+
+- Inspect actual controller/service code first — do not assume route names, DTOs, or response shapes.
+- If current behavior differs from the intended permission model, document the gap before changing any code.
+- Keep permission changes in a separate task from test additions.
+- One domain per task.
+
+## Later — Phase 3 and Beyond
+
+- Notifications and outbox (async appointment created/cancelled events).
+- Audit logs.
+- CI pipeline.
+- Staging environment.
+- Billing and subscriptions.
+- Frontend (Next.js + React under `apps/web`) — separate roadmap.
