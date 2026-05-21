@@ -27,7 +27,8 @@ All read endpoints below are implemented and covered by e2e tests.
 
 - `assertAccess` — any `BusinessUser` (OWNER, MANAGER, MEMBER). Used on most read endpoints.
 - `assertOwnerAccess` — OWNER only. Used on user-management endpoint.
-- `assertMutationAccess` — OWNER or MANAGER. Used on all write endpoints.
+- `assertMutationAccess` — OWNER or MANAGER. Used on most write endpoints (services, service providers, customers).
+- `assertOwnerAccess` also used on the BusinessUser create endpoint (OWNER only).
 - Outsider (no `BusinessUser` row) → 403.
 - Missing auth → 401.
 - Non-existent `businessId` → 403 (access assertion fails first, before a 404 is reached).
@@ -80,7 +81,7 @@ All read endpoints below are implemented and covered by e2e tests.
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 9 e2e suites / 67 tests — 13 unit suites / 153 tests — build clean.
+**Current test counts:** 13 e2e suites / 188 tests — 13 unit suites / 153 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -93,41 +94,72 @@ All read endpoints below are implemented and covered by e2e tests.
 
 `ServiceProvider` is a separate entity from `BusinessUser`. A `BusinessUser` is a platform user with a role; a `ServiceProvider` is a bookable profile linked to a `BusinessUser`. The two are not interchangeable.
 
-## Next — Phase 2: Mutation E2E Tests
+## Completed — Phase 2: Mutation E2E Tests
 
-Approach: one task per domain, read code before assuming DTOs, implement tests only, no permission changes without explicit discussion.
+Approach: one task per domain, inspect code before assuming DTOs, implement tests only, permission changes explicit and separate.
 
-### Recommended order
+### Completed domains
 
-1. **Services** — inspect implemented service mutation endpoints first; test only existing create/update/status/delete routes
-2. **Customers** — create, update, change status
-3. **Service providers** — create, update, link/unlink services
-4. **Business users** — invite/update role (if endpoints exist)
-5. **Working hours** — `PUT` business working hours, `PUT` service provider working hours
-6. **Availability exceptions** — `POST`, `PATCH`, `DELETE`
-7. **Appointments** — last; depends on all other domain entities and status transition rules
+#### 1. Services mutations — done
 
-**Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, and availability exceptions all being correct.
+Endpoints covered:
 
-### Starting point
+- `POST /dashboard/businesses/:businessId/services`
+- `PATCH /dashboard/businesses/:businessId/services/:serviceId`
+- `PATCH /dashboard/businesses/:businessId/services/:serviceId/status`
 
-Begin with **services mutations** only.
+Verified: OWNER/MANAGER allowed; MEMBER/outsider 403; missing auth 401; validation; cross-tenant Pattern A and Pattern B.
 
-Expected permission model for services mutations:
+#### 2. ServiceProvider mutations — done
 
-- OWNER → allowed
-- MANAGER → allowed
-- MEMBER → 403
-- outsider → 403
-- missing auth → 401
+Endpoints covered:
 
-### Pending permission decisions (not yet tested, not yet decided)
+- `POST /dashboard/businesses/:businessId/service-providers`
+- `PATCH /dashboard/businesses/:businessId/service-providers/:serviceProviderId`
+- `PATCH /dashboard/businesses/:businessId/service-providers/:serviceProviderId/status`
+
+Verified: OWNER/MANAGER allowed; MEMBER/outsider 403; missing auth 401; validation; duplicate `businessUserId` behavior; cross-tenant Pattern A and Pattern B.
+
+#### 3. Customers mutations — done
+
+Endpoints covered:
+
+- `POST /dashboard/businesses/:businessId/customers`
+- `PATCH /dashboard/businesses/:businessId/customers/:businessCustomerId`
+- `PATCH /dashboard/businesses/:businessId/customers/:businessCustomerId/status`
+
+Verified: OWNER/MANAGER allowed; MEMBER/outsider 403; missing auth 401; validation; duplicate customer-in-business behavior; cross-tenant Pattern A and Pattern B.
+
+Note: `CustomerProfile` is a global table (no `businessId`). The tenant-scoped junction is `BusinessCustomer`.
+
+#### 4. BusinessUser mutations — done
+
+Endpoints covered:
+
+- `POST /dashboard/businesses/:businessId/users`
+
+No PATCH/DELETE/role-change/status-change endpoints exist yet.
+
+Verified: OWNER allowed; MANAGER/MEMBER/outsider 403; missing auth 401; invalid DTO cases; OWNER role rejected by DTO; duplicate BusinessUser 409; Pattern A coverage.
+
+**Permission fix applied:** `createBusinessUser` was changed from `assertMutationAccess` to `assertOwnerAccess`. This fixed a mismatch where MANAGER could invite users. Current behavior now matches `docs/rbac.md` (OWNER-only).
+
+### Pending permission decisions (not yet decided)
 
 - Whether MEMBER can create appointments.
 - Whether MEMBER can change appointment status.
-- Whether MEMBER can create or update customers.
 
-These must be decided and documented before writing mutation tests for those domains.
+These must be decided and documented before writing appointment mutation tests.
+
+## Next — Phase 2 (remaining): Mutation E2E Tests
+
+### Remaining order
+
+1. **Working hours** — `PUT` business working hours, `PUT` service-provider working hours
+2. **Availability exceptions** — `POST`, `PATCH`, `DELETE`
+3. **Appointments** — last; depends on all other domain entities and status transition rules
+
+**Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, availability exceptions, and unresolved MEMBER permission decisions.
 
 ### Reminder for future mutation tests
 
@@ -135,6 +167,7 @@ These must be decided and documented before writing mutation tests for those dom
 - If current behavior differs from the intended permission model, document the gap before changing any code.
 - Keep permission changes in a separate task from test additions.
 - One domain per task.
+- Do not reintroduce `STAFF`, `StaffMember`, or `staffMemberId` naming anywhere.
 
 ## Later — Phase 3 and Beyond
 
