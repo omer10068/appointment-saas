@@ -327,7 +327,9 @@ describe('GET /dashboard/businesses/:businessId/working-hours', () => {
   it('non-existent businessId returns 403', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
-      .get('/dashboard/businesses/00000000-0000-4000-8000-000000000000/working-hours')
+      .get(
+        '/dashboard/businesses/00000000-0000-4000-8000-000000000000/working-hours',
+      )
       .expect(403);
   });
 });
