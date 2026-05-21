@@ -177,7 +177,7 @@ export class DashboardDataService {
     businessId: string,
     dto: CreateBusinessUserDto,
   ): Promise<BusinessUserCreatedDto> {
-    await this.assertMutationAccess(userId, businessId);
+    await this.assertOwnerAccess(userId, businessId);
 
     const phoneNormalized = normalizePhone(dto.phone);
 

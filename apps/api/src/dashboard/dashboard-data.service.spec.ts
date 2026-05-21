@@ -1247,18 +1247,16 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('MANAGER can create a MEMBER BusinessUser', async () => {
-      mockPrisma.businessUser.findUnique
-        .mockResolvedValueOnce(mockManagerMembership)
-        .mockResolvedValueOnce(null);
-      mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.user.create.mockResolvedValue(mockNewUser);
-      mockPrisma.businessUser.create.mockResolvedValue(mockNewBu);
-      mockPrisma.serviceProvider.findUnique.mockResolvedValue(null);
+    it('MANAGER → ForbiddenException', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValueOnce(
+        mockManagerMembership,
+      );
 
       await expect(
         service.createBusinessUser(USER_ID, BUSINESS_ID, createDto),
-      ).resolves.toMatchObject({ id: 'bu-new', role: 'MEMBER' });
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('includes serviceProviderId when a ServiceProvider already exists for the BusinessUser', async () => {
