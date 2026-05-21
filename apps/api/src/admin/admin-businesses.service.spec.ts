@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { type Business, type BusinessUser } from '../generated/prisma/client';
 import { BusinessesService } from '../businesses/businesses.service';
@@ -80,8 +81,12 @@ describe('AdminBusinessesService', () => {
   });
 
   describe('createOwner', () => {
+    const dto: CreateBusinessOwnerDto = {
+      phone: '+972501234567',
+      email: 'owner@example.com',
+    };
+
     it('delegates to BusinessUsersService.createOwnerForBusiness', async () => {
-      const dto: CreateBusinessOwnerDto = { email: 'owner@example.com' };
       mockBusinessUsersService.createOwnerForBusiness.mockResolvedValue(
         mockBusinessUser,
       );
@@ -92,6 +97,26 @@ describe('AdminBusinessesService', () => {
         mockBusinessUsersService.createOwnerForBusiness,
       ).toHaveBeenCalledWith('biz-1', dto);
       expect(result).toEqual(mockBusinessUser);
+    });
+
+    it('propagates NotFoundException when business does not exist', async () => {
+      mockBusinessUsersService.createOwnerForBusiness.mockRejectedValue(
+        new NotFoundException(),
+      );
+
+      await expect(service.createOwner('missing-biz', dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('propagates ConflictException when business already has an owner', async () => {
+      mockBusinessUsersService.createOwnerForBusiness.mockRejectedValue(
+        new ConflictException(),
+      );
+
+      await expect(service.createOwner('biz-1', dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 });
