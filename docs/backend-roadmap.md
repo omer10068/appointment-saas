@@ -81,7 +81,7 @@ All read endpoints below are implemented and covered by e2e tests.
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 13 e2e suites / 188 tests — 13 unit suites / 153 tests — build clean.
+**Current test counts:** 16 e2e suites / 257 tests — 14 unit suites / 158 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -144,6 +144,37 @@ Verified: OWNER allowed; MANAGER/MEMBER/outsider 403; missing auth 401; invalid 
 
 **Permission fix applied:** `createBusinessUser` was changed from `assertMutationAccess` to `assertOwnerAccess`. This fixed a mismatch where MANAGER could invite users. Current behavior now matches `docs/rbac.md` (OWNER-only).
 
+#### 5. Working hours mutations — done
+
+Endpoints covered:
+
+- `PUT /dashboard/businesses/:businessId/working-hours`
+- `PUT /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours`
+
+Verified: OWNER/MANAGER allowed; MEMBER/outsider 403; missing auth 401; validation (dayOfWeek, isClosed, startTime/endTime); isClosed=true nulls times; cross-tenant Pattern A; SP not in business Pattern B.
+
+#### 6. Availability exceptions mutations — done
+
+Endpoints covered:
+
+- `POST /dashboard/businesses/:businessId/availability-exceptions`
+- `PATCH /dashboard/businesses/:businessId/availability-exceptions/:exceptionId`
+- `DELETE /dashboard/businesses/:businessId/availability-exceptions/:exceptionId`
+
+Verified: OWNER/MANAGER allowed; MEMBER/outsider 403; missing auth 401; validation; isClosed=false with missing times 400; cross-tenant Pattern A; foreign exceptionId Pattern B; 204 on DELETE.
+
+#### 7. Admin — done
+
+Endpoints covered:
+
+- `POST /admin/businesses/:businessId/owner`
+
+Guards: `ClerkAuthGuard` + `PlatformAdminGuard` (platformRole ADMIN or SUPER_ADMIN required).
+
+Verified: admin → 201; non-admin 403; missing auth 401; missing phone 400; invalid email 400; non-existent businessId 404; business already has owner 409.
+
+Unit coverage added: `AdminBusinessesService` (delegation + error propagation), `AdminBusinessesController` (delegation with guard overrides).
+
 ### Pending permission decisions (not yet decided)
 
 - Whether MEMBER can create appointments.
@@ -155,8 +186,8 @@ These must be decided and documented before writing appointment mutation tests.
 
 ### Remaining order
 
-1. ~~**Working hours**~~ — done (see Completed — Phase 2)
-2. **Availability exceptions** — `POST`, `PATCH`, `DELETE`
+1. ~~**Working hours**~~ — done
+2. ~~**Availability exceptions**~~ — done
 3. **Appointments** — last; depends on all other domain entities and status transition rules
 
 **Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, availability exceptions, and unresolved MEMBER permission decisions.
