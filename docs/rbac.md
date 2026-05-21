@@ -59,7 +59,7 @@ Operational manager.
 
 ### MEMBER
 
-Basic operational user with read access and limited write access.
+Basic operational user with read access.
 
 **Can:**
 
@@ -68,8 +68,11 @@ Basic operational user with read access and limited write access.
 - View customers
 - View service providers
 - View appointments
-- Create appointments (current implementation allows this)
-- Change appointment status (current implementation allows this)
+
+**Pending decision — not yet finalized:**
+
+- Create appointments
+- Change appointment status
 
 **Cannot:**
 
@@ -77,6 +80,7 @@ Basic operational user with read access and limited write access.
 - Change roles
 - Create/edit/delete services
 - Create/edit/delete service providers
+- Create/update customers
 - Manage working hours
 - Manage availability exceptions
 - Manage business settings
@@ -96,9 +100,9 @@ Basic operational user with read access and limited write access.
 | Create/update customers              | yes   | yes     | no     |
 | Block/archive customers              | yes   | yes     | no     |
 | View appointments                    | yes   | yes     | yes    |
-| Create appointments                  | yes   | yes     | yes    |
+| Create appointments                  | yes   | yes     | TBD    |
 | Update appointment details           | yes   | yes     | no     |
-| Change appointment status            | yes   | yes     | yes    |
+| Change appointment status            | yes   | yes     | TBD    |
 | View service providers               | yes   | yes     | yes    |
 | Create/update/delete svc providers   | yes   | yes     | no     |
 | View working hours                   | yes   | yes     | yes    |
@@ -116,14 +120,14 @@ Basic operational user with read access and limited write access.
 
 ## Permission Gaps / Follow-up Tasks
 
-The table above reflects intended permissions. The following gaps exist between intent and current implementation:
+The following items require an explicit decision before being implemented or documented as final.
 
-1. **MEMBER — create appointments**: The current `assertMutationAccess` check blocks non-OWNER/MANAGER on services, customers, and staff mutations, but appointment creation currently uses the same guard. Verify whether MEMBER should be allowed to create appointments and adjust accordingly if needed.
+1. **MEMBER — create appointments**: Not yet decided. Appointment mutation e2e tests have not been written. Review the appointment creation endpoint guard before finalizing MEMBER access.
 
-2. **MEMBER — change appointment status**: Same as above — the status update endpoint should be reviewed to confirm MEMBER access intent.
+2. **MEMBER — change appointment status**: Not yet decided. Same as above — the appointment status endpoint guard must be reviewed and a decision documented before implementation.
 
-3. **MANAGER — view business users**: Currently not verified in tests. Confirm whether MANAGER can list business users or not.
+3. **View business users — verified behavior**: `GET /dashboard/businesses/:businessId/users` is OWNER-only (`assertOwnerAccess`). MANAGER, MEMBER, and outsiders receive 403. Missing auth receives 401. This matches the permission matrix.
 
-4. **Invite/remove users**: Currently only OWNER is implemented as the role that can call `createBusinessUser`. MANAGER is blocked by `assertMutationAccess`. This aligns with the table above.
+4. **Invite/remove users**: Currently only OWNER can call the business user invite/create endpoint. MANAGER is blocked. This aligns with the table above.
 
-5. **Invite/remove users follow-up**: MANAGER role currently cannot invite or remove users. Confirm whether this restriction is permanent or if MANAGER should gain limited invite capability in a future iteration.
+5. **Invite/remove users follow-up**: MANAGER currently cannot invite or remove users. Confirm whether this restriction is permanent or if MANAGER should gain limited invite capability in a future iteration.
