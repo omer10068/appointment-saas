@@ -81,6 +81,8 @@ Basic operational user with read access.
 - Create/edit/delete services
 - Create/edit/delete service providers
 - Create/update customers
+- Block/archive customers
+- Update appointment details
 - Manage working hours
 - Manage availability exceptions
 - Manage business settings
@@ -91,36 +93,36 @@ Basic operational user with read access.
 
 ## Permission Matrix
 
-| Capability                           | OWNER | MANAGER | MEMBER |
-|--------------------------------------|:-----:|:-------:|:------:|
-| View business dashboard              | yes   | yes     | yes    |
-| View services                        | yes   | yes     | yes    |
-| Create/update/delete services        | yes   | yes     | no     |
-| View customers                       | yes   | yes     | yes    |
-| Create/update customers              | yes   | yes     | no     |
-| Block/archive customers              | yes   | yes     | no     |
-| View appointments                    | yes   | yes     | yes    |
-| Create appointments                  | yes   | yes     | TBD    |
-| Update appointment details           | yes   | yes     | no     |
-| Change appointment status            | yes   | yes     | TBD    |
-| View service providers               | yes   | yes     | yes    |
-| Create/update/delete svc providers   | yes   | yes     | no     |
-| View working hours                   | yes   | yes     | yes    |
-| Update working hours                 | yes   | yes     | no     |
-| Manage availability exceptions       | yes   | yes     | no     |
-| View business users                  | yes   | no      | no     |
-| Invite MEMBER                        | yes   | no      | no     |
-| Invite MANAGER                       | yes   | no      | no     |
-| Remove business users                | yes   | no      | no     |
-| Change business user roles           | yes   | no      | no     |
-| Business settings                    | yes   | no      | no     |
-| Billing/subscription                 | yes   | no      | no     |
+| Capability                             | OWNER | MANAGER | MEMBER |
+|----------------------------------------|:-----:|:-------:|:------:|
+| View business dashboard                | yes   | yes     | yes    |
+| View services                          | yes   | yes     | yes    |
+| Create/update/delete services          | yes   | yes     | no     |
+| View customers                         | yes   | yes     | yes    |
+| Create/update customers                | yes   | yes     | no     |
+| Block/archive customers                | yes   | yes     | no     |
+| View appointments                      | yes   | yes     | yes    |
+| Create appointments                    | yes   | yes     | TBD    |
+| Update appointment details             | yes   | yes     | no     |
+| Change appointment status              | yes   | yes     | TBD    |
+| View service providers                 | yes   | yes     | yes    |
+| Create/update/delete service providers | yes   | yes     | no     |
+| View working hours                     | yes   | yes     | yes    |
+| Update working hours                   | yes   | yes     | no     |
+| Manage availability exceptions         | yes   | yes     | no     |
+| View business users                    | yes   | no      | no     |
+| Invite MEMBER                          | yes   | no      | no     |
+| Invite MANAGER                         | yes   | no      | no     |
+| Remove business users                  | yes   | no      | no     |
+| Change business user roles             | yes   | no      | no     |
+| Business settings                      | yes   | no      | no     |
+| Billing/subscription                   | yes   | no      | no     |
 
 ---
 
 ## Permission Gaps / Follow-up Tasks
 
-The following items require an explicit decision before being implemented or documented as final.
+The following items require an explicit decision before being tested, changed, or documented as final.
 
 1. **MEMBER — create appointments**: Not yet decided. Appointment mutation e2e tests have not been written. Review the appointment creation endpoint guard before finalizing MEMBER access.
 
@@ -128,6 +130,6 @@ The following items require an explicit decision before being implemented or doc
 
 3. **View business users — verified behavior**: `GET /dashboard/businesses/:businessId/users` is OWNER-only (`assertOwnerAccess`). MANAGER, MEMBER, and outsiders receive 403. Missing auth receives 401. This matches the permission matrix.
 
-4. **Invite/remove users**: Currently only OWNER can call the business user invite/create endpoint. MANAGER is blocked. This aligns with the table above.
+4. **Invite/create users**: Currently only OWNER can call the business user invite/create endpoint. MANAGER is blocked. This aligns with the table above.
 
-5. **Invite/remove users follow-up**: MANAGER currently cannot invite or remove users. Confirm whether this restriction is permanent or if MANAGER should gain limited invite capability in a future iteration.
+5. **Remove users / role management follow-up**: MANAGER currently cannot invite, remove, or change roles. Confirm whether this restriction is permanent or if MANAGER should gain limited user-management capability in a future iteration.
