@@ -175,20 +175,22 @@ Verified: admin → 201; non-admin 403; missing auth 401; missing phone 400; inv
 
 Unit coverage added: `AdminBusinessesService` (delegation + error propagation), `AdminBusinessesController` (delegation with guard overrides).
 
+#### 8. Appointments mutations — done
+
+Endpoints covered (52 tests):
+
+- `POST /dashboard/businesses/:businessId/appointments`
+- `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId`
+- `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId/status`
+
+Verified: OWNER/MANAGER allowed; MEMBER read-only / 403 on all mutations; missing auth 401; DTO validation; past `startsAt` rejection; empty PATCH rejection; terminal status-change protection; overlap conflict detection (409); cross-tenant Pattern A and Pattern B.
+
 ### Permission decisions — resolved
 
 - **MEMBER cannot create appointments.** All appointment mutations use `assertMutationAccess` (OWNER/MANAGER only).
 - **MEMBER cannot change appointment status.** Same guard.
 - MEMBER retains read access via `assertAccess` on `GET .../appointments`.
 - Scoped MEMBER appointment actions (e.g. only their own SP calendar) may be revisited in a later phase. Document in `docs/rbac.md`.
-
-## Completed — Phase 2 (remaining): Mutation E2E Tests
-
-### Remaining order
-
-1. ~~**Working hours**~~ — done
-2. ~~**Availability exceptions**~~ — done
-3. ~~**Appointments**~~ — done; 52 tests covering POST, PATCH, PATCH /status with full permission, cross-tenant, validation, and business-rule coverage
 
 ### Future business-rule validation — working hours and availability exceptions
 
