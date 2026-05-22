@@ -69,11 +69,6 @@ Basic operational user with read access.
 - View service providers
 - View appointments
 
-**Pending decision — not yet finalized:**
-
-- Create appointments
-- Change appointment status
-
 **Cannot:**
 
 - Manage users
@@ -82,12 +77,19 @@ Basic operational user with read access.
 - Create/edit/delete service providers
 - Create/update customers
 - Block/archive customers
+- Create appointments
 - Update appointment details
+- Change appointment status
 - Manage working hours
 - Manage availability exceptions
 - Manage business settings
 - Manage billing/subscription
 - Delete/suspend business
+
+**Possible future scope (not decided, not implemented):**
+
+- Scoped appointment creation (e.g. only for their own service-provider calendar)
+- Scoped appointment status change (e.g. only mark their own appointments complete)
 
 ---
 
@@ -102,9 +104,9 @@ Basic operational user with read access.
 | Create/update customers                | yes   | yes     | no     |
 | Block/archive customers                | yes   | yes     | no     |
 | View appointments                      | yes   | yes     | yes    |
-| Create appointments                    | yes   | yes     | TBD    |
+| Create appointments                    | yes   | yes     | no     |
 | Update appointment details             | yes   | yes     | no     |
-| Change appointment status              | yes   | yes     | TBD    |
+| Change appointment status              | yes   | yes     | no     |
 | View service providers                 | yes   | yes     | yes    |
 | Create/update/delete service providers | yes   | yes     | no     |
 | View working hours                     | yes   | yes     | yes    |
@@ -124,12 +126,10 @@ Basic operational user with read access.
 
 The following items require an explicit decision before being tested, changed, or documented as final.
 
-1. **MEMBER — create appointments**: Not yet decided. Appointment mutation e2e tests have not been written. Review the appointment creation endpoint guard before finalizing MEMBER access.
+1. **MEMBER — appointment mutations**: Decided. MEMBER cannot create appointments, update appointment details, or change appointment status. All three appointment mutation endpoints use `assertMutationAccess` (OWNER/MANAGER only). Scoped MEMBER appointment actions may be revisited in a later phase (see MEMBER "Possible future scope" section above).
 
-2. **MEMBER — change appointment status**: Not yet decided. Same as above — the appointment status endpoint guard must be reviewed and a decision documented before implementation.
+2. **View business users — verified behavior**: `GET /dashboard/businesses/:businessId/users` is OWNER-only (`assertOwnerAccess`). MANAGER, MEMBER, and outsiders receive 403. Missing auth receives 401. This matches the permission matrix.
 
-3. **View business users — verified behavior**: `GET /dashboard/businesses/:businessId/users` is OWNER-only (`assertOwnerAccess`). MANAGER, MEMBER, and outsiders receive 403. Missing auth receives 401. This matches the permission matrix.
+3. **Invite/create users**: Currently only OWNER can call the business user invite/create endpoint. MANAGER is blocked. This aligns with the table above.
 
-4. **Invite/create users**: Currently only OWNER can call the business user invite/create endpoint. MANAGER is blocked. This aligns with the table above.
-
-5. **Remove users / role management follow-up**: MANAGER currently cannot invite, remove, or change roles. Confirm whether this restriction is permanent or if MANAGER should gain limited user-management capability in a future iteration.
+4. **Remove users / role management follow-up**: MANAGER currently cannot invite, remove, or change roles. Confirm whether this restriction is permanent or if MANAGER should gain limited user-management capability in a future iteration.

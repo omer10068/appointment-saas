@@ -175,12 +175,12 @@ Verified: admin → 201; non-admin 403; missing auth 401; missing phone 400; inv
 
 Unit coverage added: `AdminBusinessesService` (delegation + error propagation), `AdminBusinessesController` (delegation with guard overrides).
 
-### Pending permission decisions (not yet decided)
+### Permission decisions — resolved
 
-- Whether MEMBER can create appointments.
-- Whether MEMBER can change appointment status.
-
-These must be decided and documented before writing appointment mutation tests.
+- **MEMBER cannot create appointments.** All appointment mutations use `assertMutationAccess` (OWNER/MANAGER only).
+- **MEMBER cannot change appointment status.** Same guard.
+- MEMBER retains read access via `assertAccess` on `GET .../appointments`.
+- Scoped MEMBER appointment actions (e.g. only their own SP calendar) may be revisited in a later phase. Document in `docs/rbac.md`.
 
 ## Next — Phase 2 (remaining): Mutation E2E Tests
 
@@ -190,7 +190,7 @@ These must be decided and documented before writing appointment mutation tests.
 2. ~~**Availability exceptions**~~ — done
 3. **Appointments** — last; depends on all other domain entities and status transition rules
 
-**Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, availability exceptions, and unresolved MEMBER permission decisions.
+**Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, and availability exceptions.
 
 ### Future business-rule validation — working hours and availability exceptions
 

@@ -20,8 +20,8 @@ const USER_ID = 'user-1';
 const OTHER_USER_ID = 'user-2';
 const BUSINESS_ID = 'biz-1';
 const APPOINTMENT_ID = 'appt-1';
-const STAFF_ID = 'sm-1';
-const STAFF_BU_ID = 'bu-3'; // BusinessUser linked to the ServiceProvider
+const SERVICE_PROVIDER_ID = 'sp-1';
+const SERVICE_PROVIDER_BU_ID = 'bu-3'; // BusinessUser linked to the ServiceProvider
 const SERVICE_ID = 'svc-1';
 const CUSTOMER_ID = 'bc-1';
 
@@ -37,16 +37,16 @@ const mockMembership: BusinessUser = {
 
 const mockServiceProvidership: BusinessUser = {
   ...mockMembership,
-  id: STAFF_BU_ID,
+  id: SERVICE_PROVIDER_BU_ID,
   role: 'MEMBER',
 };
 
-const mockStaffBu = { status: 'ACTIVE' };
+const mockSpBu = { status: 'ACTIVE' }; // BusinessUser linked to the ServiceProvider
 
 const mockServiceProviderRecord: ServiceProvider = {
-  id: STAFF_ID,
+  id: SERVICE_PROVIDER_ID,
   businessId: BUSINESS_ID,
-  businessUserId: STAFF_BU_ID,
+  businessUserId: SERVICE_PROVIDER_BU_ID,
   displayName: 'Alice',
   isActive: true,
   createdAt: new Date('2024-01-01'),
@@ -77,15 +77,15 @@ const mockCustomer: BusinessCustomer = {
   updatedAt: new Date('2024-01-01'),
 };
 
-const STARTS_AT = new Date('2024-06-15T09:00:00.000Z');
-const ENDS_AT = new Date('2024-06-15T10:00:00.000Z');
+const STARTS_AT = new Date('2030-06-15T09:00:00.000Z');
+const ENDS_AT = new Date('2030-06-15T10:00:00.000Z');
 
 const mockAppointmentRow = {
   id: APPOINTMENT_ID,
   businessId: BUSINESS_ID,
   businessCustomerId: CUSTOMER_ID,
   serviceId: SERVICE_ID,
-  serviceProviderId: STAFF_ID,
+  serviceProviderId: SERVICE_PROVIDER_ID,
   startsAt: STARTS_AT,
   endsAt: ENDS_AT,
   status: 'SCHEDULED',
@@ -101,7 +101,7 @@ const mockAppointment: Appointment = {
   businessId: BUSINESS_ID,
   businessCustomerId: CUSTOMER_ID,
   serviceId: SERVICE_ID,
-  serviceProviderId: STAFF_ID,
+  serviceProviderId: SERVICE_PROVIDER_ID,
   startsAt: STARTS_AT,
   endsAt: ENDS_AT,
   status: 'SCHEDULED',
@@ -230,21 +230,21 @@ describe('AppointmentsService', () => {
     const createDto = {
       businessCustomerId: CUSTOMER_ID,
       serviceId: SERVICE_ID,
-      serviceProviderId: STAFF_ID,
+      serviceProviderId: SERVICE_PROVIDER_ID,
       startsAt: STARTS_AT.toISOString(),
     };
 
     function setupHappyPath() {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership) // assertMutationAccess
-        .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser); // assertStaffReadyForBooking
+        .mockResolvedValueOnce(mockSpBu as unknown as BusinessUser); // assertStaffReadyForBooking
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
       mockPrisma.serviceProvider.findFirst.mockResolvedValue(
         mockServiceProviderRecord,
       );
       mockPrisma.serviceProviderService.findFirst.mockResolvedValue({
-        serviceProviderId: STAFF_ID,
+        serviceProviderId: SERVICE_PROVIDER_ID,
       });
       mockPrisma.appointment.findFirst.mockResolvedValue(null); // no conflict
     }
@@ -267,7 +267,7 @@ describe('AppointmentsService', () => {
             businessId: BUSINESS_ID,
             businessCustomerId: CUSTOMER_ID,
             serviceId: SERVICE_ID,
-            serviceProviderId: STAFF_ID,
+            serviceProviderId: SERVICE_PROVIDER_ID,
             status: 'SCHEDULED',
             endsAt: ENDS_AT,
           }),
@@ -284,6 +284,18 @@ describe('AppointmentsService', () => {
       await expect(
         service.createAppointment(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws BadRequestException for past startsAt', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+
+      await expect(
+        service.createAppointment(USER_ID, BUSINESS_ID, {
+          ...createDto,
+          startsAt: new Date('2020-01-01T00:00:00.000Z').toISOString(),
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.service.findFirst).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when service does not belong to business', async () => {
@@ -362,7 +374,7 @@ describe('AppointmentsService', () => {
     it('throws BadRequestException when service provider does not offer the selected service', async () => {
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership)
-        .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser);
+        .mockResolvedValueOnce(mockSpBu as unknown as BusinessUser);
       mockPrisma.service.findFirst.mockResolvedValue(mockService);
       mockPrisma.businessCustomer.findFirst.mockResolvedValue(mockCustomer);
       mockPrisma.serviceProvider.findFirst.mockResolvedValue(
@@ -388,7 +400,7 @@ describe('AppointmentsService', () => {
   // ─── updateAppointment ────────────────────────────────────────────────────
 
   describe('updateAppointment', () => {
-    it('OWNER can update an appointment (no field changes)', async () => {
+    it('OWNER can update an appointment', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.appointment.findFirst
         .mockResolvedValueOnce(mockAppointment) // existing check
@@ -401,7 +413,7 @@ describe('AppointmentsService', () => {
         USER_ID,
         BUSINESS_ID,
         APPOINTMENT_ID,
-        {},
+        { serviceId: SERVICE_ID },
       );
 
       expect(mockPrisma.appointment.update).toHaveBeenCalledWith(
@@ -410,12 +422,30 @@ describe('AppointmentsService', () => {
       expect(result.id).toBe(APPOINTMENT_ID);
     });
 
+    it('throws BadRequestException for empty DTO', async () => {
+      await expect(
+        service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {}),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.businessUser.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for past startsAt', async () => {
+      await expect(
+        service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+          startsAt: new Date('2020-01-01T00:00:00.000Z').toISOString(),
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.businessUser.findUnique).not.toHaveBeenCalled();
+    });
+
     it('throws NotFoundException for appointment from another business', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.appointment.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {}),
+        service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+          serviceId: SERVICE_ID,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -427,13 +457,15 @@ describe('AppointmentsService', () => {
       });
 
       await expect(
-        service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {}),
+        service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+          serviceId: SERVICE_ID,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('recomputes endsAt when startsAt changes', async () => {
-      const newStartsAt = new Date('2024-06-15T11:00:00.000Z');
-      const expectedEndsAt = new Date('2024-06-15T12:00:00.000Z');
+      const newStartsAt = new Date('2030-06-15T11:00:00.000Z');
+      const expectedEndsAt = new Date('2030-06-15T12:00:00.000Z');
 
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.appointment.findFirst
@@ -458,26 +490,26 @@ describe('AppointmentsService', () => {
     });
 
     it('validates new service provider when serviceProviderId changes', async () => {
-      const NEW_STAFF_ID = 'sm-2';
+      const NEW_SERVICE_PROVIDER_ID = 'sm-2';
       mockPrisma.businessUser.findUnique
         .mockResolvedValueOnce(mockMembership)
-        .mockResolvedValueOnce(mockStaffBu as unknown as BusinessUser);
+        .mockResolvedValueOnce(mockSpBu as unknown as BusinessUser);
       mockPrisma.appointment.findFirst
         .mockResolvedValueOnce(mockAppointment)
         .mockResolvedValueOnce(null);
       mockPrisma.serviceProvider.findFirst.mockResolvedValue({
         ...mockServiceProviderRecord,
-        id: NEW_STAFF_ID,
+        id: NEW_SERVICE_PROVIDER_ID,
       });
       mockPrisma.serviceProviderService.findFirst.mockResolvedValue({
-        serviceProviderId: NEW_STAFF_ID,
+        serviceProviderId: NEW_SERVICE_PROVIDER_ID,
       });
       mockPrisma.appointment.update.mockResolvedValue(
         mockAppointmentRow as unknown as Appointment,
       );
 
       await service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
-        serviceProviderId: NEW_STAFF_ID,
+        serviceProviderId: NEW_SERVICE_PROVIDER_ID,
       });
 
       expect(mockPrisma.serviceProvider.findFirst).toHaveBeenCalled();
@@ -534,5 +566,28 @@ describe('AppointmentsService', () => {
         }),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it.each([
+      'COMPLETED',
+      'CANCELLED_BY_CUSTOMER',
+      'CANCELLED_BY_BUSINESS',
+      'NO_SHOW',
+    ] as const)(
+      'throws BadRequestException when appointment is already %s',
+      async (terminalStatus) => {
+        mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+        mockPrisma.appointment.findFirst.mockResolvedValue({
+          ...mockAppointment,
+          status: terminalStatus,
+        });
+
+        await expect(
+          service.setAppointmentStatus(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+            status: 'SCHEDULED',
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.appointment.update).not.toHaveBeenCalled();
+      },
+    );
   });
 });
