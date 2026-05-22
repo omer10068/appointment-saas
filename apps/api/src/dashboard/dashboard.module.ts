@@ -4,6 +4,7 @@ import { AppointmentsController } from './appointments.controller';
 import { AppointmentsService } from './appointments.service';
 import { AvailabilityController } from './availability.controller';
 import { AvailabilityService } from './availability.service';
+import { BookingValidationService } from './booking-validation.service';
 import { DashboardDataController } from './dashboard-data.controller';
 import { DashboardDataService } from './dashboard-data.service';
 
@@ -14,6 +15,11 @@ import { DashboardDataService } from './dashboard-data.service';
     AvailabilityController,
     AppointmentsController,
   ],
-  providers: [DashboardDataService, AvailabilityService, AppointmentsService],
+  providers: [
+    DashboardDataService,
+    AvailabilityService,
+    AppointmentsService,
+    BookingValidationService,
+  ],
 })
 export class DashboardModule {}
