@@ -51,6 +51,8 @@ Covered by:
 | --- | --- | --- |
 | `GET /health` | none | DB ping |
 | `GET /businesses/me` | ClerkAuthGuard | Returns user's business list |
+| `GET /dashboard/businesses/:businessId` | assertAccess | Business settings; slug/status/id/timestamps read-only |
+| `PATCH /dashboard/businesses/:businessId` | assertMutationAccess | Updates name, timezone, locale, currency; empty body → 400 |
 | `GET /dashboard/businesses/:businessId/services` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/customers` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/service-providers` | assertAccess | |
@@ -63,6 +65,14 @@ Covered by:
 | `GET /dashboard/businesses/:businessId/appointments` | assertAccess | Supports `from`, `to`, `status` query params |
 
 ### Key response shapes
+
+**Business settings** (`GET …/:businessId` and `PATCH …/:businessId`):
+
+```json
+{ "id", "name", "slug", "status", "timezone", "locale", "currency", "createdAt", "updatedAt" }
+```
+
+Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH).
 
 **Readiness** (`GET …/readiness`):
 
