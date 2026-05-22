@@ -9,6 +9,7 @@ import { PrismaModule } from '../../src/prisma/prisma.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { User } from '../../src/generated/prisma/client';
 import {
+  AppointmentStatus,
   BusinessUserRole,
   BusinessUserStatus,
 } from '../../src/generated/prisma/client';
@@ -29,6 +30,20 @@ const E2E_WH_MUT_SP_ID = 'e2e40000-0000-4000-8000-000000000010';
 const E2E_WH_MUT_OTHER_BIZ_ID = 'e2e40000-0000-4000-8000-000000000020';
 const E2E_WH_MUT_OTHER_USER_ID = 'e2e40000-0000-4000-8000-000000000021';
 const E2E_WH_MUT_OTHER_SP_ID = 'e2e40000-0000-4000-8000-000000000030';
+
+// Conflict-check fixtures
+const E2E_WH_MUT_CP_ID = 'e2e40000-0000-4000-8000-000000000040';
+const E2E_WH_MUT_BC_ID = 'e2e40000-0000-4000-8000-000000000041';
+const E2E_WH_MUT_SVC_ID = 'e2e40000-0000-4000-8000-000000000050';
+const E2E_WH_MUT_APT_CONFLICT_ID = 'e2e40000-0000-4000-8000-000000000060';
+const E2E_WH_MUT_APT_CANCELLED_ID = 'e2e40000-0000-4000-8000-000000000061';
+
+// Conflict-check appointment times (business tz = Asia/Jerusalem = UTC+3 in summer)
+// 2030-07-01 = Monday (day 1), 2030-07-03 = Wednesday (day 3)
+const WH_MON_APT_STARTS_AT = '2030-07-01T07:00:00.000Z'; // Mon 10:00 Jerusalem
+const WH_MON_APT_ENDS_AT = '2030-07-01T08:00:00.000Z'; // Mon 11:00 Jerusalem
+const WH_WED_APT_STARTS_AT = '2030-07-03T07:00:00.000Z'; // Wed 10:00 Jerusalem
+const WH_WED_APT_ENDS_AT = '2030-07-03T08:00:00.000Z'; // Wed 11:00 Jerusalem
 
 // User phones
 const OWNER_PHONE = '+19990004001';
@@ -77,11 +92,23 @@ beforeAll(async () => {
   prisma = module.get(PrismaService);
 
   // ── Idempotent pre-cleanup (FK-safe order) ─────────────────────────────────
+  await prisma.appointment.deleteMany({
+    where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
   await prisma.serviceProviderWorkingHour.deleteMany({
     where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
   });
   await prisma.businessWorkingHour.deleteMany({
     where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.businessCustomer.deleteMany({
+    where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.service.deleteMany({
+    where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.customerProfile.deleteMany({
+    where: { id: E2E_WH_MUT_CP_ID },
   });
   await prisma.serviceProvider.deleteMany({
     where: { id: { in: [E2E_WH_MUT_SP_ID, E2E_WH_MUT_OTHER_SP_ID] } },
@@ -221,14 +248,78 @@ beforeAll(async () => {
       isActive: true,
     },
   });
+
+  // ── Conflict-check fixtures ────────────────────────────────────────────────
+  await prisma.service.create({
+    data: {
+      id: E2E_WH_MUT_SVC_ID,
+      businessId: E2E_WH_MUT_BIZ_ID,
+      name: 'WH Test Service',
+      durationMinutes: 60,
+      isActive: true,
+    },
+  });
+  await prisma.customerProfile.create({
+    data: {
+      id: E2E_WH_MUT_CP_ID,
+      fullName: 'WH Test Customer',
+      phoneNormalized: '+19990004020',
+    },
+  });
+  await prisma.businessCustomer.create({
+    data: {
+      id: E2E_WH_MUT_BC_ID,
+      businessId: E2E_WH_MUT_BIZ_ID,
+      customerProfileId: E2E_WH_MUT_CP_ID,
+      status: 'ACTIVE',
+    },
+  });
+  // Active future appointment: Monday Jul 1 2030 10:00-11:00 Jerusalem
+  await prisma.appointment.create({
+    data: {
+      id: E2E_WH_MUT_APT_CONFLICT_ID,
+      businessId: E2E_WH_MUT_BIZ_ID,
+      businessCustomerId: E2E_WH_MUT_BC_ID,
+      serviceId: E2E_WH_MUT_SVC_ID,
+      serviceProviderId: E2E_WH_MUT_SP_ID,
+      startsAt: new Date(WH_MON_APT_STARTS_AT),
+      endsAt: new Date(WH_MON_APT_ENDS_AT),
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
+  // Cancelled future appointment: Wednesday Jul 3 2030 10:00-11:00 Jerusalem
+  await prisma.appointment.create({
+    data: {
+      id: E2E_WH_MUT_APT_CANCELLED_ID,
+      businessId: E2E_WH_MUT_BIZ_ID,
+      businessCustomerId: E2E_WH_MUT_BC_ID,
+      serviceId: E2E_WH_MUT_SVC_ID,
+      serviceProviderId: E2E_WH_MUT_SP_ID,
+      startsAt: new Date(WH_WED_APT_STARTS_AT),
+      endsAt: new Date(WH_WED_APT_ENDS_AT),
+      status: AppointmentStatus.CANCELLED_BY_BUSINESS,
+    },
+  });
 });
 
 afterAll(async () => {
+  await prisma.appointment.deleteMany({
+    where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
   await prisma.serviceProviderWorkingHour.deleteMany({
     where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
   });
   await prisma.businessWorkingHour.deleteMany({
     where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.businessCustomer.deleteMany({
+    where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.service.deleteMany({
+    where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.customerProfile.deleteMany({
+    where: { id: E2E_WH_MUT_CP_ID },
   });
   await prisma.serviceProvider.deleteMany({
     where: { id: { in: [E2E_WH_MUT_SP_ID, E2E_WH_MUT_OTHER_SP_ID] } },
@@ -293,10 +384,23 @@ describe('PUT /dashboard/businesses/:businessId/working-hours', () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     const res = await request(app.getHttpServer())
       .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
-      .send({ hours: [{ dayOfWeek: 0, isClosed: true }] })
+      .send({
+        hours: [
+          { dayOfWeek: 0, isClosed: true },
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+        ],
+      })
       .expect(200);
 
-    expect((res.body as WorkingHourDto[])[0]).toMatchObject({
+    const sunday = (res.body as WorkingHourDto[]).find(
+      (h) => h.dayOfWeek === 0,
+    );
+    expect(sunday).toMatchObject({
       dayOfWeek: 0,
       isClosed: true,
       startTime: null,
@@ -558,5 +662,87 @@ describe('PUT /dashboard/businesses/:businessId/service-providers/:serviceProvid
       )
       .send({ hours: [] })
       .expect(400);
+  });
+});
+
+// ─── PUT business working hours — appointment conflict checks ─────────────────
+
+describe('PUT business working hours — appointment conflict checks', () => {
+  it('succeeds when proposed hours cover the existing future appointment → 200', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // Monday open 08:00-17:00; active appointment at 10:00-11:00 fits
+    await request(app.getHttpServer())
+      .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+        ],
+      })
+      .expect(200);
+  });
+
+  it('returns 409 when proposed hours would invalidate a future active appointment', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // Monday closed; active appointment at 10:00-11:00 on Monday → conflict
+    const res = await request(app.getHttpServer())
+      .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
+      .send({
+        hours: [{ dayOfWeek: 1, isClosed: true }],
+      })
+      .expect(409);
+
+    const body409 = res.body as unknown as {
+      message: string;
+      conflicts: Array<{ appointmentId: string }>;
+    };
+    expect(body409.message).toContain('invalidate');
+    expect(body409.conflicts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ appointmentId: E2E_WH_MUT_APT_CONFLICT_ID }),
+      ]),
+    );
+  });
+
+  it('does not persist working hours when 409 is returned', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // Monday already set to 08:00-17:00 by the first test; 409 must not change that
+    await request(app.getHttpServer())
+      .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
+      .send({ hours: [{ dayOfWeek: 1, isClosed: true }] })
+      .expect(409);
+
+    const getRes = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
+      .expect(200);
+
+    const hours = getRes.body as unknown as WorkingHourDto[];
+    const monday = hours.find((h) => h.dayOfWeek === 1);
+    expect(monday).toBeDefined();
+    expect(monday!.isClosed).toBe(false);
+  });
+
+  it('succeeds when only cancelled future appointments exist on the affected day → 200', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // Wednesday closed; only a CANCELLED appointment on Wednesday → no conflict
+    // Monday must also be covered to avoid conflicting with the active Monday appointment
+    await request(app.getHttpServer())
+      .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+          { dayOfWeek: 3, isClosed: true },
+        ],
+      })
+      .expect(200);
   });
 });

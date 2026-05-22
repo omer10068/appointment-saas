@@ -14,6 +14,7 @@ import type {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from './availability.service';
+import { BookingValidationService } from './booking-validation.service';
 
 const USER_ID = 'user-1';
 const OTHER_USER_ID = 'user-2';
@@ -103,6 +104,10 @@ const validHours = Array.from({ length: 7 }, (_, i) => ({
   endTime: '17:00',
 }));
 
+const mockBookingValidation = {
+  checkBusinessHoursConflict: jest.fn<(...args: unknown[]) => Promise<void>>(),
+};
+
 const mockPrisma = {
   business: {
     findUnique:
@@ -144,6 +149,9 @@ describe('AvailabilityService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    mockBookingValidation.checkBusinessHoursConflict.mockResolvedValue(
+      undefined,
+    );
     mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
 
     mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
@@ -155,6 +163,7 @@ describe('AvailabilityService', () => {
       providers: [
         AvailabilityService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: BookingValidationService, useValue: mockBookingValidation },
       ],
     }).compile();
 

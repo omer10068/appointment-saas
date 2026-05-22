@@ -10,6 +10,7 @@ import {
   BusinessUserStatus,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { BookingValidationService } from './booking-validation.service';
 import type { UpsertWorkingHoursDto } from './dto/upsert-working-hours.dto';
 import type { CreateAvailabilityExceptionDto } from './dto/create-availability-exception.dto';
 import type { UpdateAvailabilityExceptionDto } from './dto/update-availability-exception.dto';
@@ -61,7 +62,10 @@ const ALLOWED_BUSINESS_STATUSES: BusinessStatus[] = [
 
 @Injectable()
 export class AvailabilityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly bookingValidation: BookingValidationService,
+  ) {}
 
   // ─── Business working hours ───────────────────────────────────────────────────
 
@@ -84,6 +88,10 @@ export class AvailabilityService {
   ): Promise<WorkingHourDto[]> {
     await this.assertMutationAccess(userId, businessId);
     this.validateHoursPayload(dto.hours);
+    await this.bookingValidation.checkBusinessHoursConflict(
+      businessId,
+      dto.hours,
+    );
     return this.prisma.$transaction(async (tx) => {
       await tx.businessWorkingHour.deleteMany({ where: { businessId } });
       await tx.businessWorkingHour.createMany({

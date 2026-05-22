@@ -15,6 +15,7 @@ import type {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentsService } from './appointments.service';
+import { BookingValidationService } from './booking-validation.service';
 
 const USER_ID = 'user-1';
 const OTHER_USER_ID = 'user-2';
@@ -109,6 +110,10 @@ const mockAppointment: Appointment = {
   updatedAt: new Date('2024-01-01'),
 };
 
+const mockBookingValidation = {
+  validateBookingSlot: jest.fn<(...args: unknown[]) => Promise<void>>(),
+};
+
 const mockPrisma = {
   business: {
     findUnique:
@@ -149,11 +154,13 @@ describe('AppointmentsService', () => {
     jest.clearAllMocks();
 
     mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
+    mockBookingValidation.validateBookingSlot.mockResolvedValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: BookingValidationService, useValue: mockBookingValidation },
       ],
     }).compile();
 
