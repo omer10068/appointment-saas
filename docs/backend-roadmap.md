@@ -81,7 +81,7 @@ All read endpoints below are implemented and covered by e2e tests.
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 16 e2e suites / 257 tests — 14 unit suites / 158 tests — build clean.
+**Current test counts:** 17 e2e suites / 309 tests — 14 unit suites / 165 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -175,22 +175,22 @@ Verified: admin → 201; non-admin 403; missing auth 401; missing phone 400; inv
 
 Unit coverage added: `AdminBusinessesService` (delegation + error propagation), `AdminBusinessesController` (delegation with guard overrides).
 
-### Pending permission decisions (not yet decided)
+#### 8. Appointments mutations — done
 
-- Whether MEMBER can create appointments.
-- Whether MEMBER can change appointment status.
+Endpoints covered (52 tests):
 
-These must be decided and documented before writing appointment mutation tests.
+- `POST /dashboard/businesses/:businessId/appointments`
+- `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId`
+- `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId/status`
 
-## Next — Phase 2 (remaining): Mutation E2E Tests
+Verified: OWNER/MANAGER allowed; MEMBER read-only / 403 on all mutations; missing auth 401; DTO validation; past `startsAt` rejection; empty PATCH rejection; terminal status-change protection; overlap conflict detection (409); cross-tenant Pattern A and Pattern B.
 
-### Remaining order
+### Permission decisions — resolved
 
-1. ~~**Working hours**~~ — done
-2. ~~**Availability exceptions**~~ — done
-3. **Appointments** — last; depends on all other domain entities and status transition rules
-
-**Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, availability exceptions, and unresolved MEMBER permission decisions.
+- **MEMBER cannot create appointments.** All appointment mutations use `assertMutationAccess` (OWNER/MANAGER only).
+- **MEMBER cannot change appointment status.** Same guard.
+- MEMBER retains read access via `assertAccess` on `GET .../appointments`.
+- Scoped MEMBER appointment actions (e.g. only their own SP calendar) may be revisited in a later phase. Document in `docs/rbac.md`.
 
 ### Future business-rule validation — working hours and availability exceptions
 

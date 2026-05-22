@@ -7,8 +7,24 @@ jobs:
     name: Test, Lint, Build
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: appointment_saas_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/appointment_saas_ci
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/appointment_saas_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/appointment_saas_test
 
     steps:
       - name: Checkout
@@ -31,8 +47,14 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm --filter api run prisma:generate
 
-      - name: Test
+      - name: Unit tests
         run: pnpm test
+
+      - name: Apply test database migrations
+        run: pnpm --filter api db:test:migrate
+
+      - name: E2E tests
+        run: pnpm --filter api test:e2e
 
       - name: Lint
         run: pnpm lint

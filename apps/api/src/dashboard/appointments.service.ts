@@ -124,6 +124,11 @@ export class AppointmentsService {
   ): Promise<AppointmentDto> {
     await this.assertMutationAccess(userId, businessId);
 
+    const startsAtDate = new Date(dto.startsAt);
+    if (startsAtDate <= new Date()) {
+      throw new BadRequestException('startsAt must be in the future');
+    }
+
     const service = await this.prisma.service.findFirst({
       where: { id: dto.serviceId, businessId },
       select: { id: true, durationMinutes: true, isActive: true },
@@ -144,7 +149,7 @@ export class AppointmentsService {
       dto.serviceId,
     );
 
-    const startsAt = new Date(dto.startsAt);
+    const startsAt = startsAtDate;
     const endsAt = new Date(
       startsAt.getTime() + service.durationMinutes * 60 * 1000,
     );
@@ -179,6 +184,23 @@ export class AppointmentsService {
     appointmentId: string,
     dto: UpdateDashboardAppointmentDto,
   ): Promise<AppointmentDto> {
+    if (
+      dto.serviceId === undefined &&
+      dto.serviceProviderId === undefined &&
+      dto.startsAt === undefined
+    ) {
+      throw new BadRequestException(
+        'At least one field must be provided to update',
+      );
+    }
+
+    if (dto.startsAt !== undefined) {
+      const startsAtDate = new Date(dto.startsAt);
+      if (startsAtDate <= new Date()) {
+        throw new BadRequestException('startsAt must be in the future');
+      }
+    }
+
     await this.assertMutationAccess(userId, businessId);
 
     const existing = await this.prisma.appointment.findFirst({
@@ -289,9 +311,21 @@ export class AppointmentsService {
 
     const existing = await this.prisma.appointment.findFirst({
       where: { id: appointmentId, businessId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) throw new NotFoundException('Appointment not found');
+
+    const TERMINAL_STATUSES: AppointmentStatus[] = [
+      AppointmentStatus.CANCELLED_BY_CUSTOMER,
+      AppointmentStatus.CANCELLED_BY_BUSINESS,
+      AppointmentStatus.COMPLETED,
+      AppointmentStatus.NO_SHOW,
+    ];
+    if (TERMINAL_STATUSES.includes(existing.status)) {
+      throw new BadRequestException(
+        'Cannot change status of a completed or cancelled appointment',
+      );
+    }
 
     const row = await this.prisma.appointment.update({
       where: { id: appointmentId },
