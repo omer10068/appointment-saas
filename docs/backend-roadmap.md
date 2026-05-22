@@ -81,7 +81,7 @@ All read endpoints below are implemented and covered by e2e tests.
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 16 e2e suites / 257 tests — 14 unit suites / 158 tests — build clean.
+**Current test counts:** 17 e2e suites / 309 tests — 14 unit suites / 165 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -182,15 +182,13 @@ Unit coverage added: `AdminBusinessesService` (delegation + error propagation), 
 - MEMBER retains read access via `assertAccess` on `GET .../appointments`.
 - Scoped MEMBER appointment actions (e.g. only their own SP calendar) may be revisited in a later phase. Document in `docs/rbac.md`.
 
-## Next — Phase 2 (remaining): Mutation E2E Tests
+## Completed — Phase 2 (remaining): Mutation E2E Tests
 
 ### Remaining order
 
 1. ~~**Working hours**~~ — done
 2. ~~**Availability exceptions**~~ — done
-3. **Appointments** — last; depends on all other domain entities and status transition rules
-
-**Appointments are last** because booking validation depends on Business, Customer, Service, ServiceProvider, working hours, and availability exceptions.
+3. ~~**Appointments**~~ — done; 52 tests covering POST, PATCH, PATCH /status with full permission, cross-tenant, validation, and business-rule coverage
 
 ### Future business-rule validation — working hours and availability exceptions
 
