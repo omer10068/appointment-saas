@@ -33,12 +33,26 @@ All read endpoints below are implemented and covered by e2e tests.
 - Missing auth → 401.
 - Non-existent `businessId` → 403 (access assertion fails first, before a 404 is reached).
 
+#### Status enforcement (all three helpers)
+
+Both the `BusinessUser` status and the `Business` status are enforced inside every access helper, in this order:
+
+1. **BusinessUser.status** — membership must exist and be `ACTIVE`. `INVITED` and `BLOCKED` members receive 403. Checked first; a failing status short-circuits before the business query runs.
+2. **Business.status** — business must be `ACTIVE` or `TRIAL`. `SUSPENDED` and `CANCELLED` businesses receive 403.
+
+Covered by:
+
+- `dashboard-business-user-status.e2e-spec.ts` — 6 tests across assertAccess / assertMutationAccess / assertOwnerAccess
+- `dashboard-business-status.e2e-spec.ts` — 6 tests across the same three helpers
+
 ### Covered endpoints
 
 | Endpoint | Guard | Notes |
 | --- | --- | --- |
 | `GET /health` | none | DB ping |
 | `GET /businesses/me` | ClerkAuthGuard | Returns user's business list |
+| `GET /dashboard/businesses/:businessId` | assertAccess | Business settings; slug/status/id/timestamps read-only |
+| `PATCH /dashboard/businesses/:businessId` | assertMutationAccess | Updates name, timezone, locale, currency; empty body → 400 |
 | `GET /dashboard/businesses/:businessId/services` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/customers` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/service-providers` | assertAccess | |
@@ -51,6 +65,14 @@ All read endpoints below are implemented and covered by e2e tests.
 | `GET /dashboard/businesses/:businessId/appointments` | assertAccess | Supports `from`, `to`, `status` query params |
 
 ### Key response shapes
+
+**Business settings** (`GET …/:businessId` and `PATCH …/:businessId`):
+
+```json
+{ "id", "name", "slug", "status", "timezone", "locale", "currency", "createdAt", "updatedAt" }
+```
+
+Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH).
 
 **Readiness** (`GET …/readiness`):
 
@@ -81,7 +103,7 @@ All read endpoints below are implemented and covered by e2e tests.
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 17 e2e suites / 309 tests — 14 unit suites / 165 tests — build clean.
+**Current test counts:** 20 e2e suites / 337 tests — 14 unit suites / 184 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -233,7 +255,7 @@ Preferred future behavior:
 
 - Notifications and outbox (async appointment created/cancelled events).
 - Audit logs.
-- CI pipeline.
+- CI/CD polish and staging deployment (CI already runs unit tests, E2E tests, lint, and build via GitHub Actions).
 - Staging environment.
 - Billing and subscriptions.
 - Frontend (Next.js + React under `apps/web`) — separate roadmap.

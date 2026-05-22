@@ -20,12 +20,39 @@ import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
 import { UpdateServiceProviderStatusDto } from './dto/update-service-provider-status.dto';
 import { CreateBusinessUserDto } from './dto/create-business-user.dto';
+import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
 import { DashboardDataService } from './dashboard-data.service';
 
 @UseGuards(ClerkAuthGuard)
 @Controller('dashboard/businesses')
 export class DashboardDataController {
   constructor(private readonly dashboardDataService: DashboardDataService) {}
+
+  // ─── Business settings ────────────────────────────────────────────────────────
+
+  @Get(':businessId')
+  getBusinessSettings(
+    @Param('businessId') businessId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.getBusinessSettings(
+      req.user.id,
+      businessId,
+    );
+  }
+
+  @Patch(':businessId')
+  updateBusinessSettings(
+    @Param('businessId') businessId: string,
+    @Body() dto: UpdateBusinessSettingsDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.updateBusinessSettings(
+      req.user.id,
+      businessId,
+      dto,
+    );
+  }
 
   // ─── Services (read) ─────────────────────────────────────────────────────────
 
