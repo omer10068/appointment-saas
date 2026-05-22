@@ -4,7 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BusinessStatus, BusinessUserRole, BusinessUserStatus } from '../generated/prisma/client';
+import {
+  BusinessStatus,
+  BusinessUserRole,
+  BusinessUserStatus,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpsertWorkingHoursDto } from './dto/upsert-working-hours.dto';
 import type { CreateAvailabilityExceptionDto } from './dto/create-availability-exception.dto';

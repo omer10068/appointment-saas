@@ -16,10 +16,10 @@ requireTestDatabase();
 
 // ─── Stable IDs — hex-only prefix e2e13000 ───────────────────────────────────
 
-const BIZ_ID      = 'e2e13000-0000-4000-8000-000000000001';
-const OWNER_ID    = 'e2e13000-0000-4000-8000-000000000002';
-const MANAGER_ID  = 'e2e13000-0000-4000-8000-000000000003';
-const MEMBER_ID   = 'e2e13000-0000-4000-8000-000000000004';
+const BIZ_ID = 'e2e13000-0000-4000-8000-000000000001';
+const OWNER_ID = 'e2e13000-0000-4000-8000-000000000002';
+const MANAGER_ID = 'e2e13000-0000-4000-8000-000000000003';
+const MEMBER_ID = 'e2e13000-0000-4000-8000-000000000004';
 const OUTSIDER_ID = 'e2e13000-0000-4000-8000-000000000005';
 
 const ALL_USER_IDS = [OWNER_ID, MANAGER_ID, MEMBER_ID, OUTSIDER_ID];
@@ -63,21 +63,41 @@ describe('Dashboard business settings (e2e)', () => {
     });
 
     for (const [id, phone] of [
-      [OWNER_ID,    '+19130001001'],
-      [MANAGER_ID,  '+19130001002'],
-      [MEMBER_ID,   '+19130001003'],
+      [OWNER_ID, '+19130001001'],
+      [MANAGER_ID, '+19130001002'],
+      [MEMBER_ID, '+19130001003'],
       [OUTSIDER_ID, '+19130001004'],
     ] as [string, string][]) {
       await prisma.user.create({
-        data: { id, phoneNormalized: phone, status: 'ACTIVE', platformRole: 'USER' },
+        data: {
+          id,
+          phoneNormalized: phone,
+          status: 'ACTIVE',
+          platformRole: 'USER',
+        },
       });
     }
 
     await prisma.businessUser.createMany({
       data: [
-        { businessId: BIZ_ID, userId: OWNER_ID,   role: 'OWNER',   status: 'ACTIVE' },
-        { businessId: BIZ_ID, userId: MANAGER_ID,  role: 'MANAGER', status: 'ACTIVE' },
-        { businessId: BIZ_ID, userId: MEMBER_ID,   role: 'MEMBER',  status: 'ACTIVE' },
+        {
+          businessId: BIZ_ID,
+          userId: OWNER_ID,
+          role: 'OWNER',
+          status: 'ACTIVE',
+        },
+        {
+          businessId: BIZ_ID,
+          userId: MANAGER_ID,
+          role: 'MANAGER',
+          status: 'ACTIVE',
+        },
+        {
+          businessId: BIZ_ID,
+          userId: MEMBER_ID,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+        },
       ],
     });
   });
@@ -90,7 +110,7 @@ describe('Dashboard business settings (e2e)', () => {
   });
 
   beforeEach(() => {
-    MockClerkAuthGuard.currentUser = null as unknown as User;
+    MockClerkAuthGuard.currentUser = null;
   });
 
   // ─── GET /dashboard/businesses/:businessId ───────────────────────────────
@@ -98,9 +118,10 @@ describe('Dashboard business settings (e2e)', () => {
   describe('GET /dashboard/businesses/:businessId', () => {
     it('OWNER → 200 with full response shape', async () => {
       MockClerkAuthGuard.currentUser = { id: OWNER_ID } as User;
-      const { body } = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get(`/dashboard/businesses/${BIZ_ID}`)
         .expect(200);
+      const body = res.body as Record<string, unknown>;
 
       expect(body).toMatchObject({
         id: BIZ_ID,
@@ -155,10 +176,16 @@ describe('Dashboard business settings (e2e)', () => {
   describe('PATCH /dashboard/businesses/:businessId', () => {
     it('OWNER can update name, timezone, locale, and currency → 200', async () => {
       MockClerkAuthGuard.currentUser = { id: OWNER_ID } as User;
-      const { body } = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .patch(`/dashboard/businesses/${BIZ_ID}`)
-        .send({ name: 'Renamed', timezone: 'UTC', locale: 'en-US', currency: 'USD' })
+        .send({
+          name: 'Renamed',
+          timezone: 'UTC',
+          locale: 'en-US',
+          currency: 'USD',
+        })
         .expect(200);
+      const body = res.body as Record<string, unknown>;
 
       expect(body).toMatchObject({
         id: BIZ_ID,
@@ -175,10 +202,11 @@ describe('Dashboard business settings (e2e)', () => {
 
     it('MANAGER can update → 200', async () => {
       MockClerkAuthGuard.currentUser = { id: MANAGER_ID } as User;
-      const { body } = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .patch(`/dashboard/businesses/${BIZ_ID}`)
         .send({ name: 'Manager Renamed' })
         .expect(200);
+      const body = res.body as Record<string, unknown>;
 
       expect(body.name).toBe('Manager Renamed');
     });

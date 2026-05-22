@@ -105,7 +105,8 @@ const validHours = Array.from({ length: 7 }, (_, i) => ({
 
 const mockPrisma = {
   business: {
-    findUnique: jest.fn<(...args: unknown[]) => Promise<{ status: string } | null>>(),
+    findUnique:
+      jest.fn<(...args: unknown[]) => Promise<{ status: string } | null>>(),
   },
   businessUser: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),

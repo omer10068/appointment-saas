@@ -8,7 +8,10 @@ import { DashboardModule } from '../../src/dashboard/dashboard.module';
 import { PrismaModule } from '../../src/prisma/prisma.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { User } from '../../src/generated/prisma/client';
-import { BusinessUserRole, BusinessUserStatus } from '../../src/generated/prisma/client';
+import {
+  BusinessUserRole,
+  BusinessUserStatus,
+} from '../../src/generated/prisma/client';
 import { createTestApp } from '../helpers/create-test-app';
 import { MockClerkAuthGuard } from '../helpers/mock-clerk-auth.guard';
 import { requireTestDatabase } from '../helpers/test-db';
@@ -19,21 +22,21 @@ requireTestDatabase();
 
 const BIZ_ID = 'e2e11000-0000-4000-8000-000000000001';
 
-const BLOCKED_MEMBER_USER_ID  = 'e2e11000-0000-4000-8000-000000000002';
-const INVITED_MEMBER_USER_ID  = 'e2e11000-0000-4000-8000-000000000003';
+const BLOCKED_MEMBER_USER_ID = 'e2e11000-0000-4000-8000-000000000002';
+const INVITED_MEMBER_USER_ID = 'e2e11000-0000-4000-8000-000000000003';
 const BLOCKED_MANAGER_USER_ID = 'e2e11000-0000-4000-8000-000000000004';
 const INVITED_MANAGER_USER_ID = 'e2e11000-0000-4000-8000-000000000005';
-const BLOCKED_OWNER_USER_ID   = 'e2e11000-0000-4000-8000-000000000006';
-const INVITED_OWNER_USER_ID   = 'e2e11000-0000-4000-8000-000000000007';
+const BLOCKED_OWNER_USER_ID = 'e2e11000-0000-4000-8000-000000000006';
+const INVITED_OWNER_USER_ID = 'e2e11000-0000-4000-8000-000000000007';
 
 // Unique phone numbers for each user
 const PHONES: Record<string, string> = {
-  [BLOCKED_MEMBER_USER_ID]:  '+19110001001',
-  [INVITED_MEMBER_USER_ID]:  '+19110001002',
+  [BLOCKED_MEMBER_USER_ID]: '+19110001001',
+  [INVITED_MEMBER_USER_ID]: '+19110001002',
   [BLOCKED_MANAGER_USER_ID]: '+19110001003',
   [INVITED_MANAGER_USER_ID]: '+19110001004',
-  [BLOCKED_OWNER_USER_ID]:   '+19110001005',
-  [INVITED_OWNER_USER_ID]:   '+19110001006',
+  [BLOCKED_OWNER_USER_ID]: '+19110001005',
+  [INVITED_OWNER_USER_ID]: '+19110001006',
 };
 
 const ALL_USER_IDS = Object.keys(PHONES);
@@ -64,24 +67,67 @@ describe('BusinessUser status enforcement (e2e)', () => {
 
     // ── Seed ──────────────────────────────────────────────────────────────
     await prisma.business.create({
-      data: { id: BIZ_ID, name: 'Status Test Biz', slug: 'e2e-status-test-biz', status: 'ACTIVE' },
+      data: {
+        id: BIZ_ID,
+        name: 'Status Test Biz',
+        slug: 'e2e-status-test-biz',
+        status: 'ACTIVE',
+      },
     });
 
-    const userFixtures: Array<{ id: string; role: BusinessUserRole; status: BusinessUserStatus }> = [
-      { id: BLOCKED_MEMBER_USER_ID,  role: BusinessUserRole.MEMBER,  status: BusinessUserStatus.BLOCKED },
-      { id: INVITED_MEMBER_USER_ID,  role: BusinessUserRole.MEMBER,  status: BusinessUserStatus.INVITED },
-      { id: BLOCKED_MANAGER_USER_ID, role: BusinessUserRole.MANAGER, status: BusinessUserStatus.BLOCKED },
-      { id: INVITED_MANAGER_USER_ID, role: BusinessUserRole.MANAGER, status: BusinessUserStatus.INVITED },
-      { id: BLOCKED_OWNER_USER_ID,   role: BusinessUserRole.OWNER,   status: BusinessUserStatus.BLOCKED },
-      { id: INVITED_OWNER_USER_ID,   role: BusinessUserRole.OWNER,   status: BusinessUserStatus.INVITED },
+    const userFixtures: Array<{
+      id: string;
+      role: BusinessUserRole;
+      status: BusinessUserStatus;
+    }> = [
+      {
+        id: BLOCKED_MEMBER_USER_ID,
+        role: BusinessUserRole.MEMBER,
+        status: BusinessUserStatus.BLOCKED,
+      },
+      {
+        id: INVITED_MEMBER_USER_ID,
+        role: BusinessUserRole.MEMBER,
+        status: BusinessUserStatus.INVITED,
+      },
+      {
+        id: BLOCKED_MANAGER_USER_ID,
+        role: BusinessUserRole.MANAGER,
+        status: BusinessUserStatus.BLOCKED,
+      },
+      {
+        id: INVITED_MANAGER_USER_ID,
+        role: BusinessUserRole.MANAGER,
+        status: BusinessUserStatus.INVITED,
+      },
+      {
+        id: BLOCKED_OWNER_USER_ID,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.BLOCKED,
+      },
+      {
+        id: INVITED_OWNER_USER_ID,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.INVITED,
+      },
     ];
 
     for (const f of userFixtures) {
       await prisma.user.create({
-        data: { id: f.id, phoneNormalized: PHONES[f.id], status: 'ACTIVE', platformRole: 'USER' },
+        data: {
+          id: f.id,
+          phoneNormalized: PHONES[f.id],
+          status: 'ACTIVE',
+          platformRole: 'USER',
+        },
       });
       await prisma.businessUser.create({
-        data: { businessId: BIZ_ID, userId: f.id, role: f.role, status: f.status },
+        data: {
+          businessId: BIZ_ID,
+          userId: f.id,
+          role: f.role,
+          status: f.status,
+        },
       });
     }
   });
@@ -94,7 +140,7 @@ describe('BusinessUser status enforcement (e2e)', () => {
   });
 
   beforeEach(() => {
-    MockClerkAuthGuard.currentUser = null as unknown as User;
+    MockClerkAuthGuard.currentUser = null;
   });
 
   // ─── assertAccess: GET /services ─────────────────────────────────────────

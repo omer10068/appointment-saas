@@ -35,7 +35,10 @@ export class DashboardDataController {
     @Param('businessId') businessId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.dashboardDataService.getBusinessSettings(req.user.id, businessId);
+    return this.dashboardDataService.getBusinessSettings(
+      req.user.id,
+      businessId,
+    );
   }
 
   @Patch(':businessId')

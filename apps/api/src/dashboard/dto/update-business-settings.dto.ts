@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateBusinessSettingsDto {
   @IsString()
@@ -19,7 +25,9 @@ export class UpdateBusinessSettingsDto {
   @IsOptional()
   locale?: string;
 
-  @Matches(/^[A-Z]{3}$/, { message: 'currency must be a 3-letter ISO 4217 code (e.g. USD, ILS)' })
+  @Matches(/^[A-Z]{3}$/, {
+    message: 'currency must be a 3-letter ISO 4217 code (e.g. USD, ILS)',
+  })
   @IsOptional()
   currency?: string;
 }
