@@ -103,7 +103,7 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 20 e2e suites / 353 tests — 14 unit suites / 197 tests — build clean.
+**Current test counts:** 20 E2E suites / 358 tests — 14 unit suites / 197 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -115,6 +115,34 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 | FK field | `serviceProviderId` | `staffMemberId` |
 
 `ServiceProvider` is a separate entity from `BusinessUser`. A `BusinessUser` is a platform user with a role; a `ServiceProvider` is a bookable profile linked to a `BusinessUser`. The two are not interchangeable.
+
+## Implementation conventions
+
+### Working-hours dayOfWeek encoding
+
+The `dayOfWeek` integer on `BusinessWorkingHour` and `ServiceProviderWorkingHour` follows the JavaScript `Date.getDay()` convention:
+
+| Value | Day |
+| --- | --- |
+| 0 | Sunday |
+| 1 | Monday |
+| 2 | Tuesday |
+| 3 | Wednesday |
+| 4 | Thursday |
+| 5 | Friday |
+| 6 | Saturday |
+
+This does **not** match ISO-8601 (Monday = 1 … Sunday = 7), Google Calendar's weekday enum, or iCalendar's `BYDAY` field. Any future external-calendar integration must use an adapter/helper to convert between the internal encoding and the external format. Do not assume they match.
+
+### Timezone handling for availability
+
+`Business.timezone` (IANA timezone string, e.g. `"Asia/Jerusalem"`) is the single source of truth for:
+
+- Converting a UTC `startsAt` timestamp to a local calendar date for availability-exception matching.
+- Determining the local day-of-week for working-hours lookup.
+- Computing minutes-since-midnight for window-boundary checks.
+
+All timezone-sensitive operations use `Intl.DateTimeFormat` with no external date-time library. Slot validation checks the full appointment duration (`startsAt` through `endsAt`), not only `startsAt`.
 
 ## Completed — Phase 2: Mutation E2E Tests
 
@@ -221,13 +249,20 @@ Unit coverage added: `AdminBusinessesService` (delegation + error propagation), 
 
 #### 8. Appointments mutations — done
 
-Endpoints covered (52 tests):
+Endpoints covered (57 tests):
 
 - `POST /dashboard/businesses/:businessId/appointments`
 - `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId`
 - `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId/status`
 
-Verified: OWNER/MANAGER allowed; MEMBER read-only / 403 on all mutations; missing auth 401; DTO validation; past `startsAt` rejection; empty PATCH rejection; terminal status-change protection; overlap conflict detection (409); cross-tenant Pattern A and Pattern B.
+Verified: OWNER/MANAGER allowed; MEMBER read-only / 403 on all mutations; missing auth 401; DTO validation; past `startsAt` rejection; empty PATCH rejection; terminal status-change protection; overlap conflict detection (409); availability validation against business hours / SP hours / availability exceptions (400); cross-tenant Pattern A and Pattern B.
+
+Appointment create and update enforce two independent validation layers in this order:
+
+1. **Occupancy check** (`checkServiceProviderConflict`): rejects if any non-cancelled appointment for the same ServiceProvider overlaps the slot. Returns 409 Conflict.
+2. **Availability validation** (`BookingValidationService.validateBookingSlot`): validates the full duration (`startsAt` → `endsAt`) against business working hours, service-provider working hours, and availability exceptions (business-level then SP-level). Returns 400 Bad Request.
+
+The conflict check fires first; the availability check runs only when no overlap is found. `PATCH …/status` does not re-validate availability — status changes do not move the slot.
 
 ### Permission decisions — resolved
 
@@ -236,11 +271,13 @@ Verified: OWNER/MANAGER allowed; MEMBER read-only / 403 on all mutations; missin
 - MEMBER retains read access via `assertAccess` on `GET .../appointments`.
 - Scoped MEMBER appointment actions (e.g. only their own SP calendar) may be revisited in a later phase. Document in `docs/rbac.md`.
 
-### Future business-rule validation — working hours and availability exceptions
+### Availability hardening — remaining future work
 
-Not part of current e2e coverage. Belongs to a future appointment/availability business-rule validation phase.
+Booking-time availability validation (validating a new or updated appointment slot against working hours and exceptions) is **done** — see appointments section above.
 
-#### Working hours updates and existing appointments
+The following mutation-time checks are **not yet implemented**: rejecting a working-hours or exception change when it would invalidate existing future appointments.
+
+#### PUT working hours and existing appointments
 
 When an OWNER or MANAGER shortens business or service-provider working hours, future appointments that fall outside the new hours become invalid. The current implementation does not check for this.
 
@@ -252,18 +289,18 @@ Preferred future behavior:
 
 Applies to both `PUT …/working-hours` (business-level) and `PUT …/service-providers/:serviceProviderId/working-hours` (SP-level).
 
-#### Availability exceptions and existing appointments
+#### POST / PATCH / DELETE availability exceptions and existing appointments
 
-When creating or updating an availability exception, the system should check for future appointments that overlap the affected time/date range.
+When creating, updating, or deleting an availability exception, the system should check for future appointments that overlap the affected date/time range.
 
-- **Business-level exception:** check future appointments for the entire business in that date/time range.
+- **Business-level exception:** check future appointments for the entire business on that date.
 - **ServiceProvider-level exception:** check future appointments for that ServiceProvider only.
 
 Preferred future behavior:
 
 - Return `409 Conflict` if overlapping future appointments exist.
 - Include conflict details.
-- Do not silently create an exception that makes existing bookings invalid.
+- Do not silently create or update an exception that makes existing bookings invalid.
 
 ### Reminder for future mutation tests
 
