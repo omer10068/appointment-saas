@@ -701,7 +701,8 @@ export class DashboardDataService {
     const membership = await this.prisma.businessUser.findUnique({
       where: { businessId_userId: { businessId, userId } },
     });
-    if (!membership) throw new ForbiddenException();
+    if (!membership || membership.status !== BusinessUserStatus.ACTIVE)
+      throw new ForbiddenException();
   }
 
   private async assertOwnerAccess(
@@ -711,7 +712,11 @@ export class DashboardDataService {
     const membership = await this.prisma.businessUser.findUnique({
       where: { businessId_userId: { businessId, userId } },
     });
-    if (!membership || membership.role !== BusinessUserRole.OWNER) {
+    if (
+      !membership ||
+      membership.status !== BusinessUserStatus.ACTIVE ||
+      membership.role !== BusinessUserRole.OWNER
+    ) {
       throw new ForbiddenException();
     }
   }
@@ -725,6 +730,7 @@ export class DashboardDataService {
     });
     if (
       !membership ||
+      membership.status !== BusinessUserStatus.ACTIVE ||
       (membership.role !== BusinessUserRole.OWNER &&
         membership.role !== BusinessUserRole.MANAGER)
     ) {

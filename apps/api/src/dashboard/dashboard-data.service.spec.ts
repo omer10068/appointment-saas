@@ -275,6 +275,32 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.service.findMany).not.toHaveBeenCalled();
     });
 
+    it('throws ForbiddenException when BusinessUser status is BLOCKED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue({
+        ...mockMembership,
+        status: 'BLOCKED',
+      });
+
+      await expect(
+        service.getServices(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.findMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when BusinessUser status is INVITED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue({
+        ...mockMembership,
+        status: 'INVITED',
+      });
+
+      await expect(
+        service.getServices(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.findMany).not.toHaveBeenCalled();
+    });
+
     it('returns an empty array when the business has no services', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.service.findMany.mockResolvedValue([]);
@@ -432,6 +458,32 @@ describe('DashboardDataService', () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(
         mockServiceProvidership,
       );
+
+      await expect(
+        service.createService(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when BusinessUser status is BLOCKED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue({
+        ...mockMembership,
+        status: 'BLOCKED',
+      });
+
+      await expect(
+        service.createService(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when BusinessUser status is INVITED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue({
+        ...mockMembership,
+        status: 'INVITED',
+      });
 
       await expect(
         service.createService(USER_ID, BUSINESS_ID, createDto),
@@ -1147,6 +1199,32 @@ describe('DashboardDataService', () => {
 
       await expect(
         service.getBusinessUsers(OTHER_USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when OWNER status is BLOCKED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue({
+        ...mockMembership,
+        status: 'BLOCKED',
+      });
+
+      await expect(
+        service.getBusinessUsers(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when OWNER status is INVITED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue({
+        ...mockMembership,
+        status: 'INVITED',
+      });
+
+      await expect(
+        service.getBusinessUsers(USER_ID, BUSINESS_ID),
       ).rejects.toThrow(ForbiddenException);
 
       expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();

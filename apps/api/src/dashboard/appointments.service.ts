@@ -345,7 +345,8 @@ export class AppointmentsService {
     const membership = await this.prisma.businessUser.findUnique({
       where: { businessId_userId: { businessId, userId } },
     });
-    if (!membership) throw new ForbiddenException();
+    if (!membership || membership.status !== BusinessUserStatus.ACTIVE)
+      throw new ForbiddenException();
   }
 
   private async assertMutationAccess(
@@ -357,6 +358,7 @@ export class AppointmentsService {
     });
     if (
       !membership ||
+      membership.status !== BusinessUserStatus.ACTIVE ||
       (membership.role !== BusinessUserRole.OWNER &&
         membership.role !== BusinessUserRole.MANAGER)
     ) {

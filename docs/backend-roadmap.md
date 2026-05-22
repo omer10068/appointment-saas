@@ -81,7 +81,7 @@ All read endpoints below are implemented and covered by e2e tests.
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 17 e2e suites / 309 tests — 14 unit suites / 165 tests — build clean.
+**Current test counts:** 18 e2e suites / 315 tests — 14 unit suites / 171 tests — build clean.
 
 ## Domain naming — locked decisions
 
