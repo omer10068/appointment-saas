@@ -130,6 +130,20 @@ The following items require an explicit decision before being tested, changed, o
 
 2. **View business users — verified behavior**: `GET /dashboard/businesses/:businessId/users` is OWNER-only (`assertOwnerAccess`). MANAGER, MEMBER, and outsiders receive 403. Missing auth receives 401. This matches the permission matrix.
 
-3. **Invite/create users**: Currently only OWNER can call the business user invite/create endpoint. MANAGER is blocked. This aligns with the table above.
+3. **Invite/create users**: Only OWNER can call the business user invite/create endpoint (`POST .../users`). MANAGER is blocked. This aligns with the table above.
 
-4. **Remove users / role management follow-up**: MANAGER currently cannot invite, remove, or change roles. Confirm whether this restriction is permanent or if MANAGER should gain limited user-management capability in a future iteration.
+4. **Role and status management — implemented**: `PATCH .../users/:businessUserId/role` and `PATCH .../users/:businessUserId/status` are implemented, guarded by `assertOwnerAccess` (OWNER only).
+
+   Role endpoint (`PATCH .../role`):
+   - Accepts `role: MEMBER | MANAGER` only. OWNER cannot be assigned; ownership transfer is not supported.
+   - Cannot change the role of a target whose current role is OWNER.
+   - Caller cannot change their own role.
+
+   Status endpoint (`PATCH .../status`):
+   - Accepts `status: ACTIVE | BLOCKED` only. `INVITED` is not settable from the dashboard.
+   - Caller cannot change their own status.
+   - Cannot block the last active OWNER of the business.
+
+   Both endpoints scope the target lookup by both `businessUserId` and `businessId` — a foreign `businessUserId` from another business returns 404.
+
+5. **Remove business users — not yet implemented**: Hard delete and soft-removal via a dedicated endpoint are deferred. Until a DELETE endpoint is added, blocking a user (`status = BLOCKED`) is the mechanism to revoke dashboard access. MANAGER cannot remove users; this restriction is permanent per the permission matrix above.

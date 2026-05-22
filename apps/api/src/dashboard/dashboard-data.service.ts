@@ -20,6 +20,8 @@ import type { UpdateServiceDto } from './dto/update-service.dto';
 import type { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
 import type { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
 import type { CreateBusinessUserDto } from './dto/create-business-user.dto';
+import type { UpdateBusinessUserRoleDto } from './dto/update-business-user-role.dto';
+import type { UpdateBusinessUserStatusDto } from './dto/update-business-user-status.dto';
 import type { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import type { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
 import type { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
@@ -301,6 +303,116 @@ export class DashboardDataService {
         serviceProviderId: serviceProvider?.id ?? null,
       };
     });
+  }
+
+  async updateBusinessUserRole(
+    userId: string,
+    businessId: string,
+    businessUserId: string,
+    dto: UpdateBusinessUserRoleDto,
+  ): Promise<BusinessUserDto> {
+    await this.assertOwnerAccess(userId, businessId);
+
+    const target = await this.prisma.businessUser.findFirst({
+      where: { id: businessUserId, businessId },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        status: true,
+        serviceProvider: { select: { id: true } },
+      },
+    });
+    if (!target) throw new NotFoundException('Business user not found');
+
+    if (target.role === BusinessUserRole.OWNER) {
+      throw new BadRequestException('Cannot change the role of an owner');
+    }
+
+    if (target.userId === userId) {
+      throw new BadRequestException('Cannot change your own role');
+    }
+
+    const updated = await this.prisma.businessUser.update({
+      where: { id: businessUserId },
+      data: { role: dto.role },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        status: true,
+        serviceProvider: { select: { id: true } },
+      },
+    });
+
+    return {
+      id: updated.id,
+      userId: updated.userId,
+      role: updated.role,
+      status: updated.status,
+      hasServiceProviderProfile: updated.serviceProvider !== null,
+    };
+  }
+
+  async updateBusinessUserStatus(
+    userId: string,
+    businessId: string,
+    businessUserId: string,
+    dto: UpdateBusinessUserStatusDto,
+  ): Promise<BusinessUserDto> {
+    await this.assertOwnerAccess(userId, businessId);
+
+    const target = await this.prisma.businessUser.findFirst({
+      where: { id: businessUserId, businessId },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        status: true,
+        serviceProvider: { select: { id: true } },
+      },
+    });
+    if (!target) throw new NotFoundException('Business user not found');
+
+    if (target.userId === userId) {
+      throw new BadRequestException('Cannot change your own status');
+    }
+
+    if (
+      dto.status === BusinessUserStatus.BLOCKED &&
+      target.role === BusinessUserRole.OWNER
+    ) {
+      const activeOwnerCount = await this.prisma.businessUser.count({
+        where: {
+          businessId,
+          role: BusinessUserRole.OWNER,
+          status: BusinessUserStatus.ACTIVE,
+        },
+      });
+      if (activeOwnerCount <= 1) {
+        throw new BadRequestException('Cannot block the last active owner');
+      }
+    }
+
+    const updated = await this.prisma.businessUser.update({
+      where: { id: businessUserId },
+      data: { status: dto.status },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        status: true,
+        serviceProvider: { select: { id: true } },
+      },
+    });
+
+    return {
+      id: updated.id,
+      userId: updated.userId,
+      role: updated.role,
+      status: updated.status,
+      hasServiceProviderProfile: updated.serviceProvider !== null,
+    };
   }
 
   async getSummary(userId: string, businessId: string): Promise<SummaryDto> {

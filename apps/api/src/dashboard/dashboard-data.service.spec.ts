@@ -190,6 +190,8 @@ const mockPrisma = {
     findFirst: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
     findMany: jest.fn<(...args: unknown[]) => Promise<BusinessUser[]>>(),
     create: jest.fn<(...args: unknown[]) => Promise<BusinessUser>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<BusinessUser>>(),
+    count: jest.fn<(...args: unknown[]) => Promise<number>>(),
   },
   service: {
     findMany: jest.fn<(...args: unknown[]) => Promise<Service[]>>(),
@@ -1534,6 +1536,305 @@ describe('DashboardDataService', () => {
           data: { timezone: 'UTC' },
         }),
       );
+    });
+  });
+
+  // ─── updateBusinessUserRole ───────────────────────────────────────────────
+
+  describe('updateBusinessUserRole', () => {
+    const TARGET_BU_ID = 'bu-target';
+    const TARGET_USER_ID = 'user-target';
+
+    const mockTargetBuRow = {
+      id: TARGET_BU_ID,
+      userId: TARGET_USER_ID,
+      role: 'MANAGER',
+      status: 'ACTIVE',
+      serviceProvider: null,
+    };
+
+    const mockUpdatedBuRow = {
+      id: TARGET_BU_ID,
+      userId: TARGET_USER_ID,
+      role: 'MEMBER',
+      status: 'ACTIVE',
+      serviceProvider: null,
+    };
+
+    it('OWNER can change MANAGER role to MEMBER', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        mockTargetBuRow as unknown as BusinessUser,
+      );
+      mockPrisma.businessUser.update.mockResolvedValue(
+        mockUpdatedBuRow as unknown as BusinessUser,
+      );
+
+      const result = await service.updateBusinessUserRole(
+        USER_ID,
+        BUSINESS_ID,
+        TARGET_BU_ID,
+        { role: 'MEMBER' },
+      );
+
+      expect(mockPrisma.businessUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: TARGET_BU_ID },
+          data: { role: 'MEMBER' },
+        }),
+      );
+      expect(result).toMatchObject({
+        id: TARGET_BU_ID,
+        role: 'MEMBER',
+        hasServiceProviderProfile: false,
+      });
+    });
+
+    it('OWNER can change MEMBER role to MANAGER', async () => {
+      const memberTargetBu = { ...mockTargetBuRow, role: 'MEMBER' };
+      const promotedBu = { ...mockUpdatedBuRow, role: 'MANAGER' };
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        memberTargetBu as unknown as BusinessUser,
+      );
+      mockPrisma.businessUser.update.mockResolvedValue(
+        promotedBu as unknown as BusinessUser,
+      );
+
+      const result = await service.updateBusinessUserRole(
+        USER_ID,
+        BUSINESS_ID,
+        TARGET_BU_ID,
+        { role: 'MANAGER' },
+      );
+
+      expect(result).toMatchObject({ role: 'MANAGER' });
+    });
+
+    it('throws BadRequestException when target role is OWNER', async () => {
+      const ownerTargetBu = { ...mockTargetBuRow, role: 'OWNER' };
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        ownerTargetBu as unknown as BusinessUser,
+      );
+
+      await expect(
+        service.updateBusinessUserRole(USER_ID, BUSINESS_ID, TARGET_BU_ID, {
+          role: 'MEMBER',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when caller tries to change their own role', async () => {
+      const selfTargetBu = { ...mockTargetBuRow, userId: USER_ID };
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        selfTargetBu as unknown as BusinessUser,
+      );
+
+      await expect(
+        service.updateBusinessUserRole(USER_ID, BUSINESS_ID, TARGET_BU_ID, {
+          role: 'MEMBER',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when businessUserId is not found in this business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateBusinessUserRole(USER_ID, BUSINESS_ID, 'foreign-bu-id', {
+          role: 'MEMBER',
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when caller is MANAGER', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockManagerMembership,
+      );
+
+      await expect(
+        service.updateBusinessUserRole(USER_ID, BUSINESS_ID, TARGET_BU_ID, {
+          role: 'MEMBER',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── updateBusinessUserStatus ─────────────────────────────────────────────
+
+  describe('updateBusinessUserStatus', () => {
+    const TARGET_BU_ID = 'bu-target';
+    const TARGET_USER_ID = 'user-target';
+
+    const mockManagerTargetBu = {
+      id: TARGET_BU_ID,
+      userId: TARGET_USER_ID,
+      role: 'MANAGER',
+      status: 'ACTIVE',
+      serviceProvider: null,
+    };
+
+    const mockBlockedBuRow = {
+      ...mockManagerTargetBu,
+      status: 'BLOCKED',
+    };
+
+    it('OWNER can block a MANAGER', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        mockManagerTargetBu as unknown as BusinessUser,
+      );
+      mockPrisma.businessUser.update.mockResolvedValue(
+        mockBlockedBuRow as unknown as BusinessUser,
+      );
+
+      const result = await service.updateBusinessUserStatus(
+        USER_ID,
+        BUSINESS_ID,
+        TARGET_BU_ID,
+        { status: 'BLOCKED' },
+      );
+
+      expect(mockPrisma.businessUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: TARGET_BU_ID },
+          data: { status: 'BLOCKED' },
+        }),
+      );
+      expect(result).toMatchObject({ status: 'BLOCKED' });
+    });
+
+    it('OWNER can unblock a MANAGER', async () => {
+      const blockedTarget = { ...mockManagerTargetBu, status: 'BLOCKED' };
+      const unblockedBu = { ...mockManagerTargetBu, status: 'ACTIVE' };
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        blockedTarget as unknown as BusinessUser,
+      );
+      mockPrisma.businessUser.update.mockResolvedValue(
+        unblockedBu as unknown as BusinessUser,
+      );
+
+      const result = await service.updateBusinessUserStatus(
+        USER_ID,
+        BUSINESS_ID,
+        TARGET_BU_ID,
+        { status: 'ACTIVE' },
+      );
+
+      expect(result).toMatchObject({ status: 'ACTIVE' });
+      expect(mockPrisma.businessUser.count).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when caller tries to change their own status', async () => {
+      const selfTargetBu = { ...mockManagerTargetBu, userId: USER_ID };
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        selfTargetBu as unknown as BusinessUser,
+      );
+
+      await expect(
+        service.updateBusinessUserStatus(USER_ID, BUSINESS_ID, TARGET_BU_ID, {
+          status: 'BLOCKED',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when blocking the last active OWNER', async () => {
+      const ownerTargetBu = {
+        ...mockManagerTargetBu,
+        role: 'OWNER',
+        userId: TARGET_USER_ID,
+      };
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        ownerTargetBu as unknown as BusinessUser,
+      );
+      mockPrisma.businessUser.count.mockResolvedValue(1);
+
+      await expect(
+        service.updateBusinessUserStatus(USER_ID, BUSINESS_ID, TARGET_BU_ID, {
+          status: 'BLOCKED',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('allows blocking an OWNER when another active OWNER exists', async () => {
+      const ownerTargetBu = {
+        ...mockManagerTargetBu,
+        role: 'OWNER',
+        userId: TARGET_USER_ID,
+      };
+      const blockedOwnerBu = { ...ownerTargetBu, status: 'BLOCKED' };
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(
+        ownerTargetBu as unknown as BusinessUser,
+      );
+      mockPrisma.businessUser.count.mockResolvedValue(2);
+      mockPrisma.businessUser.update.mockResolvedValue(
+        blockedOwnerBu as unknown as BusinessUser,
+      );
+
+      const result = await service.updateBusinessUserStatus(
+        USER_ID,
+        BUSINESS_ID,
+        TARGET_BU_ID,
+        { status: 'BLOCKED' },
+      );
+
+      expect(result).toMatchObject({ status: 'BLOCKED' });
+    });
+
+    it('throws NotFoundException when businessUserId is not found in this business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.businessUser.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateBusinessUserStatus(
+          USER_ID,
+          BUSINESS_ID,
+          'foreign-bu-id',
+          { status: 'BLOCKED' },
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when caller is MANAGER', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(
+        mockManagerMembership,
+      );
+
+      await expect(
+        service.updateBusinessUserStatus(USER_ID, BUSINESS_ID, TARGET_BU_ID, {
+          status: 'BLOCKED',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findFirst).not.toHaveBeenCalled();
     });
   });
 
