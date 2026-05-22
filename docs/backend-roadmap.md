@@ -103,7 +103,7 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 20 e2e suites / 337 tests — 14 unit suites / 184 tests — build clean.
+**Current test counts:** 20 e2e suites / 353 tests — 14 unit suites / 197 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -159,12 +159,34 @@ Note: `CustomerProfile` is a global table (no `businessId`). The tenant-scoped j
 Endpoints covered:
 
 - `POST /dashboard/businesses/:businessId/users`
+- `PATCH /dashboard/businesses/:businessId/users/:businessUserId/role`
+- `PATCH /dashboard/businesses/:businessId/users/:businessUserId/status`
 
-No PATCH/DELETE/role-change/status-change endpoints exist yet.
+DELETE/removal is intentionally not implemented yet. Deactivating a user from dashboard access is represented by setting `status = BLOCKED`.
 
-Verified: OWNER allowed; MANAGER/MEMBER/outsider 403; missing auth 401; invalid DTO cases; OWNER role rejected by DTO; duplicate BusinessUser 409; Pattern A coverage.
+**POST** — Verified: OWNER allowed; MANAGER/MEMBER/outsider 403; missing auth 401; invalid DTO cases; OWNER role rejected by DTO; duplicate BusinessUser 409; Pattern A coverage.
 
 **Permission fix applied:** `createBusinessUser` was changed from `assertMutationAccess` to `assertOwnerAccess`. This fixed a mismatch where MANAGER could invite users. Current behavior now matches `docs/rbac.md` (OWNER-only).
+
+**PATCH role** — Body accepts `role: MEMBER | MANAGER` only. OWNER cannot be assigned through this endpoint. Guard: `assertOwnerAccess`.
+
+Safety rules enforced:
+
+- Target whose current role is OWNER → 400.
+- Caller attempting to change their own role → 400.
+- Foreign `businessUserId` scoped by `businessId` → 404 (Pattern B isolation).
+
+Verified: OWNER → 200; MANAGER/MEMBER/outsider 403; missing auth 401; non-existent businessId 403; Pattern B 404; target-OWNER 400.
+
+**PATCH status** — Body accepts `status: ACTIVE | BLOCKED` only. `INVITED` is not settable from the dashboard. Guard: `assertOwnerAccess`.
+
+Safety rules enforced:
+
+- Caller attempting to change their own status → 400.
+- Blocking an OWNER when they are the last active OWNER in the business → 400.
+- Foreign `businessUserId` scoped by `businessId` → 404 (Pattern B isolation).
+
+Verified: OWNER → 200; MANAGER/MEMBER/outsider 403; missing auth 401; non-existent businessId 403; Pattern B 404; self-block 400.
 
 #### 5. Working hours mutations — done
 
