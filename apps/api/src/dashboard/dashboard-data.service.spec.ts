@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  BusinessStatus,
+  type Business,
   type BusinessCustomer,
   type BusinessUser,
   type CustomerProfile,
@@ -162,9 +164,22 @@ const mockNewBu: BusinessUser = {
   updatedAt: new Date('2024-01-01'),
 };
 
+const mockBusiness: Business = {
+  id: BUSINESS_ID,
+  name: 'Test Business',
+  slug: 'test-business',
+  status: BusinessStatus.ACTIVE,
+  timezone: 'Asia/Jerusalem',
+  locale: 'he-IL',
+  currency: 'ILS',
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
 const mockPrisma = {
   business: {
-    findUnique: jest.fn<(...args: unknown[]) => Promise<{ status: string } | null>>(),
+    findUnique: jest.fn<(...args: unknown[]) => Promise<Business | null>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<Business>>(),
   },
   user: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<User | null>>(),
@@ -237,7 +252,7 @@ describe('DashboardDataService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
+    mockPrisma.business.findUnique.mockResolvedValue(mockBusiness);
 
     mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
       const cb = args[0] as (tx: typeof mockPrisma) => Promise<unknown>;
@@ -1396,12 +1411,115 @@ describe('DashboardDataService', () => {
     });
   });
 
+  // ─── getBusinessSettings ──────────────────────────────────────────────────
+
+  describe('getBusinessSettings', () => {
+    it('returns full business settings for an assigned user', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue(mockBusiness);
+
+      const result = await service.getBusinessSettings(USER_ID, BUSINESS_ID);
+
+      expect(result).toMatchObject({
+        id: BUSINESS_ID,
+        name: 'Test Business',
+        slug: 'test-business',
+        status: 'ACTIVE',
+        timezone: 'Asia/Jerusalem',
+        locale: 'he-IL',
+        currency: 'ILS',
+      });
+      expect(result.createdAt).toBeInstanceOf(Date);
+      expect(result.updatedAt).toBeInstanceOf(Date);
+    });
+
+    it('throws ForbiddenException when user is not assigned to the business', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getBusinessSettings(OTHER_USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── updateBusinessSettings ───────────────────────────────────────────────
+
+  describe('updateBusinessSettings', () => {
+    it('OWNER can update name, timezone, locale, and currency', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue(mockBusiness);
+      mockPrisma.business.update.mockResolvedValue({
+        ...mockBusiness,
+        name: 'Renamed',
+        timezone: 'UTC',
+        locale: 'en-US',
+        currency: 'USD',
+      });
+
+      const result = await service.updateBusinessSettings(
+        USER_ID,
+        BUSINESS_ID,
+        { name: 'Renamed', timezone: 'UTC', locale: 'en-US', currency: 'USD' },
+      );
+
+      expect(mockPrisma.business.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: BUSINESS_ID },
+          data: { name: 'Renamed', timezone: 'UTC', locale: 'en-US', currency: 'USD' },
+        }),
+      );
+      expect(result).toMatchObject({ name: 'Renamed', locale: 'en-US', currency: 'USD' });
+    });
+
+    it('MANAGER can update business settings', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockManagerMembership);
+      mockPrisma.business.findUnique.mockResolvedValue(mockBusiness);
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, name: 'Manager Updated' });
+
+      await expect(
+        service.updateBusinessSettings(USER_ID, BUSINESS_ID, { name: 'Manager Updated' }),
+      ).resolves.toMatchObject({ name: 'Manager Updated' });
+    });
+
+    it('MEMBER cannot update business settings', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockServiceProvidership);
+
+      await expect(
+        service.updateBusinessSettings(USER_ID, BUSINESS_ID, { name: 'X' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.business.update).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when DTO has no fields', async () => {
+      await expect(
+        service.updateBusinessSettings(USER_ID, BUSINESS_ID, {}),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.businessUser.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('only sends provided fields to Prisma update', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue(mockBusiness);
+      mockPrisma.business.update.mockResolvedValue({ ...mockBusiness, timezone: 'UTC' });
+
+      await service.updateBusinessSettings(USER_ID, BUSINESS_ID, { timezone: 'UTC' });
+
+      expect(mockPrisma.business.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { timezone: 'UTC' },
+        }),
+      );
+    });
+  });
+
   // ─── Business.status enforcement ──────────────────────────────────────────
 
   describe('Business.status enforcement', () => {
     it('assertAccess throws ForbiddenException when Business is SUSPENDED', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.business.findUnique.mockResolvedValue({ status: 'SUSPENDED' });
+      mockPrisma.business.findUnique.mockResolvedValue({ ...mockBusiness, status: BusinessStatus.SUSPENDED });
 
       await expect(
         service.getServices(USER_ID, BUSINESS_ID),
@@ -1412,7 +1530,7 @@ describe('DashboardDataService', () => {
 
     it('assertAccess throws ForbiddenException when Business is CANCELLED', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.business.findUnique.mockResolvedValue({ status: 'CANCELLED' });
+      mockPrisma.business.findUnique.mockResolvedValue({ ...mockBusiness, status: BusinessStatus.CANCELLED });
 
       await expect(
         service.getServices(USER_ID, BUSINESS_ID),
@@ -1423,7 +1541,7 @@ describe('DashboardDataService', () => {
 
     it('assertMutationAccess throws ForbiddenException when Business is SUSPENDED', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.business.findUnique.mockResolvedValue({ status: 'SUSPENDED' });
+      mockPrisma.business.findUnique.mockResolvedValue({ ...mockBusiness, status: BusinessStatus.SUSPENDED });
 
       await expect(
         service.createService(USER_ID, BUSINESS_ID, { name: 'X', durationMinutes: 30 }),
@@ -1434,7 +1552,7 @@ describe('DashboardDataService', () => {
 
     it('assertMutationAccess throws ForbiddenException when Business is CANCELLED', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.business.findUnique.mockResolvedValue({ status: 'CANCELLED' });
+      mockPrisma.business.findUnique.mockResolvedValue({ ...mockBusiness, status: BusinessStatus.CANCELLED });
 
       await expect(
         service.createService(USER_ID, BUSINESS_ID, { name: 'X', durationMinutes: 30 }),
@@ -1445,7 +1563,7 @@ describe('DashboardDataService', () => {
 
     it('assertOwnerAccess throws ForbiddenException when Business is SUSPENDED', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.business.findUnique.mockResolvedValue({ status: 'SUSPENDED' });
+      mockPrisma.business.findUnique.mockResolvedValue({ ...mockBusiness, status: BusinessStatus.SUSPENDED });
 
       await expect(
         service.getBusinessUsers(USER_ID, BUSINESS_ID),
@@ -1456,7 +1574,7 @@ describe('DashboardDataService', () => {
 
     it('assertOwnerAccess throws ForbiddenException when Business is CANCELLED', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
-      mockPrisma.business.findUnique.mockResolvedValue({ status: 'CANCELLED' });
+      mockPrisma.business.findUnique.mockResolvedValue({ ...mockBusiness, status: BusinessStatus.CANCELLED });
 
       await expect(
         service.getBusinessUsers(USER_ID, BUSINESS_ID),

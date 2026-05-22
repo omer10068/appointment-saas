@@ -22,6 +22,19 @@ import type { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer
 import type { CreateBusinessUserDto } from './dto/create-business-user.dto';
 import type { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import type { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
+import type { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
+
+export interface BusinessSettingsDto {
+  id: string;
+  name: string;
+  slug: string;
+  status: BusinessStatus;
+  timezone: string;
+  locale: string;
+  currency: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface ServiceDto {
   id: string;
@@ -86,6 +99,18 @@ export interface SummaryDto {
   activeCustomersCount: number;
 }
 
+const BUSINESS_SELECT = {
+  id: true,
+  name: true,
+  slug: true,
+  status: true,
+  timezone: true,
+  locale: true,
+  currency: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 const SERVICE_SELECT = {
   id: true,
   name: true,
@@ -115,6 +140,48 @@ const ALLOWED_BUSINESS_STATUSES: BusinessStatus[] = [
 @Injectable()
 export class DashboardDataService {
   constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Business settings ───────────────────────────────────────────────────────
+
+  async getBusinessSettings(
+    userId: string,
+    businessId: string,
+  ): Promise<BusinessSettingsDto> {
+    await this.assertAccess(userId, businessId);
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: BUSINESS_SELECT,
+    });
+    return business!;
+  }
+
+  async updateBusinessSettings(
+    userId: string,
+    businessId: string,
+    dto: UpdateBusinessSettingsDto,
+  ): Promise<BusinessSettingsDto> {
+    if (
+      dto.name === undefined &&
+      dto.timezone === undefined &&
+      dto.locale === undefined &&
+      dto.currency === undefined
+    ) {
+      throw new BadRequestException(
+        'At least one field must be provided to update',
+      );
+    }
+    await this.assertMutationAccess(userId, businessId);
+    return this.prisma.business.update({
+      where: { id: businessId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.timezone !== undefined && { timezone: dto.timezone }),
+        ...(dto.locale !== undefined && { locale: dto.locale }),
+        ...(dto.currency !== undefined && { currency: dto.currency }),
+      },
+      select: BUSINESS_SELECT,
+    });
+  }
 
   // ─── Read ────────────────────────────────────────────────────────────────────
 

@@ -93,7 +93,7 @@ Covered by:
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 19 e2e suites / 321 tests — 14 unit suites / 177 tests — build clean.
+**Current test counts:** 20 e2e suites / 337 tests — 14 unit suites / 184 tests — build clean.
 
 ## Domain naming — locked decisions
 
