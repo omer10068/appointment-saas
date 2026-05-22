@@ -110,6 +110,9 @@ const mockAppointment: Appointment = {
 };
 
 const mockPrisma = {
+  business: {
+    findUnique: jest.fn<(...args: unknown[]) => Promise<{ status: string } | null>>(),
+  },
   businessUser: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
   },
@@ -143,6 +146,8 @@ describe('AppointmentsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

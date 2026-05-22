@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BusinessUserRole, BusinessUserStatus } from '../generated/prisma/client';
+import { BusinessStatus, BusinessUserRole, BusinessUserStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { UpsertWorkingHoursDto } from './dto/upsert-working-hours.dto';
 import type { CreateAvailabilityExceptionDto } from './dto/create-availability-exception.dto';
@@ -49,6 +49,11 @@ const EXCEPTION_SELECT = {
   reason: true,
   createdAt: true,
 } as const;
+
+const ALLOWED_BUSINESS_STATUSES: BusinessStatus[] = [
+  BusinessStatus.ACTIVE,
+  BusinessStatus.TRIAL,
+];
 
 @Injectable()
 export class AvailabilityService {
@@ -260,6 +265,12 @@ export class AvailabilityService {
     });
     if (!membership || membership.status !== BusinessUserStatus.ACTIVE)
       throw new ForbiddenException();
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { status: true },
+    });
+    if (!business || !ALLOWED_BUSINESS_STATUSES.includes(business.status))
+      throw new ForbiddenException();
   }
 
   private async assertMutationAccess(
@@ -277,6 +288,12 @@ export class AvailabilityService {
     ) {
       throw new ForbiddenException();
     }
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { status: true },
+    });
+    if (!business || !ALLOWED_BUSINESS_STATUSES.includes(business.status))
+      throw new ForbiddenException();
   }
 
   private async assertServiceProviderInBusiness(

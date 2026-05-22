@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   AppointmentStatus,
+  BusinessStatus,
   BusinessUserRole,
   BusinessUserStatus,
 } from '../generated/prisma/client';
@@ -85,6 +86,11 @@ function toDto(row: AppointmentRow): AppointmentDto {
     updatedAt: row.updatedAt,
   };
 }
+
+const ALLOWED_BUSINESS_STATUSES: BusinessStatus[] = [
+  BusinessStatus.ACTIVE,
+  BusinessStatus.TRIAL,
+];
 
 @Injectable()
 export class AppointmentsService {
@@ -347,6 +353,12 @@ export class AppointmentsService {
     });
     if (!membership || membership.status !== BusinessUserStatus.ACTIVE)
       throw new ForbiddenException();
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { status: true },
+    });
+    if (!business || !ALLOWED_BUSINESS_STATUSES.includes(business.status))
+      throw new ForbiddenException();
   }
 
   private async assertMutationAccess(
@@ -364,6 +376,12 @@ export class AppointmentsService {
     ) {
       throw new ForbiddenException();
     }
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { status: true },
+    });
+    if (!business || !ALLOWED_BUSINESS_STATUSES.includes(business.status))
+      throw new ForbiddenException();
   }
 
   /**

@@ -104,6 +104,9 @@ const validHours = Array.from({ length: 7 }, (_, i) => ({
 }));
 
 const mockPrisma = {
+  business: {
+    findUnique: jest.fn<(...args: unknown[]) => Promise<{ status: string } | null>>(),
+  },
   businessUser: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<BusinessUser | null>>(),
   },
@@ -139,6 +142,8 @@ describe('AvailabilityService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
 
     mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
       const cb = args[0] as (tx: typeof mockPrisma) => Promise<unknown>;

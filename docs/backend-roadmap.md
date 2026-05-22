@@ -33,6 +33,18 @@ All read endpoints below are implemented and covered by e2e tests.
 - Missing auth → 401.
 - Non-existent `businessId` → 403 (access assertion fails first, before a 404 is reached).
 
+#### Status enforcement (all three helpers)
+
+Both the `BusinessUser` status and the `Business` status are enforced inside every access helper, in this order:
+
+1. **BusinessUser.status** — membership must exist and be `ACTIVE`. `INVITED` and `BLOCKED` members receive 403. Checked first; a failing status short-circuits before the business query runs.
+2. **Business.status** — business must be `ACTIVE` or `TRIAL`. `SUSPENDED` and `CANCELLED` businesses receive 403.
+
+Covered by:
+
+- `dashboard-business-user-status.e2e-spec.ts` — 6 tests across assertAccess / assertMutationAccess / assertOwnerAccess
+- `dashboard-business-status.e2e-spec.ts` — 6 tests across the same three helpers
+
 ### Covered endpoints
 
 | Endpoint | Guard | Notes |
@@ -81,7 +93,7 @@ All read endpoints below are implemented and covered by e2e tests.
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 18 e2e suites / 315 tests — 14 unit suites / 171 tests — build clean.
+**Current test counts:** 19 e2e suites / 321 tests — 14 unit suites / 177 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -233,7 +245,7 @@ Preferred future behavior:
 
 - Notifications and outbox (async appointment created/cancelled events).
 - Audit logs.
-- CI pipeline.
+- CI/CD polish and staging deployment (CI already runs unit tests, E2E tests, lint, and build via GitHub Actions).
 - Staging environment.
 - Billing and subscriptions.
 - Frontend (Next.js + React under `apps/web`) — separate roadmap.

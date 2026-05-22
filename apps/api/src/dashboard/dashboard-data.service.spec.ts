@@ -163,6 +163,9 @@ const mockNewBu: BusinessUser = {
 };
 
 const mockPrisma = {
+  business: {
+    findUnique: jest.fn<(...args: unknown[]) => Promise<{ status: string } | null>>(),
+  },
   user: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<User | null>>(),
     create: jest.fn<(...args: unknown[]) => Promise<User>>(),
@@ -233,6 +236,8 @@ describe('DashboardDataService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
 
     mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
       const cb = args[0] as (tx: typeof mockPrisma) => Promise<unknown>;
@@ -1388,6 +1393,76 @@ describe('DashboardDataService', () => {
           data: expect.objectContaining({ email: null }),
         }),
       );
+    });
+  });
+
+  // ─── Business.status enforcement ──────────────────────────────────────────
+
+  describe('Business.status enforcement', () => {
+    it('assertAccess throws ForbiddenException when Business is SUSPENDED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue({ status: 'SUSPENDED' });
+
+      await expect(
+        service.getServices(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.findMany).not.toHaveBeenCalled();
+    });
+
+    it('assertAccess throws ForbiddenException when Business is CANCELLED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue({ status: 'CANCELLED' });
+
+      await expect(
+        service.getServices(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.findMany).not.toHaveBeenCalled();
+    });
+
+    it('assertMutationAccess throws ForbiddenException when Business is SUSPENDED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue({ status: 'SUSPENDED' });
+
+      await expect(
+        service.createService(USER_ID, BUSINESS_ID, { name: 'X', durationMinutes: 30 }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('assertMutationAccess throws ForbiddenException when Business is CANCELLED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue({ status: 'CANCELLED' });
+
+      await expect(
+        service.createService(USER_ID, BUSINESS_ID, { name: 'X', durationMinutes: 30 }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.service.create).not.toHaveBeenCalled();
+    });
+
+    it('assertOwnerAccess throws ForbiddenException when Business is SUSPENDED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue({ status: 'SUSPENDED' });
+
+      await expect(
+        service.getBusinessUsers(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();
+    });
+
+    it('assertOwnerAccess throws ForbiddenException when Business is CANCELLED', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.business.findUnique.mockResolvedValue({ status: 'CANCELLED' });
+
+      await expect(
+        service.getBusinessUsers(USER_ID, BUSINESS_ID),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.businessUser.findMany).not.toHaveBeenCalled();
     });
   });
 });
