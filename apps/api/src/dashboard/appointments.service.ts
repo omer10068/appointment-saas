@@ -12,6 +12,7 @@ import {
   BusinessUserStatus,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { BookingValidationService } from './booking-validation.service';
 import type { AppointmentQueryDto } from './dto/appointment-query.dto';
 import type { CreateDashboardAppointmentDto } from './dto/create-dashboard-appointment.dto';
 import type { UpdateDashboardAppointmentDto } from './dto/update-dashboard-appointment.dto';
@@ -94,7 +95,10 @@ const ALLOWED_BUSINESS_STATUSES: BusinessStatus[] = [
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly bookingValidation: BookingValidationService,
+  ) {}
 
   async getAppointments(
     userId: string,
@@ -167,7 +171,13 @@ export class AppointmentsService {
       null,
     );
 
-    // TODO: validate against working hours / availability exceptions
+    await this.bookingValidation.validateBookingSlot({
+      businessId,
+      serviceProviderId: dto.serviceProviderId,
+      startsAt,
+      endsAt,
+    });
+
     const row = await this.prisma.appointment.create({
       data: {
         businessId,
@@ -292,6 +302,16 @@ export class AppointmentsService {
       endsAt,
       appointmentId,
     );
+
+    const slotChanged = needsRecompute || dto.serviceProviderId !== undefined;
+    if (slotChanged) {
+      await this.bookingValidation.validateBookingSlot({
+        businessId,
+        serviceProviderId,
+        startsAt,
+        endsAt,
+      });
+    }
 
     const row = await this.prisma.appointment.update({
       where: { id: appointmentId },

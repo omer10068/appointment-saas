@@ -50,6 +50,8 @@ const E2E_APT_FOR_UPDATE_MGR_ID = 'e2e10000-0000-4000-8000-000000000046';
 const E2E_APT_FOR_OVERLAP_UPDATE_ID = 'e2e10000-0000-4000-8000-000000000047';
 const E2E_APT_FOR_STATUS_OWNER_ID = 'e2e10000-0000-4000-8000-000000000048';
 const E2E_APT_FOR_STATUS_MGR_ID = 'e2e10000-0000-4000-8000-000000000049';
+const E2E_APT_FOR_AVAIL_UPDATE_ID = 'e2e10000-0000-4000-8000-000000000050';
+const E2E_APT_AVAIL_EXCEPTION_ID = 'e2e10000-0000-4000-8000-000000000070';
 
 // Cross-tenant fixture
 const E2E_APT_OTHER_BIZ_ID = 'e2e10000-0000-4000-8000-000000000060';
@@ -88,6 +90,15 @@ const POST_MGR_STARTS_AT = '2030-06-20T12:00:00.000Z';
 const CONFLICT_STARTS_AT = '2030-06-15T09:30:00.000Z'; // inside EXISTING window
 const PATCH_OWNER_NEW_STARTS_AT = '2030-07-01T10:00:00.000Z';
 const PATCH_MGR_NEW_STARTS_AT = '2030-07-01T12:00:00.000Z';
+
+// Availability validation test times (business timezone = Asia/Jerusalem = UTC+3 in summer)
+// Jul 4 = Thursday, Jul 7 = Sunday, Jul 8 = Monday
+const AVAIL_POST_INSIDE_STARTS_AT = '2030-07-04T09:00:00.000Z'; // Thu 12:00 local — inside 08:00-18:00
+const AVAIL_POST_OUTSIDE_BIZ_STARTS_AT = '2030-07-04T16:00:00.000Z'; // Thu 19:00 local — after 18:00 close
+const AVAIL_POST_NO_SP_HRS_STARTS_AT = '2030-07-07T09:00:00.000Z'; // Sun 12:00 local — SP has no Sunday hours
+const AVAIL_POST_EXCEPTION_STARTS_AT = '2030-07-08T09:00:00.000Z'; // Mon 12:00 local — business closed exception
+const AVAIL_PATCH_OUTSIDE_STARTS_AT = '2030-07-04T16:00:00.000Z'; // Thu 19:00 local — after 18:00 close
+const AVAIL_UPDATE_SEEDED_STARTS_AT = '2030-07-04T07:00:00.000Z'; // Thu 10:00 local — inside hours
 
 function endsAt(startsAt: string, durationMinutes: number): string {
   return new Date(
@@ -137,6 +148,15 @@ beforeAll(async () => {
 
   // ── Idempotent pre-cleanup (FK-safe order) ─────────────────────────────────
   await prisma.appointment.deleteMany({
+    where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
+  });
+  await prisma.availabilityException.deleteMany({
+    where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
+  });
+  await prisma.serviceProviderWorkingHour.deleteMany({
+    where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
+  });
+  await prisma.businessWorkingHour.deleteMany({
     where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
   });
   await prisma.serviceProviderService.deleteMany({
@@ -409,6 +429,58 @@ beforeAll(async () => {
     });
   }
 
+  // ── Availability validation fixtures ──────────────────────────────────────
+
+  // Business working hours: all 7 days, 08:00-18:00
+  await prisma.businessWorkingHour.createMany({
+    data: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+      businessId: E2E_APT_BIZ_ID,
+      dayOfWeek,
+      startTime: '08:00',
+      endTime: '18:00',
+      isClosed: false,
+    })),
+  });
+
+  // SP working hours: Monday (1) and Thursday (4) only
+  await prisma.serviceProviderWorkingHour.createMany({
+    data: [1, 4].map((dayOfWeek) => ({
+      businessId: E2E_APT_BIZ_ID,
+      serviceProviderId: E2E_APT_SP_ID,
+      dayOfWeek,
+      startTime: '08:00',
+      endTime: '18:00',
+      isClosed: false,
+    })),
+  });
+
+  // Business-level closed exception for Monday July 8, 2030
+  await prisma.availabilityException.create({
+    data: {
+      id: E2E_APT_AVAIL_EXCEPTION_ID,
+      businessId: E2E_APT_BIZ_ID,
+      serviceProviderId: null,
+      date: new Date('2030-07-08'),
+      isClosed: true,
+    },
+  });
+
+  // Appointment used by the availability PATCH test: Thu Jul 4 10:00 Jerusalem — inside hours
+  await prisma.appointment.create({
+    data: {
+      id: E2E_APT_FOR_AVAIL_UPDATE_ID,
+      businessId: E2E_APT_BIZ_ID,
+      businessCustomerId: E2E_APT_BC_ID,
+      serviceId: E2E_APT_SVC_ID,
+      serviceProviderId: E2E_APT_SP_ID,
+      startsAt: new Date(AVAIL_UPDATE_SEEDED_STARTS_AT),
+      endsAt: new Date(
+        endsAt(AVAIL_UPDATE_SEEDED_STARTS_AT, SERVICE_DURATION_MINUTES),
+      ),
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
+
   // ── Cross-tenant fixture ───────────────────────────────────────────────────
   await prisma.business.create({
     data: {
@@ -507,9 +579,19 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // FK-safe order: appointment → serviceProviderService → serviceProvider
+  // FK-safe order: appointment → availabilityException → serviceProviderWorkingHour
+  // → businessWorkingHour → serviceProviderService → serviceProvider
   // → businessCustomer → service → businessUser → business → customerProfile → user
   await prisma.appointment.deleteMany({
+    where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
+  });
+  await prisma.availabilityException.deleteMany({
+    where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
+  });
+  await prisma.serviceProviderWorkingHour.deleteMany({
+    where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
+  });
+  await prisma.businessWorkingHour.deleteMany({
     where: { businessId: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
   });
   await prisma.serviceProviderService.deleteMany({
@@ -1154,4 +1236,70 @@ describe('PATCH /dashboard/businesses/:businessId/appointments/:appointmentId/st
         .expect(400);
     },
   );
+});
+
+// ─── Availability validation (POST / PATCH) ───────────────────────────────────
+
+describe('Availability validation (POST/PATCH)', () => {
+  it('POST inside business and SP working hours → 201', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .send({
+        businessCustomerId: E2E_APT_BC_ID,
+        serviceId: E2E_APT_SVC_ID,
+        serviceProviderId: E2E_APT_SP_ID,
+        startsAt: AVAIL_POST_INSIDE_STARTS_AT,
+      })
+      .expect(201);
+  });
+
+  it('POST outside business working hours → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .send({
+        businessCustomerId: E2E_APT_BC_ID,
+        serviceId: E2E_APT_SVC_ID,
+        serviceProviderId: E2E_APT_SP_ID,
+        startsAt: AVAIL_POST_OUTSIDE_BIZ_STARTS_AT,
+      })
+      .expect(400);
+  });
+
+  it('POST on day SP has no working hours → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .send({
+        businessCustomerId: E2E_APT_BC_ID,
+        serviceId: E2E_APT_SVC_ID,
+        serviceProviderId: E2E_APT_SP_ID,
+        startsAt: AVAIL_POST_NO_SP_HRS_STARTS_AT,
+      })
+      .expect(400);
+  });
+
+  it('POST on day with business-level closed exception → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .send({
+        businessCustomerId: E2E_APT_BC_ID,
+        serviceId: E2E_APT_SVC_ID,
+        serviceProviderId: E2E_APT_SP_ID,
+        startsAt: AVAIL_POST_EXCEPTION_STARTS_AT,
+      })
+      .expect(400);
+  });
+
+  it('PATCH startsAt to time outside working hours → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments/${E2E_APT_FOR_AVAIL_UPDATE_ID}`,
+      )
+      .send({ startsAt: AVAIL_PATCH_OUTSIDE_STARTS_AT })
+      .expect(400);
+  });
 });
