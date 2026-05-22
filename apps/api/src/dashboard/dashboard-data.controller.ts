@@ -20,6 +20,8 @@ import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
 import { UpdateServiceProviderStatusDto } from './dto/update-service-provider-status.dto';
 import { CreateBusinessUserDto } from './dto/create-business-user.dto';
+import { UpdateBusinessUserRoleDto } from './dto/update-business-user-role.dto';
+import { UpdateBusinessUserStatusDto } from './dto/update-business-user-status.dto';
 import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
 import { DashboardDataService } from './dashboard-data.service';
 
@@ -243,6 +245,36 @@ export class DashboardDataController {
     return this.dashboardDataService.createBusinessUser(
       req.user.id,
       businessId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/users/:businessUserId/role')
+  updateBusinessUserRole(
+    @Param('businessId') businessId: string,
+    @Param('businessUserId') businessUserId: string,
+    @Body() dto: UpdateBusinessUserRoleDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.updateBusinessUserRole(
+      req.user.id,
+      businessId,
+      businessUserId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/users/:businessUserId/status')
+  updateBusinessUserStatus(
+    @Param('businessId') businessId: string,
+    @Param('businessUserId') businessUserId: string,
+    @Body() dto: UpdateBusinessUserStatusDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.dashboardDataService.updateBusinessUserStatus(
+      req.user.id,
+      businessId,
+      businessUserId,
       dto,
     );
   }

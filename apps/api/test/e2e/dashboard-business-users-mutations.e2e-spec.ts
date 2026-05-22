@@ -24,6 +24,7 @@ const E2E_BU_MUT_OWNER_USER_ID = 'e2ef0000-0000-4000-8000-000000000002';
 const E2E_BU_MUT_MGR_USER_ID = 'e2ef0000-0000-4000-8000-000000000003';
 const E2E_BU_MUT_MBR_USER_ID = 'e2ef0000-0000-4000-8000-000000000004';
 const E2E_BU_MUT_OUT_USER_ID = 'e2ef0000-0000-4000-8000-000000000005';
+const E2E_BU_MUT_TARGET_USER_ID = 'e2ef0000-0000-4000-8000-000000000006';
 // Cross-tenant fixture
 const E2E_BU_MUT_OTHER_BIZ_ID = 'e2ef0000-0000-4000-8000-000000000020';
 const E2E_BU_MUT_OTHER_USER_ID = 'e2ef0000-0000-4000-8000-000000000021';
@@ -33,6 +34,7 @@ const OWNER_PHONE = '+19990011001';
 const MGR_PHONE = '+19990011002';
 const MBR_PHONE = '+19990011003'; // also used for duplicate-invite test
 const OUT_PHONE = '+19990011004';
+const TARGET_PHONE = '+19990011005';
 const OTHER_USER_PHONE = '+19990011010';
 
 // Phones for Users dynamically created during POST success tests (must be cleaned up)
@@ -52,12 +54,24 @@ type BusinessUserCreatedDto = {
 
 // ─── Shared module-level setup ────────────────────────────────────────────────
 
+// Response shape returned by PATCH role/status endpoints
+type BusinessUserDto = {
+  id: string;
+  userId: string;
+  role: string;
+  status: string;
+  hasServiceProviderProfile: boolean;
+};
+
 let app: INestApplication<App>;
 let prisma: PrismaService;
 let ownerUser: User;
 let managerUser: User;
 let memberUser: User;
 let outsiderUser: User;
+let ownerBuId: string;
+let targetBuId: string;
+let otherBuId: string;
 
 beforeAll(async () => {
   const module: TestingModule = await Test.createTestingModule({
@@ -98,6 +112,7 @@ beforeAll(async () => {
           E2E_BU_MUT_MGR_USER_ID,
           E2E_BU_MUT_MBR_USER_ID,
           E2E_BU_MUT_OUT_USER_ID,
+          E2E_BU_MUT_TARGET_USER_ID,
           E2E_BU_MUT_OTHER_USER_ID,
         ],
       },
@@ -122,7 +137,7 @@ beforeAll(async () => {
       platformRole: 'USER',
     },
   });
-  await prisma.businessUser.create({
+  const ownerBu = await prisma.businessUser.create({
     data: {
       businessId: E2E_BU_MUT_BIZ_ID,
       userId: ownerUser.id,
@@ -130,6 +145,7 @@ beforeAll(async () => {
       status: BusinessUserStatus.ACTIVE,
     },
   });
+  ownerBuId = ownerBu.id;
 
   managerUser = await prisma.user.create({
     data: {
@@ -174,6 +190,25 @@ beforeAll(async () => {
     },
   });
 
+  // ── Dedicated target for PATCH role/status tests ───────────────────────────
+  await prisma.user.create({
+    data: {
+      id: E2E_BU_MUT_TARGET_USER_ID,
+      phoneNormalized: TARGET_PHONE,
+      status: 'ACTIVE',
+      platformRole: 'USER',
+    },
+  });
+  const targetBu = await prisma.businessUser.create({
+    data: {
+      businessId: E2E_BU_MUT_BIZ_ID,
+      userId: E2E_BU_MUT_TARGET_USER_ID,
+      role: BusinessUserRole.MANAGER,
+      status: BusinessUserStatus.ACTIVE,
+    },
+  });
+  targetBuId = targetBu.id;
+
   // ── Cross-tenant fixture ───────────────────────────────────────────────────
   await prisma.business.create({
     data: {
@@ -191,7 +226,7 @@ beforeAll(async () => {
       platformRole: 'USER',
     },
   });
-  await prisma.businessUser.create({
+  const otherBu = await prisma.businessUser.create({
     data: {
       businessId: E2E_BU_MUT_OTHER_BIZ_ID,
       userId: otherUser.id,
@@ -199,6 +234,7 @@ beforeAll(async () => {
       status: BusinessUserStatus.ACTIVE,
     },
   });
+  otherBuId = otherBu.id;
 });
 
 afterAll(async () => {
@@ -224,6 +260,7 @@ afterAll(async () => {
           E2E_BU_MUT_MGR_USER_ID,
           E2E_BU_MUT_MBR_USER_ID,
           E2E_BU_MUT_OUT_USER_ID,
+          E2E_BU_MUT_TARGET_USER_ID,
           E2E_BU_MUT_OTHER_USER_ID,
         ],
       },
@@ -373,6 +410,191 @@ describe('POST /dashboard/businesses/:businessId/users', () => {
         role: BusinessUserRole.MEMBER,
         email: 'not-an-email',
       })
+      .expect(400);
+  });
+});
+
+// ─── PATCH /dashboard/businesses/:businessId/users/:businessUserId/role ───────
+
+describe('PATCH /dashboard/businesses/:businessId/users/:businessUserId/role', () => {
+  it('owner → 200 with updated role', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/role`,
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(200);
+
+    expect(res.body).toMatchObject<BusinessUserDto>({
+      id: targetBuId,
+      userId: E2E_BU_MUT_TARGET_USER_ID,
+      role: BusinessUserRole.MEMBER,
+      status: BusinessUserStatus.ACTIVE,
+      hasServiceProviderProfile: false,
+    });
+  });
+
+  it('manager → 403', async () => {
+    MockClerkAuthGuard.currentUser = managerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/role`,
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(403);
+  });
+
+  it('member → 403', async () => {
+    MockClerkAuthGuard.currentUser = memberUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/role`,
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(403);
+  });
+
+  it('outsider → 403', async () => {
+    MockClerkAuthGuard.currentUser = outsiderUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/role`,
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/role`,
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(401);
+  });
+
+  it('non-existent businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        '/dashboard/businesses/00000000-0000-4000-8000-000000000000/users/some-id/role',
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(403);
+  });
+
+  it('foreign businessUserId under valid businessId → 404 (Pattern B)', async () => {
+    // otherBuId belongs to OTHER_BIZ, not BIZ — findFirst scoped by businessId returns null
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${otherBuId}/role`,
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(404);
+  });
+
+  it('target has OWNER role → 400', async () => {
+    // ownerBuId is the OWNER's own BusinessUser
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${ownerBuId}/role`,
+      )
+      .send({ role: BusinessUserRole.MEMBER })
+      .expect(400);
+  });
+});
+
+// ─── PATCH /dashboard/businesses/:businessId/users/:businessUserId/status ─────
+
+describe('PATCH /dashboard/businesses/:businessId/users/:businessUserId/status', () => {
+  it('owner → 200 with updated status', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/status`,
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
+      .expect(200);
+
+    expect(res.body).toMatchObject<BusinessUserDto>({
+      id: targetBuId,
+      userId: E2E_BU_MUT_TARGET_USER_ID,
+      role: expect.any(String) as string,
+      status: BusinessUserStatus.BLOCKED,
+      hasServiceProviderProfile: false,
+    });
+  });
+
+  it('manager → 403', async () => {
+    MockClerkAuthGuard.currentUser = managerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/status`,
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
+      .expect(403);
+  });
+
+  it('member → 403', async () => {
+    MockClerkAuthGuard.currentUser = memberUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/status`,
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
+      .expect(403);
+  });
+
+  it('outsider → 403', async () => {
+    MockClerkAuthGuard.currentUser = outsiderUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/status`,
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${targetBuId}/status`,
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
+      .expect(401);
+  });
+
+  it('non-existent businessId → 403', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        '/dashboard/businesses/00000000-0000-4000-8000-000000000000/users/some-id/status',
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
+      .expect(403);
+  });
+
+  it('foreign businessUserId under valid businessId → 404 (Pattern B)', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${otherBuId}/status`,
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
+      .expect(404);
+  });
+
+  it('caller blocking themselves → 400', async () => {
+    // ownerBuId is the caller's own BusinessUser row
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_BU_MUT_BIZ_ID}/users/${ownerBuId}/status`,
+      )
+      .send({ status: BusinessUserStatus.BLOCKED })
       .expect(400);
   });
 });
