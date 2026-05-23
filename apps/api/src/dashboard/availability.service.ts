@@ -136,6 +136,11 @@ export class AvailabilityService {
     await this.assertMutationAccess(userId, businessId);
     await this.assertServiceProviderInBusiness(serviceProviderId, businessId);
     this.validateHoursPayload(dto.hours);
+    await this.bookingValidation.checkServiceProviderHoursConflict(
+      businessId,
+      serviceProviderId,
+      dto.hours,
+    );
     return this.prisma.$transaction(async (tx) => {
       await tx.serviceProviderWorkingHour.deleteMany({
         where: { serviceProviderId },

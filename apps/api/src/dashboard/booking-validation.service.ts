@@ -250,6 +250,100 @@ export class BookingValidationService {
     }
   }
 
+  async checkServiceProviderHoursConflict(
+    businessId: string,
+    serviceProviderId: string,
+    proposedHours: ProposedHourItem[],
+  ): Promise<void> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { timezone: true },
+    });
+    if (!business) return;
+
+    const { timezone } = business;
+    const now = new Date();
+
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        businessId,
+        serviceProviderId,
+        startsAt: { gt: now },
+        status: {
+          notIn: [
+            AppointmentStatus.CANCELLED_BY_CUSTOMER,
+            AppointmentStatus.CANCELLED_BY_BUSINESS,
+          ],
+        },
+      },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        serviceProviderId: true,
+        businessCustomerId: true,
+      },
+    });
+
+    if (appointments.length === 0) return;
+
+    const windowMap = new Map<number, WindowResult>();
+    for (const h of proposedHours) {
+      if (h.isClosed || !h.startTime || !h.endTime) {
+        windowMap.set(h.dayOfWeek, { open: false });
+      } else {
+        windowMap.set(h.dayOfWeek, {
+          open: true,
+          startMin: parseTimeString(h.startTime),
+          endMin: parseTimeString(h.endTime),
+        });
+      }
+    }
+
+    const conflicts: BusinessHoursConflict[] = [];
+
+    for (const apt of appointments) {
+      const dayOfWeek = toDayOfWeek(apt.startsAt, timezone);
+      const window = windowMap.get(dayOfWeek);
+
+      let reason: string;
+      if (!window || !window.open) {
+        reason = 'Service provider would be unavailable on this day';
+      } else {
+        const slotStartMin = toMinutesSinceMidnight(apt.startsAt, timezone);
+        const slotEndMin = toMinutesSinceMidnight(apt.endsAt, timezone);
+        if (
+          doesSlotFitWindow(
+            slotStartMin,
+            slotEndMin,
+            window.startMin,
+            window.endMin,
+          )
+        ) {
+          continue;
+        }
+        reason =
+          'Appointment falls outside the proposed service provider working hours';
+      }
+
+      conflicts.push({
+        appointmentId: apt.id,
+        startsAt: apt.startsAt,
+        endsAt: apt.endsAt,
+        serviceProviderId: apt.serviceProviderId,
+        businessCustomerId: apt.businessCustomerId,
+        reason,
+      });
+    }
+
+    if (conflicts.length > 0) {
+      throw new ConflictException({
+        message: 'Working hours change would invalidate existing appointments',
+        conflicts,
+      });
+    }
+  }
+
   private async resolveWindow(
     businessId: string,
     serviceProviderId: string | null,

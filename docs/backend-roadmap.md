@@ -103,7 +103,7 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 20 E2E suites / 362 tests — 15 unit suites / 233 tests — build clean.
+**Current test counts:** 20 E2E suites / 367 tests — 15 unit suites / 242 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -281,15 +281,11 @@ Booking-time availability validation (validating a new or updated appointment sl
 
 Implemented in `BookingValidationService.checkBusinessHoursConflict`. Called from `AvailabilityService.setBusinessWorkingHours` after access and DTO validation, before the transaction.
 
-#### PUT service-provider working hours and existing appointments
+#### PUT service-provider working hours and existing appointments — done
 
-When an OWNER or MANAGER shortens service-provider working hours, future appointments assigned to that service provider that fall outside the new hours become invalid. The current implementation does not check for this.
+`PUT …/service-providers/:id/working-hours` now rejects with `409 Conflict` when the proposed hours would invalidate any existing future non-cancelled appointment for that specific ServiceProvider. Conflict scope is limited to the target SP — other SPs' appointments are not considered. Failed updates do not persist. Cancelled appointments are excluded from the check.
 
-Preferred future behavior:
-
-- Return `409 Conflict` and reject the update.
-- Include conflict details (which appointments are affected) so the frontend can prompt the user to reschedule before applying the change.
-- Do not silently allow a working-hours update that invalidates existing bookings.
+Implemented in `BookingValidationService.checkServiceProviderHoursConflict`. Called from `AvailabilityService.setServiceProviderWorkingHours` after access, SP ownership, and DTO validation, before the transaction.
 
 #### POST / PATCH / DELETE availability exceptions and existing appointments
 

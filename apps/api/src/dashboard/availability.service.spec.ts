@@ -106,6 +106,8 @@ const validHours = Array.from({ length: 7 }, (_, i) => ({
 
 const mockBookingValidation = {
   checkBusinessHoursConflict: jest.fn<(...args: unknown[]) => Promise<void>>(),
+  checkServiceProviderHoursConflict:
+    jest.fn<(...args: unknown[]) => Promise<void>>(),
 };
 
 const mockPrisma = {
@@ -150,6 +152,9 @@ describe('AvailabilityService', () => {
     jest.clearAllMocks();
 
     mockBookingValidation.checkBusinessHoursConflict.mockResolvedValue(
+      undefined,
+    );
+    mockBookingValidation.checkServiceProviderHoursConflict.mockResolvedValue(
       undefined,
     );
     mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
