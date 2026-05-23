@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   BookingValidationService,
+  dayOfWeekFromLocalDate,
   doesSlotFitWindow,
+  localMinutesToUtc,
   parseTimeString,
   toDayOfWeek,
   toLocalDate,
@@ -872,5 +874,38 @@ describe('BookingValidationService', () => {
       );
       expect(mockPrisma.businessWorkingHour.findUnique).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('dayOfWeekFromLocalDate', () => {
+  it('returns 0 for a Sunday', () => {
+    expect(dayOfWeekFromLocalDate('2024-01-14')).toBe(0);
+  });
+
+  it('returns 1 for a Monday', () => {
+    expect(dayOfWeekFromLocalDate('2024-01-15')).toBe(1);
+  });
+
+  it('returns 6 for a Saturday', () => {
+    expect(dayOfWeekFromLocalDate('2024-01-20')).toBe(6);
+  });
+});
+
+describe('localMinutesToUtc', () => {
+  it('converts 09:00 local (Asia/Jerusalem UTC+3) to 06:00 UTC', () => {
+    const result = localMinutesToUtc('2030-07-01', 9 * 60, 'Asia/Jerusalem');
+    expect(result.toISOString()).toBe('2030-07-01T06:00:00.000Z');
+  });
+
+  it('converts 09:00 local (UTC) to 09:00 UTC', () => {
+    const result = localMinutesToUtc('2030-07-01', 9 * 60, 'UTC');
+    expect(result.toISOString()).toBe('2030-07-01T09:00:00.000Z');
+  });
+
+  it('round-trips through toLocalDate for Asia/Jerusalem', () => {
+    const localDate = '2030-07-01';
+    const timezone = 'Asia/Jerusalem';
+    const utcTime = localMinutesToUtc(localDate, 9 * 60, timezone);
+    expect(toLocalDate(utcTime, timezone)).toBe(localDate);
   });
 });

@@ -44,7 +44,7 @@ export type BusinessHoursConflict = {
   reason: string;
 };
 
-type WindowResult =
+export type WindowResult =
   | { open: false }
   | { open: true; startMin: number; endMin: number };
 
@@ -104,6 +104,25 @@ export function doesSlotFitWindow(
   winEndMin: number,
 ): boolean {
   return slotStartMin >= winStartMin && slotEndMin <= winEndMin;
+}
+
+export function dayOfWeekFromLocalDate(localDate: string): number {
+  return new Date(localDate + 'T12:00:00Z').getUTCDay();
+}
+
+export function localMinutesToUtc(
+  localDate: string,
+  localMinutes: number,
+  timezone: string,
+): Date {
+  const [year, month, day] = localDate.split('-').map(Number);
+  // Noon UTC is always on the same calendar date in any timezone — avoids DST-at-midnight issues
+  const noonUtc = new Date(Date.UTC(year, month - 1, day, 12, 0));
+  const localMinAtNoon = toMinutesSinceMidnight(noonUtc, timezone);
+  const localMidnightUtc = new Date(
+    noonUtc.getTime() - localMinAtNoon * 60_000,
+  );
+  return new Date(localMidnightUtc.getTime() + localMinutes * 60_000);
 }
 
 @Injectable()
@@ -583,7 +602,7 @@ export class BookingValidationService {
     }
   }
 
-  private async resolveWindow(
+  async resolveWindow(
     businessId: string,
     serviceProviderId: string | null,
     localDate: string,
