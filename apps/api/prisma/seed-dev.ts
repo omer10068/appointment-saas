@@ -549,7 +549,7 @@ async function main() {
     },
     {
       phoneNormalized: '+972521120015',
-      fullName: 'עדי מלכה',
+      fullName: 'עדי כהן',
       email: 'adi.malka@example.com',
     },
     {
