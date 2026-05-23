@@ -19,7 +19,7 @@ const SP_USER_ID = 'u1000000-0000-0000-0000-000000000002';
 const QUERY_BASE = {
   serviceId: SERVICE_ID,
   serviceProviderId: SP_ID,
-  date: '2030-07-01', // Tuesday
+  date: '2030-07-01', // Monday
 };
 
 function makeMockPrisma() {
