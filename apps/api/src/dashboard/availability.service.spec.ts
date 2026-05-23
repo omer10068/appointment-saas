@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -106,6 +107,12 @@ const validHours = Array.from({ length: 7 }, (_, i) => ({
 
 const mockBookingValidation = {
   checkBusinessHoursConflict: jest.fn<(...args: unknown[]) => Promise<void>>(),
+  checkServiceProviderHoursConflict:
+    jest.fn<(...args: unknown[]) => Promise<void>>(),
+  checkAvailabilityExceptionConflict:
+    jest.fn<(...args: unknown[]) => Promise<void>>(),
+  checkAvailabilityExceptionDeleteConflict:
+    jest.fn<(...args: unknown[]) => Promise<void>>(),
 };
 
 const mockPrisma = {
@@ -150,6 +157,15 @@ describe('AvailabilityService', () => {
     jest.clearAllMocks();
 
     mockBookingValidation.checkBusinessHoursConflict.mockResolvedValue(
+      undefined,
+    );
+    mockBookingValidation.checkServiceProviderHoursConflict.mockResolvedValue(
+      undefined,
+    );
+    mockBookingValidation.checkAvailabilityExceptionConflict.mockResolvedValue(
+      undefined,
+    );
+    mockBookingValidation.checkAvailabilityExceptionDeleteConflict.mockResolvedValue(
       undefined,
     );
     mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
@@ -463,6 +479,59 @@ describe('AvailabilityService', () => {
 
       expect(mockPrisma.availabilityException.update).not.toHaveBeenCalled();
     });
+
+    it('calls checkAvailabilityExceptionConflict with merged effective values', async () => {
+      const existingException: AvailabilityException = {
+        ...mockException,
+        isClosed: false,
+        startTime: '09:00',
+        endTime: '17:00',
+      };
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.availabilityException.findFirst.mockResolvedValue(
+        existingException,
+      );
+      mockPrisma.availabilityException.update.mockResolvedValue(
+        existingException,
+      );
+
+      await service.updateAvailabilityException(
+        USER_ID,
+        BUSINESS_ID,
+        existingException.id,
+        { endTime: '15:00' },
+      );
+
+      expect(
+        mockBookingValidation.checkAvailabilityExceptionConflict,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: BUSINESS_ID,
+          serviceProviderId: null,
+          proposedIsClosed: false,
+          proposedStartTime: '09:00',
+          proposedEndTime: '15:00',
+        }),
+      );
+    });
+
+    it('propagates ConflictException from checkAvailabilityExceptionConflict', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.availabilityException.findFirst.mockResolvedValue(
+        mockException,
+      );
+      mockBookingValidation.checkAvailabilityExceptionConflict.mockRejectedValue(
+        new ConflictException('conflict'),
+      );
+
+      await expect(
+        service.updateAvailabilityException(USER_ID, BUSINESS_ID, 'exc-1', {
+          isClosed: true,
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.availabilityException.update).not.toHaveBeenCalled();
+    });
   });
 
   // ─── deleteAvailabilityException ───────────────────────────────────────────
@@ -497,6 +566,22 @@ describe('AvailabilityService', () => {
       expect(mockPrisma.availabilityException.delete).toHaveBeenCalledWith({
         where: { id: 'exc-1' },
       });
+    });
+
+    it('propagates ConflictException from checkAvailabilityExceptionDeleteConflict', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.availabilityException.findFirst.mockResolvedValue(
+        mockException,
+      );
+      mockBookingValidation.checkAvailabilityExceptionDeleteConflict.mockRejectedValue(
+        new ConflictException('conflict'),
+      );
+
+      await expect(
+        service.deleteAvailabilityException(USER_ID, BUSINESS_ID, 'exc-1'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.availabilityException.delete).not.toHaveBeenCalled();
     });
   });
 });

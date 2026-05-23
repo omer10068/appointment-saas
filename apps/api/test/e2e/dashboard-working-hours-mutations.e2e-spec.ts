@@ -31,17 +31,24 @@ const E2E_WH_MUT_OTHER_BIZ_ID = 'e2e40000-0000-4000-8000-000000000020';
 const E2E_WH_MUT_OTHER_USER_ID = 'e2e40000-0000-4000-8000-000000000021';
 const E2E_WH_MUT_OTHER_SP_ID = 'e2e40000-0000-4000-8000-000000000030';
 
-// Conflict-check fixtures
+// Conflict-check fixtures (Phase 3A — business working hours)
 const E2E_WH_MUT_CP_ID = 'e2e40000-0000-4000-8000-000000000040';
 const E2E_WH_MUT_BC_ID = 'e2e40000-0000-4000-8000-000000000041';
 const E2E_WH_MUT_SVC_ID = 'e2e40000-0000-4000-8000-000000000050';
 const E2E_WH_MUT_APT_CONFLICT_ID = 'e2e40000-0000-4000-8000-000000000060';
 const E2E_WH_MUT_APT_CANCELLED_ID = 'e2e40000-0000-4000-8000-000000000061';
 
+// Conflict-check fixtures (Phase 3B — SP working hours)
+const E2E_WH_MUT_SP2_USER_ID = 'e2e40000-0000-4000-8000-000000000072';
+const E2E_WH_MUT_SP2_ID = 'e2e40000-0000-4000-8000-000000000070';
+const E2E_WH_MUT_APT_SP2_ID = 'e2e40000-0000-4000-8000-000000000071';
+
 // Conflict-check appointment times (business tz = Asia/Jerusalem = UTC+3 in summer)
-// 2030-07-01 = Monday (day 1), 2030-07-03 = Wednesday (day 3)
+// 2030-07-01 = Monday (day 1), 2030-07-02 = Tuesday (day 2), 2030-07-03 = Wednesday (day 3)
 const WH_MON_APT_STARTS_AT = '2030-07-01T07:00:00.000Z'; // Mon 10:00 Jerusalem
 const WH_MON_APT_ENDS_AT = '2030-07-01T08:00:00.000Z'; // Mon 11:00 Jerusalem
+const WH_TUE_SP2_APT_STARTS_AT = '2030-07-02T07:00:00.000Z'; // Tue 10:00 Jerusalem
+const WH_TUE_SP2_APT_ENDS_AT = '2030-07-02T08:00:00.000Z'; // Tue 11:00 Jerusalem
 const WH_WED_APT_STARTS_AT = '2030-07-03T07:00:00.000Z'; // Wed 10:00 Jerusalem
 const WH_WED_APT_ENDS_AT = '2030-07-03T08:00:00.000Z'; // Wed 11:00 Jerusalem
 
@@ -51,6 +58,7 @@ const MGR_PHONE = '+19990004002';
 const MBR_PHONE = '+19990004003';
 const OUT_PHONE = '+19990004004';
 const OTHER_USER_PHONE = '+19990004010';
+const SP2_USER_PHONE = '+19990004030';
 
 type WorkingHourDto = {
   id: string;
@@ -61,9 +69,13 @@ type WorkingHourDto = {
 };
 
 // ─── Valid payload helpers ────────────────────────────────────────────────────
+// Both Monday and Tuesday are needed: SP1 has an active Monday appointment and
+// SP2 has an active Tuesday appointment, both of which are checked by the
+// business-level conflict validator when any 200 response is expected.
 const VALID_PAYLOAD = {
   hours: [
     { dayOfWeek: 1, isClosed: false, startTime: '09:00', endTime: '17:00' },
+    { dayOfWeek: 2, isClosed: false, startTime: '09:00', endTime: '17:00' },
   ],
 };
 
@@ -111,7 +123,11 @@ beforeAll(async () => {
     where: { id: E2E_WH_MUT_CP_ID },
   });
   await prisma.serviceProvider.deleteMany({
-    where: { id: { in: [E2E_WH_MUT_SP_ID, E2E_WH_MUT_OTHER_SP_ID] } },
+    where: {
+      id: {
+        in: [E2E_WH_MUT_SP_ID, E2E_WH_MUT_SP2_ID, E2E_WH_MUT_OTHER_SP_ID],
+      },
+    },
   });
   await prisma.businessUser.deleteMany({
     where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
@@ -128,6 +144,7 @@ beforeAll(async () => {
           E2E_WH_MUT_MBR_USER_ID,
           E2E_WH_MUT_OUT_USER_ID,
           E2E_WH_MUT_OTHER_USER_ID,
+          E2E_WH_MUT_SP2_USER_ID,
         ],
       },
     },
@@ -300,6 +317,47 @@ beforeAll(async () => {
       status: AppointmentStatus.CANCELLED_BY_BUSINESS,
     },
   });
+
+  // ── SP2 fixtures (Phase 3B) ────────────────────────────────────────────────
+  // SP2 needs its own User+BusinessUser because businessUserId is @unique on ServiceProvider
+  const sp2User = await prisma.user.create({
+    data: {
+      id: E2E_WH_MUT_SP2_USER_ID,
+      phoneNormalized: SP2_USER_PHONE,
+      status: 'ACTIVE',
+      platformRole: 'USER',
+    },
+  });
+  const sp2BU = await prisma.businessUser.create({
+    data: {
+      businessId: E2E_WH_MUT_BIZ_ID,
+      userId: sp2User.id,
+      role: BusinessUserRole.MEMBER,
+      status: BusinessUserStatus.ACTIVE,
+    },
+  });
+  await prisma.serviceProvider.create({
+    data: {
+      id: E2E_WH_MUT_SP2_ID,
+      businessId: E2E_WH_MUT_BIZ_ID,
+      businessUserId: sp2BU.id,
+      displayName: 'E2E Provider 2',
+      isActive: true,
+    },
+  });
+  // Active future appointment for SP2: Tuesday Jul 2 2030 10:00-11:00 Jerusalem
+  await prisma.appointment.create({
+    data: {
+      id: E2E_WH_MUT_APT_SP2_ID,
+      businessId: E2E_WH_MUT_BIZ_ID,
+      businessCustomerId: E2E_WH_MUT_BC_ID,
+      serviceId: E2E_WH_MUT_SVC_ID,
+      serviceProviderId: E2E_WH_MUT_SP2_ID,
+      startsAt: new Date(WH_TUE_SP2_APT_STARTS_AT),
+      endsAt: new Date(WH_TUE_SP2_APT_ENDS_AT),
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
 });
 
 afterAll(async () => {
@@ -322,7 +380,11 @@ afterAll(async () => {
     where: { id: E2E_WH_MUT_CP_ID },
   });
   await prisma.serviceProvider.deleteMany({
-    where: { id: { in: [E2E_WH_MUT_SP_ID, E2E_WH_MUT_OTHER_SP_ID] } },
+    where: {
+      id: {
+        in: [E2E_WH_MUT_SP_ID, E2E_WH_MUT_SP2_ID, E2E_WH_MUT_OTHER_SP_ID],
+      },
+    },
   });
   await prisma.businessUser.deleteMany({
     where: { businessId: { in: [E2E_WH_MUT_BIZ_ID, E2E_WH_MUT_OTHER_BIZ_ID] } },
@@ -339,6 +401,7 @@ afterAll(async () => {
           E2E_WH_MUT_MBR_USER_ID,
           E2E_WH_MUT_OUT_USER_ID,
           E2E_WH_MUT_OTHER_USER_ID,
+          E2E_WH_MUT_SP2_USER_ID,
         ],
       },
     },
@@ -361,6 +424,12 @@ describe('PUT /dashboard/businesses/:businessId/working-hours', () => {
         hours: [
           {
             dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+          {
+            dayOfWeek: 2,
             isClosed: false,
             startTime: '09:00',
             endTime: '17:00',
@@ -389,6 +458,12 @@ describe('PUT /dashboard/businesses/:businessId/working-hours', () => {
           { dayOfWeek: 0, isClosed: true },
           {
             dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+          {
+            dayOfWeek: 2,
             isClosed: false,
             startTime: '08:00',
             endTime: '17:00',
@@ -553,6 +628,12 @@ describe('PUT /dashboard/businesses/:businessId/service-providers/:serviceProvid
       .send({
         hours: [
           {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+          {
             dayOfWeek: 2,
             isClosed: false,
             startTime: '10:00',
@@ -564,7 +645,8 @@ describe('PUT /dashboard/businesses/:businessId/service-providers/:serviceProvid
 
     const body = res.body as WorkingHourDto[];
     expect(Array.isArray(body)).toBe(true);
-    expect(body[0]).toMatchObject<WorkingHourDto>({
+    const tuesday = body.find((h) => h.dayOfWeek === 2);
+    expect(tuesday).toMatchObject<WorkingHourDto>({
       id: expect.any(String) as string,
       dayOfWeek: 2,
       startTime: '10:00',
@@ -670,13 +752,20 @@ describe('PUT /dashboard/businesses/:businessId/service-providers/:serviceProvid
 describe('PUT business working hours — appointment conflict checks', () => {
   it('succeeds when proposed hours cover the existing future appointment → 200', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
-    // Monday open 08:00-17:00; active appointment at 10:00-11:00 fits
+    // Monday open 08:00-17:00: SP1 active appointment at 10:00-11:00 fits
+    // Tuesday open: covers SP2 active Tuesday appointment
     await request(app.getHttpServer())
       .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
       .send({
         hours: [
           {
             dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+          {
+            dayOfWeek: 2,
             isClosed: false,
             startTime: '08:00',
             endTime: '17:00',
@@ -740,7 +829,113 @@ describe('PUT business working hours — appointment conflict checks', () => {
             startTime: '08:00',
             endTime: '17:00',
           },
+          {
+            dayOfWeek: 2,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
           { dayOfWeek: 3, isClosed: true },
+        ],
+      })
+      .expect(200);
+  });
+});
+
+// ─── PUT SP working hours — appointment conflict checks ───────────────────────
+
+describe('PUT service-provider working hours — appointment conflict checks', () => {
+  const SP_URL = `/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/service-providers/${E2E_WH_MUT_SP_ID}/working-hours`;
+
+  it('succeeds when proposed hours cover the existing future SP appointment → 200', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // SP1 has active Monday appointment at 10:00-11:00; open 08:00-17:00 covers it
+    await request(app.getHttpServer())
+      .put(SP_URL)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+        ],
+      })
+      .expect(200);
+  });
+
+  it('returns 409 when proposed hours would invalidate a future SP appointment', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // SP1 Monday closed → conflicts with active Monday appointment
+    const res = await request(app.getHttpServer())
+      .put(SP_URL)
+      .send({ hours: [{ dayOfWeek: 1, isClosed: true }] })
+      .expect(409);
+
+    const body409 = res.body as unknown as {
+      message: string;
+      conflicts: Array<{ appointmentId: string }>;
+    };
+    expect(body409.message).toContain('invalidate');
+    expect(body409.conflicts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ appointmentId: E2E_WH_MUT_APT_CONFLICT_ID }),
+      ]),
+    );
+  });
+
+  it('does not persist SP working hours when 409 is returned', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // SP1 Monday closed → 409; hours should remain Monday 08:00-17:00 from first test
+    await request(app.getHttpServer())
+      .put(SP_URL)
+      .send({ hours: [{ dayOfWeek: 1, isClosed: true }] })
+      .expect(409);
+
+    const getRes = await request(app.getHttpServer()).get(SP_URL).expect(200);
+
+    const hours = getRes.body as unknown as WorkingHourDto[];
+    const monday = hours.find((h) => h.dayOfWeek === 1);
+    expect(monday).toBeDefined();
+    expect(monday!.isClosed).toBe(false);
+  });
+
+  it('succeeds when only cancelled future SP appointments exist on the affected day → 200', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // Wednesday closed; SP1's only Wednesday appointment is CANCELLED_BY_BUSINESS → no conflict
+    // Monday must be open to cover the active Monday appointment
+    await request(app.getHttpServer())
+      .put(SP_URL)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+          { dayOfWeek: 3, isClosed: true },
+        ],
+      })
+      .expect(200);
+  });
+
+  it('succeeds when another SP has a conflicting future appointment on the same day → 200', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // SP2 has an active Tuesday appointment; closing Tuesday for SP1 must not trigger a conflict
+    // Monday must be open to cover SP1's active Monday appointment
+    await request(app.getHttpServer())
+      .put(SP_URL)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '17:00',
+          },
+          { dayOfWeek: 2, isClosed: true },
         ],
       })
       .expect(200);

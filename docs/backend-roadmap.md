@@ -103,7 +103,7 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 20 E2E suites / 362 tests — 15 unit suites / 233 tests — build clean.
+**Current test counts:** 21 E2E suites / 379 tests — 16 unit suites / 278 tests — lint clean — build clean.
 
 ## Domain naming — locked decisions
 
@@ -281,28 +281,84 @@ Booking-time availability validation (validating a new or updated appointment sl
 
 Implemented in `BookingValidationService.checkBusinessHoursConflict`. Called from `AvailabilityService.setBusinessWorkingHours` after access and DTO validation, before the transaction.
 
-#### PUT service-provider working hours and existing appointments
+#### PUT service-provider working hours and existing appointments — done
 
-When an OWNER or MANAGER shortens service-provider working hours, future appointments assigned to that service provider that fall outside the new hours become invalid. The current implementation does not check for this.
+`PUT …/service-providers/:id/working-hours` now rejects with `409 Conflict` when the proposed hours would invalidate any existing future non-cancelled appointment for that specific ServiceProvider. Conflict scope is limited to the target SP — other SPs' appointments are not considered. Failed updates do not persist. Cancelled appointments are excluded from the check.
 
-Preferred future behavior:
+Implemented in `BookingValidationService.checkServiceProviderHoursConflict`. Called from `AvailabilityService.setServiceProviderWorkingHours` after access, SP ownership, and DTO validation, before the transaction.
 
-- Return `409 Conflict` and reject the update.
-- Include conflict details (which appointments are affected) so the frontend can prompt the user to reschedule before applying the change.
-- Do not silently allow a working-hours update that invalidates existing bookings.
+#### POST / PATCH / DELETE availability exceptions and existing appointments — done
 
-#### POST / PATCH / DELETE availability exceptions and existing appointments
+`POST`, `PATCH`, and `DELETE` on availability exceptions now reject with `409 Conflict` when the mutation would invalidate future non-cancelled appointments.
 
-When creating, updating, or deleting an availability exception, the system should check for future appointments that overlap the affected date/time range.
+- **POST / PATCH:** `checkAvailabilityExceptionConflict` — queries future appointments filtered to the exception's local date, then checks whether the proposed exception window covers them. Business-level exceptions check all business appointments; SP-level exceptions are scoped to that SP.
+- **DELETE:** `checkAvailabilityExceptionDeleteConflict` — simulates world after exception removal by falling back to `businessWorkingHour` (business-level) or `serviceProviderWorkingHour` (SP-level) for the exception's day of week. If the fallback is closed or absent, any appointment on that date becomes a conflict.
+- PATCH merges DTO fields with the existing exception values before running the check (effective isClosed / startTime / endTime).
+- Conflict details (appointmentId, startsAt, endsAt, reason) are included in the 409 body.
+- Cancelled appointments are excluded from all checks.
 
-- **Business-level exception:** check future appointments for the entire business on that date.
-- **ServiceProvider-level exception:** check future appointments for that ServiceProvider only.
+## Completed — Phase 3: Available Slots Engine
 
-Preferred future behavior:
+### Available Slots — Phase A: Core service + unit tests — done
 
-- Return `409 Conflict` if overlapping future appointments exist.
-- Include conflict details.
-- Do not silently create or update an exception that makes existing bookings invalid.
+New exported helpers added to `BookingValidationService` (`booking-validation.service.ts`):
+
+- `WindowResult` type — exported for use by `AvailableSlotsService`.
+- `resolveWindow` — made public (was private); resolves effective availability window for a date by checking exceptions first, then falling back to working hours.
+- `dayOfWeekFromLocalDate(localDate: string): number` — pure calendar helper; uses `new Date(localDate + 'T12:00:00Z').getUTCDay()`. Returns the JS `Date.getDay()` value from a local YYYY-MM-DD string without timezone conversion (the date is already business-local, so day-of-week is a calendar arithmetic question).
+- `localMinutesToUtc(localDate, localMinutes, timezone): Date` — noon-probe algorithm: samples at noon UTC (always same calendar date in any timezone) to determine the local offset, then computes local midnight in UTC and adds the requested minute offset. Handles DST correctly for all supported timezones.
+
+New service `AvailableSlotsService` (`available-slots.service.ts`):
+
+- `getAvailableSlots(userId, businessId, query)` — validates access, service, ServiceProvider, SP user status, and SP-service link; resolves biz and SP windows; intersects them; generates candidate slots by `intervalMinutes`; filters out slots overlapping any non-cancelled appointment (half-open interval: `apt.startsAt < slotEnd && apt.endsAt > slotStart`); returns typed `AvailableSlotsResponseDto`.
+- `assertAccess` — returns `{ timezone }` in addition to enforcing membership and business status; timezone comes from `Business.timezone` (default `"Asia/Jerusalem"`).
+- `Service.bufferBeforeMin` / `bufferAfterMin` ignored for v1 consistency with current appointment code.
+
+New DTO `AvailableSlotsQueryDto` (`dto/available-slots-query.dto.ts`): `serviceId` (`@IsUUID`), `serviceProviderId` (`@IsUUID`), `date` (`@Matches /^\d{4}-\d{2}-\d{2}$/`), `intervalMinutes` (optional `@IsInt @Min(1)`, default 15).
+
+Unit tests: 15 tests in `available-slots.service.spec.ts`. New helper tests added to `booking-validation.service.spec.ts`: 3 for `dayOfWeekFromLocalDate`, 3 for `localMinutesToUtc` (Asia/Jerusalem UTC+3, UTC, round-trip via `toLocalDate`).
+
+### Available Slots — Phase B: HTTP endpoint + E2E coverage — done
+
+New controller `AvailableSlotsController` (`available-slots.controller.ts`):
+
+- `GET /dashboard/businesses/:businessId/available-slots`
+- Guarded by `ClerkAuthGuard`.
+- Query params: `serviceId`, `serviceProviderId`, `date` (YYYY-MM-DD local date), `intervalMinutes` (optional, default 15).
+- All three roles (OWNER, MANAGER, MEMBER) can read available slots via `assertAccess`.
+- Missing auth → 401. Outsider → 403. Non-existent `businessId` → 403. Foreign `serviceId` → 404. Foreign `serviceProviderId` → 404. Inactive SP or service → 400. SP does not offer service → 400.
+
+Response shape:
+
+```json
+{
+  "date": "YYYY-MM-DD",
+  "timezone": "Asia/Jerusalem",
+  "serviceId": "...",
+  "serviceProviderId": "...",
+  "durationMinutes": 60,
+  "intervalMinutes": 15,
+  "slots": [
+    { "startsAt": "...", "endsAt": "...", "localStartTime": "HH:MM", "localEndTime": "HH:MM" }
+  ]
+}
+```
+
+Registered in `DashboardModule` (controller + provider).
+
+E2E coverage: `dashboard-available-slots.e2e-spec.ts` — 7 tests, UUID prefix `e2e14000`.
+
+| Test | Assertion |
+| --- | --- |
+| OWNER → 200 with correct shape | response fields + slot object shape |
+| MEMBER → 200 | read access permitted |
+| Missing auth → 401 | |
+| Outsider → 403 | |
+| Foreign `serviceProviderId` → 404 | Pattern B isolation |
+| Active appointment removes overlapping slot | `localStartTime: '09:00'` absent |
+| Cancelled appointment does not remove slot | `localStartTime: '11:00'` present |
+
+**Date precision note:** Test date `2030-07-01` was verified at runtime as Monday (dayOfWeek=1) via `new Date('2030-07-01T12:00:00Z').getUTCDay() === 1`. An earlier candidate `2030-07-07` was found to be Sunday (dayOfWeek=0) — seeded working hours for dayOfWeek=1 would never match, producing zero slots. The switch to `2030-07-01` corrected the failure. This confirms the importance of verifying assumed day-of-week values with `dayOfWeekFromLocalDate` or equivalent before seeding E2E working-hours fixtures.
 
 ### Reminder for future mutation tests
 

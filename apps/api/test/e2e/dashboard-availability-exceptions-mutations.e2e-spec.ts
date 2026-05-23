@@ -9,6 +9,7 @@ import { PrismaModule } from '../../src/prisma/prisma.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { User } from '../../src/generated/prisma/client';
 import {
+  AppointmentStatus,
   BusinessUserRole,
   BusinessUserStatus,
 } from '../../src/generated/prisma/client';
@@ -29,6 +30,24 @@ const E2E_AE_MUT_SP_ID = 'e2e30000-0000-4000-8000-000000000010';
 const E2E_AE_MUT_EXCEPTION_ID = 'e2e30000-0000-4000-8000-000000000011';
 const E2E_AE_MUT_DELETE_OWNER_ID = 'e2e30000-0000-4000-8000-000000000012';
 const E2E_AE_MUT_DELETE_MGR_ID = 'e2e30000-0000-4000-8000-000000000013';
+// Conflict check fixtures — service / customer / appointments
+const E2E_AE_MUT_SERVICE_ID = 'e2e30000-0000-4000-8000-000000000040';
+const E2E_AE_MUT_CUST_PROFILE_ID = 'e2e30000-0000-4000-8000-000000000041';
+const E2E_AE_MUT_BIZ_CUST_ID = 'e2e30000-0000-4000-8000-000000000042';
+// 2099-08-05 (Wed/3): POST conflict tests
+const E2E_AE_MUT_APT_ID = 'e2e30000-0000-4000-8000-000000000050';
+// 2099-09-10 (Thu/4): DELETE 409 — no biz WH for that day
+const E2E_AE_MUT_APT_DEL_CONFLICT_ID = 'e2e30000-0000-4000-8000-000000000051';
+// 2099-09-11 (Fri/5): DELETE 204 — SP WH covers
+const E2E_AE_MUT_APT_DEL_OK_ID = 'e2e30000-0000-4000-8000-000000000052';
+// 2099-08-08 (Sat/6): PATCH conflict test
+const E2E_AE_MUT_APT_PATCH_ID = 'e2e30000-0000-4000-8000-000000000053';
+// Pre-seeded exceptions for conflict check tests
+const E2E_AE_MUT_EXCEPTION_OPEN_ID = 'e2e30000-0000-4000-8000-000000000060'; // 2099-08-08 open
+const E2E_AE_MUT_DEL_CONFLICT_EXCEPTION_ID =
+  'e2e30000-0000-4000-8000-000000000061'; // 2099-09-10
+const E2E_AE_MUT_DEL_OK_EXCEPTION_ID = 'e2e30000-0000-4000-8000-000000000062'; // 2099-09-11 SP-level
+
 // Cross-tenant fixture
 const E2E_AE_MUT_OTHER_BIZ_ID = 'e2e30000-0000-4000-8000-000000000020';
 const E2E_AE_MUT_OTHER_USER_ID = 'e2e30000-0000-4000-8000-000000000021';
@@ -79,6 +98,14 @@ beforeAll(async () => {
   prisma = module.get(PrismaService);
 
   // ── Idempotent pre-cleanup (FK-safe order) ─────────────────────────────────
+  await prisma.appointment.deleteMany({
+    where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.serviceProviderWorkingHour.deleteMany({
+    where: {
+      serviceProviderId: { in: [E2E_AE_MUT_SP_ID, E2E_AE_MUT_OTHER_SP_ID] },
+    },
+  });
   await prisma.availabilityException.deleteMany({
     where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
   });
@@ -88,8 +115,17 @@ beforeAll(async () => {
   await prisma.businessUser.deleteMany({
     where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
   });
+  await prisma.businessCustomer.deleteMany({
+    where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.service.deleteMany({
+    where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
   await prisma.business.deleteMany({
     where: { id: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.customerProfile.deleteMany({
+    where: { id: E2E_AE_MUT_CUST_PROFILE_ID },
   });
   await prisma.user.deleteMany({
     where: {
@@ -255,10 +291,142 @@ beforeAll(async () => {
       isClosed: true,
     },
   });
+
+  // ── Conflict check fixtures ────────────────────────────────────────────────
+  await prisma.service.create({
+    data: {
+      id: E2E_AE_MUT_SERVICE_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      name: 'E2E AE Conflict Service',
+      durationMinutes: 60,
+      bufferBeforeMin: 0,
+      bufferAfterMin: 0,
+      isActive: true,
+    },
+  });
+  await prisma.customerProfile.create({
+    data: {
+      id: E2E_AE_MUT_CUST_PROFILE_ID,
+      fullName: 'E2E AE Conflict Customer',
+      phoneNormalized: '+19990003099',
+    },
+  });
+  await prisma.businessCustomer.create({
+    data: {
+      id: E2E_AE_MUT_BIZ_CUST_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      customerProfileId: E2E_AE_MUT_CUST_PROFILE_ID,
+      status: 'ACTIVE',
+    },
+  });
+  // 2099-08-05T10:00Z = 13:00 Jerusalem — used by POST conflict tests
+  await prisma.appointment.create({
+    data: {
+      id: E2E_AE_MUT_APT_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      serviceId: E2E_AE_MUT_SERVICE_ID,
+      serviceProviderId: E2E_AE_MUT_SP_ID,
+      businessCustomerId: E2E_AE_MUT_BIZ_CUST_ID,
+      startsAt: new Date('2099-08-05T10:00:00.000Z'),
+      endsAt: new Date('2099-08-05T11:00:00.000Z'),
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
+  // 2099-08-08T10:00Z = 13:00 Jerusalem — used by PATCH conflict test
+  await prisma.appointment.create({
+    data: {
+      id: E2E_AE_MUT_APT_PATCH_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      serviceId: E2E_AE_MUT_SERVICE_ID,
+      serviceProviderId: E2E_AE_MUT_SP_ID,
+      businessCustomerId: E2E_AE_MUT_BIZ_CUST_ID,
+      startsAt: new Date('2099-08-08T10:00:00.000Z'),
+      endsAt: new Date('2099-08-08T11:00:00.000Z'),
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
+  // 2099-09-10T10:00Z = 13:00 Jerusalem — DELETE 409; no biz WH for Thursday (dayOfWeek 4)
+  await prisma.appointment.create({
+    data: {
+      id: E2E_AE_MUT_APT_DEL_CONFLICT_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      serviceId: E2E_AE_MUT_SERVICE_ID,
+      serviceProviderId: E2E_AE_MUT_SP_ID,
+      businessCustomerId: E2E_AE_MUT_BIZ_CUST_ID,
+      startsAt: new Date('2099-09-10T10:00:00.000Z'),
+      endsAt: new Date('2099-09-10T11:00:00.000Z'),
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
+  // 2099-09-11T10:00Z = 13:00 Jerusalem — DELETE 204; SP has WH for Friday (dayOfWeek 5)
+  await prisma.appointment.create({
+    data: {
+      id: E2E_AE_MUT_APT_DEL_OK_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      serviceId: E2E_AE_MUT_SERVICE_ID,
+      serviceProviderId: E2E_AE_MUT_SP_ID,
+      businessCustomerId: E2E_AE_MUT_BIZ_CUST_ID,
+      startsAt: new Date('2099-09-11T10:00:00.000Z'),
+      endsAt: new Date('2099-09-11T11:00:00.000Z'),
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
+  // SP WH Friday (5): covers 08:00-17:00 — used by DELETE 204 fallback check
+  await prisma.serviceProviderWorkingHour.create({
+    data: {
+      businessId: E2E_AE_MUT_BIZ_ID,
+      serviceProviderId: E2E_AE_MUT_SP_ID,
+      dayOfWeek: 5,
+      isClosed: false,
+      startTime: '08:00',
+      endTime: '17:00',
+    },
+  });
+  // Pre-seeded exception for PATCH conflict test: 2099-08-08, open 12:00-17:00
+  await prisma.availabilityException.create({
+    data: {
+      id: E2E_AE_MUT_EXCEPTION_OPEN_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      date: new Date('2099-08-08'),
+      isClosed: false,
+      startTime: '12:00',
+      endTime: '17:00',
+    },
+  });
+  // Pre-seeded exception for DELETE 409: 2099-09-10, open (biz-level, no biz WH)
+  await prisma.availabilityException.create({
+    data: {
+      id: E2E_AE_MUT_DEL_CONFLICT_EXCEPTION_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      date: new Date('2099-09-10'),
+      isClosed: false,
+      startTime: '12:00',
+      endTime: '17:00',
+    },
+  });
+  // Pre-seeded exception for DELETE 204: 2099-09-11, SP-level (SP WH covers fallback)
+  await prisma.availabilityException.create({
+    data: {
+      id: E2E_AE_MUT_DEL_OK_EXCEPTION_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      serviceProviderId: E2E_AE_MUT_SP_ID,
+      date: new Date('2099-09-11'),
+      isClosed: false,
+      startTime: '12:00',
+      endTime: '17:00',
+    },
+  });
 });
 
 afterAll(async () => {
-  // FK-safe: availabilityException before serviceProvider before businessUser
+  await prisma.appointment.deleteMany({
+    where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.serviceProviderWorkingHour.deleteMany({
+    where: {
+      serviceProviderId: { in: [E2E_AE_MUT_SP_ID, E2E_AE_MUT_OTHER_SP_ID] },
+    },
+  });
   await prisma.availabilityException.deleteMany({
     where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
   });
@@ -268,8 +436,17 @@ afterAll(async () => {
   await prisma.businessUser.deleteMany({
     where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
   });
+  await prisma.businessCustomer.deleteMany({
+    where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.service.deleteMany({
+    where: { businessId: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
   await prisma.business.deleteMany({
     where: { id: { in: [E2E_AE_MUT_BIZ_ID, E2E_AE_MUT_OTHER_BIZ_ID] } },
+  });
+  await prisma.customerProfile.deleteMany({
+    where: { id: E2E_AE_MUT_CUST_PROFILE_ID },
   });
   await prisma.user.deleteMany({
     where: {
@@ -720,5 +897,101 @@ describe('DELETE /dashboard/businesses/:businessId/availability-exceptions/:exce
         `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions/00000000-0000-4000-8000-000000000000`,
       )
       .expect(404);
+  });
+});
+
+// ─── Conflict check — POST / PATCH / DELETE ───────────────────────────────────
+//
+// Business timezone: Asia/Jerusalem (UTC+3 in summer).
+// All test appointments run 10:00-11:00 UTC = 13:00-14:00 Jerusalem local.
+// Proposed exception times are expressed in Jerusalem local.
+
+describe('Conflict checks for availability exception mutations', () => {
+  it('POST closed exception on date with future appointment → 409', async () => {
+    // Appointment E2E_AE_MUT_APT_ID is on 2099-08-05T10:00Z (13:00 Jerusalem).
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .post(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions`,
+      )
+      .send({ date: '2099-08-05', isClosed: true })
+      .expect(409);
+
+    const body = res.body as unknown as {
+      message: string;
+      conflicts: Array<{ appointmentId: string }>;
+    };
+    expect(body.message).toMatch(/invalidate/i);
+    expect(body.conflicts).toHaveLength(1);
+    expect(body.conflicts[0].appointmentId).toBe(E2E_AE_MUT_APT_ID);
+  });
+
+  it('POST open exception whose window covers future appointment → 201', async () => {
+    // Window 12:00-17:00 Jerusalem covers appointment at 13:00-14:00.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions`,
+      )
+      .send({
+        date: '2099-08-05',
+        isClosed: false,
+        startTime: '12:00',
+        endTime: '17:00',
+      })
+      .expect(201);
+  });
+
+  it('PATCH exception to narrow window that excludes future appointment → 409', async () => {
+    // E2E_AE_MUT_EXCEPTION_OPEN_ID is 2099-08-08 open 12:00-17:00.
+    // Appointment E2E_AE_MUT_APT_PATCH_ID is 13:00-14:00 Jerusalem.
+    // Narrowing startTime to 14:00 → window 14:00-17:00 excludes 13:00-14:00.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions/${E2E_AE_MUT_EXCEPTION_OPEN_ID}`,
+      )
+      .send({ startTime: '14:00' })
+      .expect(409);
+
+    const body = res.body as unknown as {
+      message: string;
+      conflicts: Array<{ appointmentId: string }>;
+    };
+    expect(body.message).toMatch(/invalidate/i);
+    expect(body.conflicts[0].appointmentId).toBe(E2E_AE_MUT_APT_PATCH_ID);
+  });
+
+  it('DELETE exception that is the only coverage for a future appointment → 409', async () => {
+    // E2E_AE_MUT_DEL_CONFLICT_EXCEPTION_ID is 2099-09-10 open (biz-level).
+    // Appointment E2E_AE_MUT_APT_DEL_CONFLICT_ID is on that date.
+    // No businessWorkingHour for Thursday (dayOfWeek 4) → fallback = closed → 409.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .delete(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions/${E2E_AE_MUT_DEL_CONFLICT_EXCEPTION_ID}`,
+      )
+      .expect(409);
+
+    const body = res.body as unknown as {
+      message: string;
+      conflicts: Array<{ appointmentId: string }>;
+    };
+    expect(body.message).toMatch(/invalidate/i);
+    expect(body.conflicts[0].appointmentId).toBe(
+      E2E_AE_MUT_APT_DEL_CONFLICT_ID,
+    );
+  });
+
+  it('DELETE exception when SP regular working hours still cover appointment → 204', async () => {
+    // E2E_AE_MUT_DEL_OK_EXCEPTION_ID is 2099-09-11 SP-level.
+    // Appointment E2E_AE_MUT_APT_DEL_OK_ID is on that date, same SP.
+    // SP has WH for Friday (dayOfWeek 5): 08:00-17:00 → covers 13:00-14:00 → 204.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .delete(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions/${E2E_AE_MUT_DEL_OK_EXCEPTION_ID}`,
+      )
+      .expect(204);
   });
 });

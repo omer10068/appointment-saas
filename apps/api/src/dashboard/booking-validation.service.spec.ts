@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   BookingValidationService,
+  dayOfWeekFromLocalDate,
   doesSlotFitWindow,
+  localMinutesToUtc,
   parseTimeString,
   toDayOfWeek,
   toLocalDate,
@@ -326,6 +328,155 @@ describe('BookingValidationService', () => {
     });
   });
 
+  // ─── checkServiceProviderHoursConflict ───────────────────────────────────────
+
+  describe('checkServiceProviderHoursConflict', () => {
+    // 2030-07-01 is a Monday in UTC
+    const SP_MON_APT = {
+      id: 'apt-sp-1',
+      startsAt: new Date('2030-07-01T10:00:00.000Z'),
+      endsAt: new Date('2030-07-01T11:00:00.000Z'),
+      serviceProviderId: 'sp-1',
+      businessCustomerId: 'bc-1',
+    };
+
+    const SP_OPEN_MONDAY = {
+      dayOfWeek: 1,
+      isClosed: false,
+      startTime: '09:00',
+      endTime: '17:00',
+    };
+
+    function setupBusiness() {
+      mockPrisma.business.findUnique.mockResolvedValue({ timezone: 'UTC' });
+    }
+
+    it('resolves without throwing when business is not found', async () => {
+      mockPrisma.business.findUnique.mockResolvedValue(null);
+      await expect(
+        service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          SP_OPEN_MONDAY,
+        ]),
+      ).resolves.toBeUndefined();
+      expect(mockPrisma.appointment.findMany).not.toHaveBeenCalled();
+    });
+
+    it('resolves without throwing when no future SP appointments exist', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([]);
+      await expect(
+        service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          SP_OPEN_MONDAY,
+        ]),
+      ).resolves.toBeUndefined();
+    });
+
+    it('scopes appointment query to the given serviceProviderId', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([]);
+      await service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+        SP_OPEN_MONDAY,
+      ]);
+      expect(mockPrisma.appointment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ serviceProviderId: 'sp-1' }),
+        }),
+      );
+    });
+
+    it('resolves when SP appointment fits within proposed hours', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([SP_MON_APT]);
+      // Slot 10:00-11:00 fits inside 09:00-17:00 Monday
+      await expect(
+        service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          SP_OPEN_MONDAY,
+        ]),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws ConflictException when SP appointment is on a day set to isClosed=true', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([SP_MON_APT]);
+      await expect(
+        service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          { dayOfWeek: 1, isClosed: true },
+        ]),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException when appointment day is absent from the proposed payload', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([SP_MON_APT]);
+      // Only Tuesday defined — Monday treated as closed
+      await expect(
+        service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          {
+            dayOfWeek: 2,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+        ]),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException when SP appointment ends after proposed closing time', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([SP_MON_APT]);
+      // Monday closes at 10:30; appointment runs 10:00-11:00 → overflows
+      await expect(
+        service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '10:30',
+          },
+        ]),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException when SP appointment starts before proposed opening time', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([SP_MON_APT]);
+      // Monday opens at 10:30; appointment starts at 10:00 → too early
+      await expect(
+        service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '10:30',
+            endTime: '17:00',
+          },
+        ]),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('includes all conflicting SP appointments in the exception payload', async () => {
+      setupBusiness();
+      const apt2 = {
+        ...SP_MON_APT,
+        id: 'apt-sp-2',
+        startsAt: new Date('2030-07-01T13:00:00.000Z'),
+        endsAt: new Date('2030-07-01T14:00:00.000Z'),
+      };
+      mockPrisma.appointment.findMany.mockResolvedValue([SP_MON_APT, apt2]);
+      try {
+        await service.checkServiceProviderHoursConflict('biz-1', 'sp-1', [
+          { dayOfWeek: 1, isClosed: true },
+        ]);
+        expect(true).toBe(false);
+      } catch (err) {
+        expect(err).toBeInstanceOf(ConflictException);
+        const body = (err as ConflictException).getResponse() as {
+          conflicts: unknown[];
+        };
+        expect(body.conflicts).toHaveLength(2);
+      }
+    });
+  });
+
   // ─── checkBusinessHoursConflict ───────────────────────────────────────────────
 
   describe('checkBusinessHoursConflict', () => {
@@ -455,5 +606,306 @@ describe('BookingValidationService', () => {
         expect(body.conflicts).toHaveLength(2);
       }
     });
+  });
+
+  // ─── checkAvailabilityExceptionConflict ──────────────────────────────────────
+
+  describe('checkAvailabilityExceptionConflict', () => {
+    // 2030-08-05 is a Tuesday in UTC; Asia/Jerusalem is UTC+3 in summer
+    // so 08:00 UTC = 11:00 local — same calendar date
+    const EXCEPTION_DATE = new Date('2030-08-05T00:00:00.000Z');
+    const APT_ON_DATE = {
+      id: 'apt-exc-1',
+      startsAt: new Date('2030-08-05T09:00:00.000Z'),
+      endsAt: new Date('2030-08-05T10:00:00.000Z'),
+      serviceProviderId: 'sp-1',
+      businessCustomerId: 'bc-1',
+    };
+    const APT_OTHER_DATE = {
+      id: 'apt-exc-2',
+      startsAt: new Date('2030-08-06T09:00:00.000Z'),
+      endsAt: new Date('2030-08-06T10:00:00.000Z'),
+      serviceProviderId: 'sp-1',
+      businessCustomerId: 'bc-1',
+    };
+
+    function setupBusiness() {
+      mockPrisma.business.findUnique.mockResolvedValue({ timezone: 'UTC' });
+    }
+
+    it('resolves without throwing when business is not found', async () => {
+      mockPrisma.business.findUnique.mockResolvedValue(null);
+      await expect(
+        service.checkAvailabilityExceptionConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+          proposedIsClosed: true,
+          proposedStartTime: null,
+          proposedEndTime: null,
+        }),
+      ).resolves.toBeUndefined();
+      expect(mockPrisma.appointment.findMany).not.toHaveBeenCalled();
+    });
+
+    it('resolves when no appointments fall on the exception date', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_OTHER_DATE]);
+      await expect(
+        service.checkAvailabilityExceptionConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+          proposedIsClosed: true,
+          proposedStartTime: null,
+          proposedEndTime: null,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws ConflictException when proposed exception closes a date with future appointments', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_ON_DATE]);
+      await expect(
+        service.checkAvailabilityExceptionConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+          proposedIsClosed: true,
+          proposedStartTime: null,
+          proposedEndTime: null,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException when appointment falls outside the proposed open window', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_ON_DATE]);
+      // Appointment runs 09:00-10:00; proposed window 10:00-17:00 → starts before open
+      await expect(
+        service.checkAvailabilityExceptionConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+          proposedIsClosed: false,
+          proposedStartTime: '10:00',
+          proposedEndTime: '17:00',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('resolves when appointment fits within proposed open window', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_ON_DATE]);
+      // Appointment runs 09:00-10:00; window 08:00-17:00 → fits
+      await expect(
+        service.checkAvailabilityExceptionConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+          proposedIsClosed: false,
+          proposedStartTime: '08:00',
+          proposedEndTime: '17:00',
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('scopes appointment query to serviceProviderId when provided', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([]);
+      await service.checkAvailabilityExceptionConflict({
+        businessId: 'biz-1',
+        serviceProviderId: 'sp-1',
+        exceptionDate: EXCEPTION_DATE,
+        proposedIsClosed: true,
+        proposedStartTime: null,
+        proposedEndTime: null,
+      });
+      expect(mockPrisma.appointment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ serviceProviderId: 'sp-1' }),
+        }),
+      );
+    });
+
+    it('does not add serviceProviderId to query for business-level check', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([]);
+      await service.checkAvailabilityExceptionConflict({
+        businessId: 'biz-1',
+        serviceProviderId: null,
+        exceptionDate: EXCEPTION_DATE,
+        proposedIsClosed: true,
+        proposedStartTime: null,
+        proposedEndTime: null,
+      });
+      const callArg = (
+        mockPrisma.appointment.findMany as ReturnType<
+          typeof jest.fn<(...args: unknown[]) => Promise<unknown[]>>
+        >
+      ).mock.calls[0]?.[0] as { where?: Record<string, unknown> } | undefined;
+      expect(callArg?.where).not.toHaveProperty('serviceProviderId');
+    });
+  });
+
+  // ─── checkAvailabilityExceptionDeleteConflict ─────────────────────────────────
+
+  describe('checkAvailabilityExceptionDeleteConflict', () => {
+    const EXCEPTION_DATE = new Date('2030-08-05T00:00:00.000Z');
+    const APT_ON_DATE = {
+      id: 'apt-del-1',
+      startsAt: new Date('2030-08-05T09:00:00.000Z'),
+      endsAt: new Date('2030-08-05T10:00:00.000Z'),
+      serviceProviderId: 'sp-1',
+      businessCustomerId: 'bc-1',
+    };
+
+    function setupBusiness() {
+      mockPrisma.business.findUnique.mockResolvedValue({ timezone: 'UTC' });
+    }
+
+    it('resolves without throwing when business is not found', async () => {
+      mockPrisma.business.findUnique.mockResolvedValue(null);
+      await expect(
+        service.checkAvailabilityExceptionDeleteConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('resolves when no appointments fall on the exception date', async () => {
+      setupBusiness();
+      const aptOtherDate = {
+        ...APT_ON_DATE,
+        id: 'apt-del-other',
+        startsAt: new Date('2030-08-06T09:00:00.000Z'),
+        endsAt: new Date('2030-08-06T10:00:00.000Z'),
+      };
+      mockPrisma.appointment.findMany.mockResolvedValue([aptOtherDate]);
+      mockPrisma.businessWorkingHour.findUnique.mockResolvedValue({
+        isClosed: false,
+        startTime: '08:00',
+        endTime: '17:00',
+      });
+      await expect(
+        service.checkAvailabilityExceptionDeleteConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws ConflictException when fallback business hours are closed on that day', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_ON_DATE]);
+      mockPrisma.businessWorkingHour.findUnique.mockResolvedValue({
+        isClosed: true,
+        startTime: null,
+        endTime: null,
+      });
+      await expect(
+        service.checkAvailabilityExceptionDeleteConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException when no fallback business hours row exists', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_ON_DATE]);
+      mockPrisma.businessWorkingHour.findUnique.mockResolvedValue(null);
+      await expect(
+        service.checkAvailabilityExceptionDeleteConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('resolves when appointment fits within fallback business hours', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_ON_DATE]);
+      // Appointment runs 09:00-10:00; fallback window 08:00-17:00 → fits
+      mockPrisma.businessWorkingHour.findUnique.mockResolvedValue({
+        isClosed: false,
+        startTime: '08:00',
+        endTime: '17:00',
+      });
+      await expect(
+        service.checkAvailabilityExceptionDeleteConflict({
+          businessId: 'biz-1',
+          serviceProviderId: null,
+          exceptionDate: EXCEPTION_DATE,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('uses serviceProviderWorkingHour fallback for SP-level exception delete', async () => {
+      setupBusiness();
+      mockPrisma.appointment.findMany.mockResolvedValue([APT_ON_DATE]);
+      mockPrisma.serviceProviderWorkingHour.findUnique.mockResolvedValue({
+        isClosed: false,
+        startTime: '08:00',
+        endTime: '17:00',
+      });
+      await expect(
+        service.checkAvailabilityExceptionDeleteConflict({
+          businessId: 'biz-1',
+          serviceProviderId: 'sp-1',
+          exceptionDate: EXCEPTION_DATE,
+        }),
+      ).resolves.toBeUndefined();
+      expect(
+        mockPrisma.serviceProviderWorkingHour.findUnique,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            serviceProviderId_dayOfWeek: expect.objectContaining({
+              serviceProviderId: 'sp-1',
+            }),
+          }),
+        }),
+      );
+      expect(mockPrisma.businessWorkingHour.findUnique).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('dayOfWeekFromLocalDate', () => {
+  it('returns 0 for a Sunday', () => {
+    expect(dayOfWeekFromLocalDate('2024-01-14')).toBe(0);
+  });
+
+  it('returns 1 for a Monday', () => {
+    expect(dayOfWeekFromLocalDate('2024-01-15')).toBe(1);
+  });
+
+  it('returns 6 for a Saturday', () => {
+    expect(dayOfWeekFromLocalDate('2024-01-20')).toBe(6);
+  });
+});
+
+describe('localMinutesToUtc', () => {
+  it('converts 09:00 local (Asia/Jerusalem UTC+3) to 06:00 UTC', () => {
+    const result = localMinutesToUtc('2030-07-01', 9 * 60, 'Asia/Jerusalem');
+    expect(result.toISOString()).toBe('2030-07-01T06:00:00.000Z');
+  });
+
+  it('converts 09:00 local (UTC) to 09:00 UTC', () => {
+    const result = localMinutesToUtc('2030-07-01', 9 * 60, 'UTC');
+    expect(result.toISOString()).toBe('2030-07-01T09:00:00.000Z');
+  });
+
+  it('round-trips through toLocalDate for Asia/Jerusalem', () => {
+    const localDate = '2030-07-01';
+    const timezone = 'Asia/Jerusalem';
+    const utcTime = localMinutesToUtc(localDate, 9 * 60, timezone);
+    expect(toLocalDate(utcTime, timezone)).toBe(localDate);
   });
 });

@@ -136,6 +136,11 @@ export class AvailabilityService {
     await this.assertMutationAccess(userId, businessId);
     await this.assertServiceProviderInBusiness(serviceProviderId, businessId);
     this.validateHoursPayload(dto.hours);
+    await this.bookingValidation.checkServiceProviderHoursConflict(
+      businessId,
+      serviceProviderId,
+      dto.hours,
+    );
     return this.prisma.$transaction(async (tx) => {
       await tx.serviceProviderWorkingHour.deleteMany({
         where: { serviceProviderId },
@@ -187,6 +192,14 @@ export class AvailabilityService {
     if (!dto.isClosed) {
       this.validateTimeRange(dto.startTime ?? null, dto.endTime ?? null);
     }
+    await this.bookingValidation.checkAvailabilityExceptionConflict({
+      businessId,
+      serviceProviderId: dto.serviceProviderId ?? null,
+      exceptionDate: new Date(dto.date),
+      proposedIsClosed: dto.isClosed,
+      proposedStartTime: dto.isClosed ? null : (dto.startTime ?? null),
+      proposedEndTime: dto.isClosed ? null : (dto.endTime ?? null),
+    });
     return this.prisma.availabilityException.create({
       data: {
         businessId,
@@ -210,7 +223,14 @@ export class AvailabilityService {
     await this.assertMutationAccess(userId, businessId);
     const existing = await this.prisma.availabilityException.findFirst({
       where: { id: exceptionId, businessId },
-      select: { id: true, isClosed: true, startTime: true, endTime: true },
+      select: {
+        id: true,
+        date: true,
+        serviceProviderId: true,
+        isClosed: true,
+        startTime: true,
+        endTime: true,
+      },
     });
     if (!existing)
       throw new NotFoundException('Availability exception not found');
@@ -229,6 +249,20 @@ export class AvailabilityService {
     if (!isClosed) {
       this.validateTimeRange(startTime ?? null, endTime ?? null);
     }
+
+    const effectiveServiceProviderId =
+      dto.serviceProviderId !== undefined
+        ? (dto.serviceProviderId ?? null)
+        : (existing.serviceProviderId ?? null);
+
+    await this.bookingValidation.checkAvailabilityExceptionConflict({
+      businessId,
+      serviceProviderId: effectiveServiceProviderId,
+      exceptionDate: existing.date,
+      proposedIsClosed: isClosed,
+      proposedStartTime: isClosed ? null : (startTime ?? null),
+      proposedEndTime: isClosed ? null : (endTime ?? null),
+    });
 
     return this.prisma.availabilityException.update({
       where: { id: exceptionId },
@@ -257,10 +291,15 @@ export class AvailabilityService {
     await this.assertMutationAccess(userId, businessId);
     const existing = await this.prisma.availabilityException.findFirst({
       where: { id: exceptionId, businessId },
-      select: { id: true },
+      select: { id: true, date: true, serviceProviderId: true },
     });
     if (!existing)
       throw new NotFoundException('Availability exception not found');
+    await this.bookingValidation.checkAvailabilityExceptionDeleteConflict({
+      businessId,
+      serviceProviderId: existing.serviceProviderId ?? null,
+      exceptionDate: existing.date,
+    });
     await this.prisma.availabilityException.delete({
       where: { id: exceptionId },
     });
