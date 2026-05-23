@@ -103,7 +103,7 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 21 E2E suites / 379 tests — 16 unit suites / 278 tests — lint clean — build clean.
+**Current test counts:** 22 E2E suites / 393 tests — 17 unit suites / 280 tests — lint clean — build clean.
 
 ## Domain naming — locked decisions
 
@@ -367,6 +367,64 @@ E2E coverage: `dashboard-available-slots.e2e-spec.ts` — 7 tests, UUID prefix `
 - Keep permission changes in a separate task from test additions.
 - One domain per task.
 - Do not reintroduce `STAFF`, `StaffMember`, or `staffMemberId` naming anywhere.
+
+## Completed — Phase 4: Public Booking Read Endpoints
+
+Four unauthenticated read endpoints under `/public/businesses/:slug/`. No auth guard is required; routes without `@UseGuards()` are public by default in this app.
+
+### Architecture: SlotsEngineModule (neutral shared module)
+
+To share slot computation between the authenticated dashboard and the public surface without coupling the two modules:
+
+- **`SlotsEngineModule`** (`src/slots-engine/`) is a neutral NestJS module that provides and exports:
+  - `AvailableSlotsEngineService` — owns `computeSlots(businessId, timezone, query)`, the full slot calculation logic (service/SP validation, window resolution, conflict filtering, slot generation). No auth, no membership check, no slug resolution.
+  - `BookingValidationService` — moved here from `DashboardModule.providers` (file stays in `src/dashboard/`; only the NestJS module registration moved). No import paths in existing dashboard services changed.
+- **`DashboardModule`** imports `SlotsEngineModule`. `AvailableSlotsService` is now a thin auth wrapper: calls `assertAccess(userId, businessId)` to resolve the timezone and enforce membership + business status, then delegates to `engine.computeSlots`.
+- **`PublicModule`** imports `SlotsEngineModule` only — no dependency on `DashboardModule`. `PublicSlotsService` resolves the business by slug (via `PublicBusinessesService.findActiveBusinessBySlug`), then calls `engine.computeSlots` directly.
+
+### Endpoints
+
+| Endpoint | Access | Notes |
+| --- | --- | --- |
+| `GET /public/businesses/:slug` | none | Business profile (id, name, slug, timezone, locale, currency). Status field omitted from response. |
+| `GET /public/businesses/:slug/services` | none | Active services only (`isActive: true`). Returns id, name, description, durationMinutes, priceCents. |
+| `GET /public/businesses/:slug/service-providers` | none | Active providers only (`isActive: true` and linked businessUser `status: ACTIVE`). Returns id, displayName only. |
+| `GET /public/businesses/:slug/available-slots` | none | Same query params and response shape as the dashboard version. Reuses `AvailableSlotsEngineService.computeSlots`. |
+
+### Access rules (all four endpoints)
+
+- Business `status` not `ACTIVE` or `TRIAL` → 404 (same response as unknown slug — callers cannot distinguish).
+- Unknown slug → 404.
+- Inactive service passed as `serviceId` to available-slots → 400.
+- Inactive SP passed as `serviceProviderId` to available-slots → 400.
+- SP does not offer the selected service → 400.
+
+### Key files
+
+| File | Role |
+| --- | --- |
+| `src/slots-engine/slots-engine.module.ts` | Neutral module; provides and exports `BookingValidationService` + `AvailableSlotsEngineService` |
+| `src/slots-engine/available-slots-engine.service.ts` | `computeSlots(businessId, timezone, query)` — shared slot computation |
+| `src/slots-engine/available-slots-engine.service.spec.ts` | Unit tests for the engine (11 tests) |
+| `src/dashboard/available-slots.service.ts` | Auth wrapper: `assertAccess` → `engine.computeSlots` |
+| `src/dashboard/available-slots.service.spec.ts` | Unit tests for auth wrapper only (4 tests) |
+| `src/public/public.module.ts` | PublicModule — imports PrismaModule + SlotsEngineModule only |
+| `src/public/public-businesses.controller.ts` | Single controller for all four public routes |
+| `src/public/public-businesses.service.ts` | Profile, services, service-providers queries; `findActiveBusinessBySlug` helper |
+| `src/public/public-slots.service.ts` | Slug resolution → `engine.computeSlots` |
+| `src/public/dto/` | `PublicBusinessProfileDto`, `PublicServiceDto`, `PublicServiceProviderDto` |
+| `test/e2e/public-businesses.e2e-spec.ts` | E2E coverage — 14 tests, UUID prefix `e2e15000` |
+
+### E2E coverage
+
+`public-businesses.e2e-spec.ts` — 14 tests. No `MockClerkAuthGuard` needed (routes are unauthenticated). Test module imports `PrismaModule` + `PublicModule` directly (no `AppModule`).
+
+| Suite | Tests |
+| --- | --- |
+| `GET /public/businesses/:slug` | 200 correct shape; 404 unknown slug; 404 suspended business |
+| `GET /public/businesses/:slug/services` | 200 with active-only filter; correct shape; 404 unknown slug |
+| `GET /public/businesses/:slug/service-providers` | 200 with active-only filter; correct shape; 404 unknown slug |
+| `GET /public/businesses/:slug/available-slots` | 200 correct shape with slots; 404 unknown slug; 404 suspended; 400 inactive service; 400 inactive SP |
 
 ## Later — Phase 3 and Beyond
 

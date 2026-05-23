@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { PublicModule } from './public/public.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     HealthModule,
     AdminModule,
     DashboardModule,
+    PublicModule,
     WebhooksModule,
   ],
 })
