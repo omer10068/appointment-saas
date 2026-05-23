@@ -103,7 +103,7 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 20 E2E suites / 367 tests — 15 unit suites / 242 tests — build clean.
+**Current test counts:** 20 E2E suites / 372 tests — 15 unit suites / 258 tests — build clean.
 
 ## Domain naming — locked decisions
 
@@ -287,18 +287,15 @@ Implemented in `BookingValidationService.checkBusinessHoursConflict`. Called fro
 
 Implemented in `BookingValidationService.checkServiceProviderHoursConflict`. Called from `AvailabilityService.setServiceProviderWorkingHours` after access, SP ownership, and DTO validation, before the transaction.
 
-#### POST / PATCH / DELETE availability exceptions and existing appointments
+#### POST / PATCH / DELETE availability exceptions and existing appointments — done
 
-When creating, updating, or deleting an availability exception, the system should check for future appointments that overlap the affected date/time range.
+`POST`, `PATCH`, and `DELETE` on availability exceptions now reject with `409 Conflict` when the mutation would invalidate future non-cancelled appointments.
 
-- **Business-level exception:** check future appointments for the entire business on that date.
-- **ServiceProvider-level exception:** check future appointments for that ServiceProvider only.
-
-Preferred future behavior:
-
-- Return `409 Conflict` if overlapping future appointments exist.
-- Include conflict details.
-- Do not silently create or update an exception that makes existing bookings invalid.
+- **POST / PATCH:** `checkAvailabilityExceptionConflict` — queries future appointments filtered to the exception's local date, then checks whether the proposed exception window covers them. Business-level exceptions check all business appointments; SP-level exceptions are scoped to that SP.
+- **DELETE:** `checkAvailabilityExceptionDeleteConflict` — simulates world after exception removal by falling back to `businessWorkingHour` (business-level) or `serviceProviderWorkingHour` (SP-level) for the exception's day of week. If the fallback is closed or absent, any appointment on that date becomes a conflict.
+- PATCH merges DTO fields with the existing exception values before running the check (effective isClosed / startTime / endTime).
+- Conflict details (appointmentId, startsAt, endsAt, reason) are included in the 409 body.
+- Cancelled appointments are excluded from all checks.
 
 ### Reminder for future mutation tests
 

@@ -20,6 +20,21 @@ type ProposedHourItem = {
   endTime?: string | null;
 };
 
+type AvailabilityExceptionConflictParams = {
+  businessId: string;
+  serviceProviderId: string | null;
+  exceptionDate: Date;
+  proposedIsClosed: boolean;
+  proposedStartTime: string | null;
+  proposedEndTime: string | null;
+};
+
+type AvailabilityExceptionDeleteParams = {
+  businessId: string;
+  serviceProviderId: string | null;
+  exceptionDate: Date;
+};
+
 export type BusinessHoursConflict = {
   appointmentId: string;
   startsAt: Date;
@@ -339,6 +354,230 @@ export class BookingValidationService {
     if (conflicts.length > 0) {
       throw new ConflictException({
         message: 'Working hours change would invalidate existing appointments',
+        conflicts,
+      });
+    }
+  }
+
+  async checkAvailabilityExceptionConflict(
+    params: AvailabilityExceptionConflictParams,
+  ): Promise<void> {
+    const {
+      businessId,
+      serviceProviderId,
+      exceptionDate,
+      proposedIsClosed,
+      proposedStartTime,
+      proposedEndTime,
+    } = params;
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { timezone: true },
+    });
+    if (!business) return;
+
+    const { timezone } = business;
+    const exceptionLocalDate = toLocalDate(exceptionDate, timezone);
+    const now = new Date();
+
+    const allAppointments = await this.prisma.appointment.findMany({
+      where: {
+        businessId,
+        ...(serviceProviderId !== null ? { serviceProviderId } : {}),
+        startsAt: { gt: now },
+        status: {
+          notIn: [
+            AppointmentStatus.CANCELLED_BY_CUSTOMER,
+            AppointmentStatus.CANCELLED_BY_BUSINESS,
+          ],
+        },
+      },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        serviceProviderId: true,
+        businessCustomerId: true,
+      },
+    });
+
+    const appointments = allAppointments.filter(
+      (apt) => toLocalDate(apt.startsAt, timezone) === exceptionLocalDate,
+    );
+
+    if (appointments.length === 0) return;
+
+    const proposedWindow: WindowResult =
+      proposedIsClosed || !proposedStartTime || !proposedEndTime
+        ? { open: false }
+        : {
+            open: true,
+            startMin: parseTimeString(proposedStartTime),
+            endMin: parseTimeString(proposedEndTime),
+          };
+
+    const conflicts: BusinessHoursConflict[] = [];
+
+    for (const apt of appointments) {
+      let reason: string;
+      if (!proposedWindow.open) {
+        reason =
+          serviceProviderId !== null
+            ? 'Service provider would be unavailable on this date'
+            : 'Business would be closed on this date';
+      } else {
+        const slotStartMin = toMinutesSinceMidnight(apt.startsAt, timezone);
+        const slotEndMin = toMinutesSinceMidnight(apt.endsAt, timezone);
+        if (
+          doesSlotFitWindow(
+            slotStartMin,
+            slotEndMin,
+            proposedWindow.startMin,
+            proposedWindow.endMin,
+          )
+        ) {
+          continue;
+        }
+        reason = 'Appointment falls outside the proposed exception hours';
+      }
+
+      conflicts.push({
+        appointmentId: apt.id,
+        startsAt: apt.startsAt,
+        endsAt: apt.endsAt,
+        serviceProviderId: apt.serviceProviderId,
+        businessCustomerId: apt.businessCustomerId,
+        reason,
+      });
+    }
+
+    if (conflicts.length > 0) {
+      throw new ConflictException({
+        message:
+          'Availability exception change would invalidate existing appointments',
+        conflicts,
+      });
+    }
+  }
+
+  async checkAvailabilityExceptionDeleteConflict(
+    params: AvailabilityExceptionDeleteParams,
+  ): Promise<void> {
+    const { businessId, serviceProviderId, exceptionDate } = params;
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { timezone: true },
+    });
+    if (!business) return;
+
+    const { timezone } = business;
+    const exceptionLocalDate = toLocalDate(exceptionDate, timezone);
+    const dayOfWeek = toDayOfWeek(exceptionDate, timezone);
+    const now = new Date();
+
+    const allAppointments = await this.prisma.appointment.findMany({
+      where: {
+        businessId,
+        ...(serviceProviderId !== null ? { serviceProviderId } : {}),
+        startsAt: { gt: now },
+        status: {
+          notIn: [
+            AppointmentStatus.CANCELLED_BY_CUSTOMER,
+            AppointmentStatus.CANCELLED_BY_BUSINESS,
+          ],
+        },
+      },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        serviceProviderId: true,
+        businessCustomerId: true,
+      },
+    });
+
+    const appointments = allAppointments.filter(
+      (apt) => toLocalDate(apt.startsAt, timezone) === exceptionLocalDate,
+    );
+
+    if (appointments.length === 0) return;
+
+    let fallbackWindow: WindowResult;
+
+    if (serviceProviderId !== null) {
+      const wh = await this.prisma.serviceProviderWorkingHour.findUnique({
+        where: {
+          serviceProviderId_dayOfWeek: { serviceProviderId, dayOfWeek },
+        },
+        select: { isClosed: true, startTime: true, endTime: true },
+      });
+      if (!wh || wh.isClosed || !wh.startTime || !wh.endTime) {
+        fallbackWindow = { open: false };
+      } else {
+        fallbackWindow = {
+          open: true,
+          startMin: parseTimeString(wh.startTime),
+          endMin: parseTimeString(wh.endTime),
+        };
+      }
+    } else {
+      const wh = await this.prisma.businessWorkingHour.findUnique({
+        where: { businessId_dayOfWeek: { businessId, dayOfWeek } },
+        select: { isClosed: true, startTime: true, endTime: true },
+      });
+      if (!wh || wh.isClosed || !wh.startTime || !wh.endTime) {
+        fallbackWindow = { open: false };
+      } else {
+        fallbackWindow = {
+          open: true,
+          startMin: parseTimeString(wh.startTime),
+          endMin: parseTimeString(wh.endTime),
+        };
+      }
+    }
+
+    const conflicts: BusinessHoursConflict[] = [];
+
+    for (const apt of appointments) {
+      let reason: string;
+      if (!fallbackWindow.open) {
+        reason =
+          serviceProviderId !== null
+            ? 'Service provider would be unavailable on this date without the exception'
+            : 'Business would be closed on this date without the exception';
+      } else {
+        const slotStartMin = toMinutesSinceMidnight(apt.startsAt, timezone);
+        const slotEndMin = toMinutesSinceMidnight(apt.endsAt, timezone);
+        if (
+          doesSlotFitWindow(
+            slotStartMin,
+            slotEndMin,
+            fallbackWindow.startMin,
+            fallbackWindow.endMin,
+          )
+        ) {
+          continue;
+        }
+        reason =
+          'Appointment falls outside the regular working hours that would apply after exception removal';
+      }
+
+      conflicts.push({
+        appointmentId: apt.id,
+        startsAt: apt.startsAt,
+        endsAt: apt.endsAt,
+        serviceProviderId: apt.serviceProviderId,
+        businessCustomerId: apt.businessCustomerId,
+        reason,
+      });
+    }
+
+    if (conflicts.length > 0) {
+      throw new ConflictException({
+        message:
+          'Deleting this availability exception would invalidate existing appointments',
         conflicts,
       });
     }
