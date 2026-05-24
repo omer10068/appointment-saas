@@ -26,7 +26,7 @@ export function CalendarV2DayPicker({ selectedDate, today, onSelect }: Props) {
               className={[
                 'flex flex-col items-center justify-center w-10 h-12 rounded-xl transition-colors',
                 isSelected
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white'
                   : isToday
                     ? 'text-blue-600 hover:bg-blue-50'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',

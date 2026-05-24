@@ -15,7 +15,7 @@ export function CalendarV2NewButton({ onClick }: Props) {
     >
       <button
         onClick={onClick}
-        className="w-full flex items-center justify-center gap-2 bg-blue-600 active:bg-blue-700 text-white font-semibold text-[15px] py-3.5 rounded-full shadow-md transition-colors"
+        className="w-full flex items-center justify-center gap-2 bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] active:bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white font-semibold text-[15px] py-3.5 rounded-full shadow-md transition-colors"
       >
         <Plus size={18} strokeWidth={2.5} />
         <span>פגישה חדשה</span>

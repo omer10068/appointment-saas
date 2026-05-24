@@ -309,7 +309,7 @@ function AppointmentModal({
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white rounded-md hover:bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] disabled:opacity-50"
           >
             {saving ? '…' : t.save}
           </button>
@@ -472,7 +472,7 @@ export default function AppointmentsPage() {
         <div className="flex justify-end mb-4">
           <button
             onClick={openAdd}
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white text-sm rounded-md hover:bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)]"
           >
             {t.addAppointment}
           </button>

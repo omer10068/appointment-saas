@@ -77,7 +77,7 @@ export function CalendarV2AppointmentCard({ appointment, onEdit }: Props) {
       </div>
 
       {/* Time + provider */}
-      <div className={['flex items-center gap-1.5 text-xs mt-2', c.metaText].join(' ')}>
+      <div className={['flex items-center gap-1.5 text-xs mt-2 justify-between', c.metaText].join(' ')}>
         <span className="tabular-nums">
           {formatTime(startTime)}–{formatTime(endTime)}
         </span>
