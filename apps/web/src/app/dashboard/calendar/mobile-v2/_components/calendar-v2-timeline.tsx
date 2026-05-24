@@ -18,7 +18,7 @@ interface Props {
 // Dedicated right-side time-label column width.
 // This value is the single source of truth for both the label layer
 // and the main timeline layer.
-const TIME_LABEL_WIDTH = 44;
+const TIME_LABEL_WIDTH = 56;
 
 // Gap between appointment cards and the edges of the main timeline area.
 const APPT_INSET_PX = 8;
@@ -113,18 +113,25 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
         {/* Layer 0: one continuous grid across the whole timeline */}
         <div className="absolute inset-0 z-0 pointer-events-none">
-          {GRID_SLOTS.map((slot) => (
-            <div
-              key={slot.topPx}
-              className={[
-                'absolute inset-x-0 border-t',
-                slot.isHour
-                  ? 'border-[#d8d5de]'
-                  : 'border-[#eceaef] border-dashed',
-              ].join(' ')}
-              style={{ top: slot.topPx }}
-            />
-          ))}
+{GRID_SLOTS.map((slot) =>
+  slot.isHour ? (
+    <div
+      key={slot.topPx}
+      className="absolute inset-x-0 border-t border-[#d8d5de]"
+      style={{ top: slot.topPx }}
+    />
+  ) : (
+    <div
+      key={slot.topPx}
+      className="absolute inset-x-0 h-px"
+      style={{
+        top: slot.topPx,
+        backgroundImage:
+          'repeating-linear-gradient(to left, #eceaef 0 3px, transparent 3px 6px)',
+      }}
+    />
+  ),
+)}
         </div>
         {/*
          * ── Layer A: right-side time-label column ─────────────────────────────
@@ -153,8 +160,10 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
 
               <span
                 className={[
-                  'relative inline-flex h-5 translate-y-[1px] items-center bg-white px-1 leading-[20px]',
-                  slot.isHour ? 'text-[11px] text-[#6b5b7a]' : 'text-[10px] text-[#9a93a3]',
+                  'relative inline-flex h-5 translate-y-[1px] items-center bg-white leading-[20px]',
+                  slot.isHour
+                    ? 'px-1 text-[11px] text-[#6b5b7a]'
+                    : 'px-0.5 text-[9px] text-[#9a93a3]',
                 ].join(' ')}
               >
                 {slot.label}
