@@ -14,7 +14,7 @@ interface Props {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
+const APPT_VERTICAL_GAP_PX = 3;
 // Dedicated right-side time-label column width.
 // This value is the single source of truth for both the label layer
 // and the main timeline layer.
@@ -68,6 +68,7 @@ function appointmentLayout(appt: Appointment): { top: number; height: number } |
   };
 }
 
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointment }: Props) {
@@ -113,25 +114,25 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
         {/* Layer 0: one continuous grid across the whole timeline */}
         <div className="absolute inset-0 z-0 pointer-events-none">
-{GRID_SLOTS.map((slot) =>
-  slot.isHour ? (
-    <div
-      key={slot.topPx}
-      className="absolute inset-x-0 border-t border-[#d8d5de]"
-      style={{ top: slot.topPx }}
-    />
-  ) : (
-    <div
-      key={slot.topPx}
-      className="absolute inset-x-0 h-px"
-      style={{
-        top: slot.topPx,
-        backgroundImage:
-          'repeating-linear-gradient(to left, #eceaef 0 3px, transparent 3px 6px)',
-      }}
-    />
-  ),
-)}
+          {GRID_SLOTS.map((slot) =>
+            slot.isHour ? (
+              <div
+                key={slot.topPx}
+                className="absolute inset-x-0 border-t border-[#d8d5de]"
+                style={{ top: slot.topPx }}
+              />
+            ) : (
+              <div
+                key={slot.topPx}
+                className="absolute inset-x-0 h-px"
+                style={{
+                  top: slot.topPx,
+                  backgroundImage:
+                    'repeating-linear-gradient(to left, #eceaef 0 3px, transparent 3px 6px)',
+                }}
+              />
+            ),
+          )}
         </div>
         {/*
          * ── Layer A: right-side time-label column ─────────────────────────────
@@ -194,22 +195,30 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
             return (
               <div
                 key={appt.id}
-                className="absolute z-[2] overflow-hidden"
+                className="absolute z-[2]"
                 style={{
                   top: layout.top,
                   height: layout.height,
-                  right: APPT_INSET_PX,
+                  right: 0,
                   left: APPT_INSET_PX,
                 }}
               >
-                <CalendarV2AppointmentCard
-                  customerName={appt.customer.name}
-                  startTime={formatTime(appt.startTime)}
-                  endTime={formatTime(appt.endTime)}
-                  serviceName={appt.service.name}
-                  note={appt.notes}
-                  onEdit={onEditAppointment ? () => onEditAppointment(appt.id) : undefined}
-                />
+                <div
+                  className="absolute inset-x-0 overflow-hidden rounded-l-[6px] rounded-r-none"
+                  style={{
+                    top: APPT_VERTICAL_GAP_PX,
+                    bottom: APPT_VERTICAL_GAP_PX,
+                  }}
+                >
+                  <CalendarV2AppointmentCard
+                    customerName={appt.customer.name}
+                    startTime={formatTime(appt.startTime)}
+                    endTime={formatTime(appt.endTime)}
+                    serviceName={appt.service.name}
+                    note={appt.notes}
+                    onEdit={onEditAppointment ? () => onEditAppointment(appt.id) : undefined}
+                  />
+                </div>
               </div>
             );
           })}

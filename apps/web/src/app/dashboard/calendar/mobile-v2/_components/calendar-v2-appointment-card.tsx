@@ -22,14 +22,14 @@ export function CalendarV2AppointmentCard({
   return (
     <div
       className={[
-        'h-full min-h-[72px] bg-[#fdf2f4] rounded-[6px]  overflow-hidden flex opacity-85',
-        status === 'cancelled' ? 'opacity-50' : '',
+        'h-full bg-[#fdf2f4] overflow-hidden flex opacity-85 right-0',
+        status === 'cancelled' ? 'opacity-50 rounded-md' : 'border-bottom-left-radius-md border-top-left-radius-md',
       ]
         .filter(Boolean)
         .join(' ')}
     >
       {/* Accent strip — first flex child = right side in RTL */}
-      <div className="w-[4px] bg-[#e88a98] shrink-0" />
+      <div className="w-1 bg-[#e88a98] shrink-0" />
 
       {/* Content area */}
       <div className="flex-1 p-2 pr-2.5 min-w-0 flex flex-col justify-between">
