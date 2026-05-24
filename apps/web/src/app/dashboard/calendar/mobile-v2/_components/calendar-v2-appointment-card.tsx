@@ -1,88 +1,77 @@
-'use client';
-
-import { Pencil } from 'lucide-react';
-import type { Appointment } from '../_lib/calendar-v2.types';
-import { SERVICE_COLORS, STATUS_STYLES } from '../_lib/calendar-v2.design';
-import { formatTime } from '../_lib/calendar-v2.utils';
+import { Star, MessageSquare, Check, Pencil } from 'lucide-react';
 
 interface Props {
-  appointment: Appointment;
-  onEdit?: (id: string) => void;
+  customerName: string;
+  startTime: string;
+  endTime: string;
+  serviceName: string;
+  note?: string;
+  status?: 'confirmed' | 'pending' | 'cancelled';
+  onEdit?: () => void;
 }
 
-export function CalendarV2AppointmentCard({ appointment, onEdit }: Props) {
-  const { customer, service, provider, startTime, endTime, status } = appointment;
-  const c = SERVICE_COLORS[service.color];
-  const s = STATUS_STYLES[status];
-
-  const isScheduled = status === 'scheduled';
-
+export function CalendarV2AppointmentCard({
+  customerName,
+  startTime,
+  endTime,
+  serviceName,
+  note,
+  status,
+  onEdit,
+}: Props) {
   return (
     <div
       className={[
-        'relative rounded-2xl border px-4 py-3 mb-3',
-        'min-h-[80px] flex flex-col justify-between',
-        c.bg,
-        c.border,
-        s.cardOpacity,
+        'h-full min-h-[72px] bg-[#fdf2f4] rounded-[6px]  overflow-hidden flex opacity-85',
+        status === 'cancelled' ? 'opacity-50' : '',
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      {/* Status badge — non-scheduled only */}
-      {s.label && (
-        <span
-          className={[
-            'absolute top-3 left-3',
-            'text-xs font-medium px-2 py-0.5 rounded-full',
-            s.badgeBg,
-            s.badgeText,
-          ].join(' ')}
-        >
-          {s.label}
-        </span>
-      )}
+      {/* Accent strip — first flex child = right side in RTL */}
+      <div className="w-[4px] bg-[#e88a98] shrink-0" />
 
-      {/* Edit button — scheduled only, subtle */}
-      {isScheduled && onEdit && (
-        <button
-          onClick={() => onEdit(appointment.id)}
-          aria-label="עריכת פגישה"
-          className={[
-            'absolute top-2.5 left-3 p-1.5 rounded-lg',
-            'opacity-25 hover:opacity-55 active:opacity-70 transition-opacity',
-            c.editIcon,
-          ].join(' ')}
-        >
-          <Pencil size={13} />
-        </button>
-      )}
+      {/* Content area */}
+      <div className="flex-1 p-2 pr-2.5 min-w-0 flex flex-col justify-between">
+        {/* Top row: customer name + icon cluster */}
+        <div className="flex items-start justify-between gap-1">
+          <span className="text-[13px] font-medium text-[#2d2a33] leading-tight truncate">
+            {customerName}
+          </span>
+          <div className="flex items-center gap-1 shrink-0">
+            <Star className="w-3.5 h-3.5 text-[#e0a526] fill-[#e0a526]" />
+            <MessageSquare className="w-3.5 h-3.5 text-[#8e8a96]" />
+            <div className="w-4 h-4 rounded-full bg-[#5bb5cf] flex items-center justify-center">
+              <Check className="w-2.5 h-2.5 text-white" />
+            </div>
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                aria-label="עריכת פגישה"
+                className="opacity-30 hover:opacity-60 active:opacity-80 transition-opacity"
+              >
+                <Pencil className="w-3.5 h-3.5 text-[#8e8a96]" />
+              </button>
+            )}
+          </div>
+        </div>
 
-      {/* Customer + service */}
-      <div className="flex flex-col gap-0.5">
-        <span
-          className={[
-            'text-base font-semibold leading-snug',
-            c.customerText,
-            s.nameDecoration,
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          {customer.name}
-        </span>
-        <span className={['text-sm leading-snug', c.serviceText].join(' ')}>
-          {service.name}
-        </span>
-      </div>
+        {/* Time range */}
+        <div className="text-[11px] text-[#8e8a96] mt-0.5 tabular-nums">
+          {startTime}–{endTime}
+        </div>
 
-      {/* Time + provider */}
-      <div className={['flex items-center gap-1.5 text-xs mt-2 justify-between', c.metaText].join(' ')}>
-        <span className="tabular-nums">
-          {formatTime(startTime)}–{formatTime(endTime)}
-        </span>
-        <span className="opacity-40">·</span>
-        <span>{provider.name}</span>
+        {/* Service name */}
+        <div className="text-[12px] text-[#5c5768] mt-0.5 truncate">
+          {serviceName}
+        </div>
+
+        {/* Optional note */}
+        {note && (
+          <div className="text-[11px] text-[#e07a4f] mt-1 leading-tight line-clamp-2">
+            הערה: {note}
+          </div>
+        )}
       </div>
     </div>
   );
