@@ -2,3 +2,12 @@
 
 /* Class-based dark mode — ":is()" gives dark: variants higher specificity than regular utilities */
 @variant dark (&:is(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-heebo), Arial, sans-serif;
+  --font-heading: var(--font-rubik), Arial, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}

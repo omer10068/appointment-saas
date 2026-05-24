@@ -23,6 +23,11 @@ const TIME_LABEL_WIDTH = 44;
 // Gap between appointment cards and the edges of the main timeline area.
 const APPT_INSET_PX = 8;
 
+// Current-time indicator tuning.
+const NOW_LINE_OVERHANG_PX = 14;
+const NOW_ICON_SIZE_PX = 16;
+const NOW_ICON_RIGHT_PX = -(TIME_LABEL_WIDTH / 2 + NOW_ICON_SIZE_PX / 2);
+
 const MINUTE_HEIGHT = TIMELINE.slotHeightPx / 60;
 const TIMELINE_START_MIN = TIMELINE.startHour * 60;
 const TIMELINE_END_MIN = TIMELINE.endHour * 60;
@@ -93,8 +98,8 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
   const isToday = isSameDay(selectedDate, now);
   const nowOffsetPx = isToday
     ? Math.round(
-        (now.getHours() - TIMELINE.startHour + now.getMinutes() / 60) * TIMELINE.slotHeightPx,
-      )
+      (now.getHours() - TIMELINE.startHour + now.getMinutes() / 60) * TIMELINE.slotHeightPx,
+    )
     : -1;
 
   const showNowIndicator = nowOffsetPx >= 0 && nowOffsetPx <= TOTAL_HEIGHT_PX;
@@ -106,6 +111,21 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
       style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
     >
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
+        {/* Layer 0: one continuous grid across the whole timeline */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          {GRID_SLOTS.map((slot) => (
+            <div
+              key={slot.topPx}
+              className={[
+                'absolute inset-x-0 border-t',
+                slot.isHour
+                  ? 'border-[#d8d5de]'
+                  : 'border-[#eceaef] border-dashed',
+              ].join(' ')}
+              style={{ top: slot.topPx }}
+            />
+          ))}
+        </div>
         {/*
          * ── Layer A: right-side time-label column ─────────────────────────────
          *
@@ -118,28 +138,24 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
          * use dashed lines.
          */}
         <div
-          className="absolute top-0 right-0 z-4 pointer-events-none"
+          className="absolute top-0 right-0 z-[4] pointer-events-none"
           style={{ width: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
           {GRID_SLOTS.map((slot) => (
             <div
               key={slot.topPx}
-              className="absolute inset-x-0 h-4 flex items-center justify-center"
+              className="absolute inset-x-0 h-5 flex items-center justify-center"
               style={{
                 top: slot.topPx,
                 transform: 'translateY(-50%)',
               }}
             >
-              <div
-                className={`absolute left-0 right-0 top-1/2 border-t ${
-                  slot.isHour ? 'border-[#d8d5de]' : 'border-[#eceaef] border-dashed'
-                }`}
-              />
 
               <span
-                className={`relative bg-white px-1 leading-none ${
-                  slot.isHour ? 'text-[11px] text-[#6b5b7a]' : 'text-[10px] text-[#8e8a96]'
-                }`}
+                className={[
+                  'relative inline-flex h-5 translate-y-[1px] items-center bg-white px-1 leading-[20px]',
+                  slot.isHour ? 'text-[11px] text-[#6b5b7a]' : 'text-[10px] text-[#9a93a3]',
+                ].join(' ')}
               >
                 {slot.label}
               </span>
@@ -157,19 +173,9 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          {/* Grid lines */}
-          {GRID_SLOTS.map((slot) => (
-            <div
-              key={slot.topPx}
-              className={`absolute inset-x-0 border-t ${
-                slot.isHour ? 'border-[#d8d5de]' : 'border-[#eceaef] border-dashed'
-              }`}
-              style={{ top: slot.topPx }}
-            />
-          ))}
 
           {/* Vertical separator line between the time axis and appointments */}
-          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-[#d8d5de] pointer-events-none" />
+          <div className="absolute top-0 bottom-0 right-0 z-[1] w-px bg-[#d8d5de] pointer-events-none" />
 
           {/* Appointment cards */}
           {dayAppointments.map((appt) => {
@@ -179,7 +185,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
             return (
               <div
                 key={appt.id}
-                className="absolute z-2 overflow-hidden"
+                className="absolute z-[2] overflow-hidden"
                 style={{
                   top: layout.top,
                   height: layout.height,
