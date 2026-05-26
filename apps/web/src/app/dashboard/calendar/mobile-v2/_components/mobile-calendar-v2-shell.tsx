@@ -88,6 +88,7 @@ export function MobileCalendarV2Shell() {
         selectedDate={selectedDate}
         appointments={filteredAppointments}
         onEditAppointment={handleEditAppointment}
+        serviceProviders={selectedServiceProviderId === 'all' ? serviceProviders : undefined}
       />
 
       <CalendarV2NewButton onClick={handleNewAppointment} />

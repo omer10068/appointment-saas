@@ -49,8 +49,8 @@ export function getMockAppointments(date: Date): Appointment[] {
       customer: CUSTOMERS[1],
       service: SERVICES[1],
       provider: PROVIDERS[1],
-      startTime: at(date, 10, 0),
-      endTime: at(date, 11, 30),
+      startTime: at(date, 9, 0),
+      endTime: at(date, 10, 30),
       status: 'completed',
     },
     {
