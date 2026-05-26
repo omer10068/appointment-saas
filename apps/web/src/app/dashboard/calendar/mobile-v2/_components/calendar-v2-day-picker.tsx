@@ -9,12 +9,11 @@ interface Props {
 }
 
 export function CalendarV2DayPicker({ selectedDate, today, onSelect }: Props) {
-  // getWeekDays returns Sun→Sat; with dir="rtl" inherited, Sunday renders rightmost
   const weekDays = getWeekDays(selectedDate);
 
   return (
-    <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-2 py-2 font-['Heebo']">
-      <div className="flex justify-around">
+    <div className="bg-transparent px-3 py-3">
+      <div className="flex items-end justify-around">
         {weekDays.map((day, i) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, today);
@@ -23,19 +22,12 @@ export function CalendarV2DayPicker({ selectedDate, today, onSelect }: Props) {
             <button
               key={i}
               onClick={() => onSelect(day)}
-              className={[
-                'flex flex-col items-center justify-center w-10 h-12 rounded-xl transition-colors',
-                isSelected
-                  ? 'bg-[linear-gradient(145deg,#7FAEFF_0%,#4F8FF5_45%,#2F73D9_100%)] text-white'
-                  : isToday
-                    ? 'text-[#3F85DE] hover:bg-[#EEF5FF]'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
-              ].join(' ')}
+              className="flex w-10 flex-col items-center gap-2 transition-colors"
             >
               <span
                 className={[
-                  'text-[13px] leading-none mb-1 font-medium',
-                  isSelected ? 'text-blue-100' : 'opacity-70',
+                  'text-[12px] font-normal leading-none',
+                  isSelected ? 'text-[#2d2d3a]' : 'text-gray-400',
                 ].join(' ')}
               >
                 {HEBREW_DAY_ABBR[day.getDay()]}
@@ -43,15 +35,16 @@ export function CalendarV2DayPicker({ selectedDate, today, onSelect }: Props) {
 
               <span
                 className={[
-                  'text-base font-bold leading-none',
-                  isToday && !isSelected ? 'font-extrabold' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
+                  'flex h-9 w-9 items-center justify-center rounded-full text-[12px] leading-none transition-all',
+                  isSelected
+                    ? 'bg-[#2d2d3a] text-white shadow-sm'
+                    : isToday
+                      ? 'text-[#2d2d3a] font-weight-semibold'
+                      : 'bg-transparent text-gray-800 pointer-cursor-default',
+                ].join(' ')}
               >
                 {day.getDate()}
               </span>
-
             </button>
           );
         })}

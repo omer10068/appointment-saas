@@ -78,13 +78,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
   useEffect(() => {
     if (!scrollRef.current) return;
 
-    const now = new Date();
-    const isToday = isSameDay(selectedDate, now);
-    const targetHour = isToday
-      ? Math.max(TIMELINE.startHour, Math.min(now.getHours() - 1, TIMELINE.endHour - 2))
-      : TIMELINE.startHour;
-
-    scrollRef.current.scrollTop = (targetHour - TIMELINE.startHour) * TIMELINE.slotHeightPx;
+    scrollRef.current.scrollTop = 0;
   }, [selectedDate]);
 
   if (dayAppointments.length === 0) {
@@ -108,7 +102,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto bg-white"
+      className="flex-1 overflow-y-auto bg-transparent"
       style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
     >
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
@@ -146,7 +140,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
          * use dashed lines.
          */}
         <div
-          className="absolute top-0 right-0 z-[4] pointer-events-none"
+          className="absolute top-0 right-0 z-4 pointer-events-none"
           style={{ width: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
           {GRID_SLOTS.map((slot) => (
@@ -161,7 +155,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
 
               <span
                 className={[
-                  'relative inline-flex h-5 translate-y-[1px] items-center bg-white leading-[20px]',
+                  'relative inline-flex h-5 translate-y-px items-center bg-gray-50 leading-5',
                   slot.isHour
                     ? 'px-1 text-[11px] text-[#6b5b7a]'
                     : 'px-0.5 text-[9px] text-[#9a93a3]',
@@ -185,7 +179,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
         >
 
           {/* Vertical separator line between the time axis and appointments */}
-          <div className="absolute top-0 bottom-0 right-0 z-[1] w-px bg-[#d8d5de] pointer-events-none" />
+          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-[#d8d5de] pointer-events-none" />
 
           {/* Appointment cards */}
           {dayAppointments.map((appt) => {
@@ -195,7 +189,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
             return (
               <div
                 key={appt.id}
-                className="absolute z-[2]"
+                className="absolute z-2"
                 style={{
                   top: layout.top,
                   height: layout.height,
@@ -204,7 +198,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                 }}
               >
                 <div
-                  className="absolute inset-x-0 overflow-hidden rounded-l-[6px] rounded-r-none"
+                  className="absolute inset-x-0 overflow-hidden rounded-l-md rounded-r-none"
                   style={{
                     top: APPT_VERTICAL_GAP_PX,
                     bottom: APPT_VERTICAL_GAP_PX,
@@ -215,7 +209,9 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                     startTime={formatTime(appt.startTime)}
                     endTime={formatTime(appt.endTime)}
                     serviceName={appt.service.name}
+                    serviceProviderName={appt.provider.name}
                     note={appt.notes}
+                    compact={layout.height < 64}
                     onEdit={onEditAppointment ? () => onEditAppointment(appt.id) : undefined}
                   />
                 </div>

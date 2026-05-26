@@ -12,6 +12,7 @@ import { CalendarV2BottomNav } from './calendar-v2-bottom-nav';
 export function MobileCalendarV2Shell() {
   const [today] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  const [todayResetKey, setTodayResetKey] = useState(0);
 
   const appointments = getMockAppointments(selectedDate);
 
@@ -25,6 +26,7 @@ export function MobileCalendarV2Shell() {
 
   function handleToday() {
     setSelectedDate(new Date());
+    setTodayResetKey((key) => key + 1);
   }
 
   function handleEditAppointment(id: string) {
@@ -57,6 +59,7 @@ export function MobileCalendarV2Shell() {
       />
 
       <CalendarV2Timeline
+        key={todayResetKey}
         selectedDate={selectedDate}
         appointments={appointments}
         onEditAppointment={handleEditAppointment}

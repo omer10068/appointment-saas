@@ -4,7 +4,7 @@ export const HEBREW_MONTHS = [
 ] as const;
 
 // Sunday=0 … Saturday=6 in JS Date
-export const HEBREW_DAY_ABBR = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+export const HEBREW_DAY_ABBR = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const;
 
 export function addDays(date: Date, days: number): Date {
   const d = new Date(date);
