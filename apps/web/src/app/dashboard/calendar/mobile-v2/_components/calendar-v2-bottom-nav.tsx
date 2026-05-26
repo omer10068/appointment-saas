@@ -31,8 +31,8 @@ export function CalendarV2BottomNav({ activeKey = 'calendar' }: Props) {
               aria-label={label}
               className={[
                 'flex flex-col items-center justify-center gap-0.5',
-                'min-w-[52px] h-full px-1 rounded-xl transition-colors',
-                active ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600',
+                'min-w-13 h-full px-1 rounded-xl transition-colors',
+                active ? 'text-[#2d2d3a]' : 'text-gray-400 hover:text-gray-600',
               ].join(' ')}
             >
               <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />

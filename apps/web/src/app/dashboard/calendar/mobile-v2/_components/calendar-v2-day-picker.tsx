@@ -40,7 +40,7 @@ export function CalendarV2DayPicker({ selectedDate, today, onSelect }: Props) {
                     ? 'bg-[#2d2d3a] text-white shadow-sm'
                     : isToday
                       ? 'text-[#2d2d3a] font-weight-semibold'
-                      : 'bg-transparent text-gray-800 pointer-cursor-default',
+                      : 'bg-white text-gray-800 pointer-cursor-default',
                 ].join(' ')}
               >
                 {day.getDate()}

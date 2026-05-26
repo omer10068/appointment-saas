@@ -9,17 +9,13 @@ interface Props {
 
 export function CalendarV2NewButton({ onClick }: Props) {
   return (
-    <div
-      className="fixed left-4 right-4 z-40"
+    <button
+      onClick={onClick}
+      aria-label="תור חדש"
+      className="fixed left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#2d2d3a] text-white shadow-lg transition-transform active:scale-95"
       style={{ bottom: LAYOUT.fabBottomOffset }}
     >
-      <button
-        onClick={onClick}
-        className="w-full flex items-center justify-center gap-2 bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] active:bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white font-semibold text-[15px] py-3.5 rounded-full shadow-md transition-colors"
-      >
-        <Plus size={18} strokeWidth={2.5} />
-        <span>פגישה חדשה</span>
-      </button>
-    </div>
+      <Plus size={22} strokeWidth={2.5} />
+    </button>
   );
 }
