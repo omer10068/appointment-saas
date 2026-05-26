@@ -28,13 +28,13 @@ function FilterPill({ label, count, isActive, onClick }: FilterPillProps) {
       type="button"
       onClick={onClick}
       className={[
-        'flex flex-col items-center justify-center gap-0.5 px-4 py-2 rounded-xl whitespace-nowrap transition-all duration-150 shrink-0 border min-w-13',
+        'flex flex-col items-center justify-center gap-0.5 min-w-13 py-2.5 rounded-xl transition-all duration-150 border',
         isActive
           ? 'bg-[#2d2d3a] text-white border-[#2d2d3a] shadow-sm'
           : 'bg-transparent text-gray-700 border-gray-200',
       ].join(' ')}
     >
-      <span className="text-[12px] font-normal leading-none">{label}</span>
+      <span className="text-[12px] font-normal leading-tight text-center">{label}</span>
       <span
         className={[
           'text-[10px] leading-none',
@@ -60,24 +60,26 @@ export function CalendarV2ServiceProviderFilter({
       dir="rtl"
     >
       <div
-        className="flex flex-row justify-center gap-2 overflow-x-auto"
+        className="overflow-x-auto"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
       >
-        <FilterPill
-          label="כל הצוות"
-          count={totalAppointmentsCount}
-          isActive={selectedServiceProviderId === 'all'}
-          onClick={() => onSelectServiceProvider('all')}
-        />
-        {serviceProviders.map((sp) => (
+        <div className="flex justify-center gap-2 min-w-full">
           <FilterPill
-            key={sp.id}
-            label={getFirstName(sp.name)}
-            count={appointmentCountsByServiceProviderId[sp.id] ?? 0}
-            isActive={selectedServiceProviderId === sp.id}
-            onClick={() => onSelectServiceProvider(sp.id)}
+            label="כל הצוות"
+            count={totalAppointmentsCount}
+            isActive={selectedServiceProviderId === 'all'}
+            onClick={() => onSelectServiceProvider('all')}
           />
-        ))}
+          {serviceProviders.map((sp) => (
+            <FilterPill
+              key={sp.id}
+              label={getFirstName(sp.name)}
+              count={appointmentCountsByServiceProviderId[sp.id] ?? 0}
+              isActive={selectedServiceProviderId === sp.id}
+              onClick={() => onSelectServiceProvider(sp.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
