@@ -8,9 +8,13 @@ const SERVICES: Service[] = [
 ];
 
 const PROVIDERS: ServiceProvider[] = [
-  { id: 'p1', name: "יובל תורג'מן" },
-  { id: 'p2', name: 'מיכל כהן' },
+  { id: '11111111-1111-1111-1111-111111111111', name: "יובל תורג'מן" },
+  { id: '22222222-2222-2222-2222-222222222222', name: "אביבית תורג'מן" },
 ];
+
+export function getMockServiceProviders(): ServiceProvider[] {
+  return PROVIDERS;
+}
 
 const CUSTOMERS: Customer[] = [
   { id: 'c1', name: 'שרה לוי' },

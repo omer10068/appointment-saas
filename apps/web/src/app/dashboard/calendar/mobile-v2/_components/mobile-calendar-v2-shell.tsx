@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { getMockAppointments } from '../_lib/calendar-v2.mock';
+import { getMockAppointments, getMockServiceProviders } from '../_lib/calendar-v2.mock';
 import { addDays } from '../_lib/calendar-v2.utils';
 import { CalendarV2Header } from './calendar-v2-header';
 import { CalendarV2DayPicker } from './calendar-v2-day-picker';
+import { CalendarV2ServiceProviderFilter } from './calendar-v2-service-provider-filter';
 import { CalendarV2Timeline } from './calendar-v2-timeline';
 import { CalendarV2NewButton } from './calendar-v2-new-button';
 import { CalendarV2BottomNav } from './calendar-v2-bottom-nav';
@@ -13,8 +14,24 @@ export function MobileCalendarV2Shell() {
   const [today] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [todayResetKey, setTodayResetKey] = useState(0);
+  const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
 
-  const appointments = getMockAppointments(selectedDate);
+  const serviceProviders = getMockServiceProviders();
+  const allDayAppointments = getMockAppointments(selectedDate);
+
+  const appointmentCountsByServiceProviderId: Record<string, number> = Object.fromEntries(
+    serviceProviders.map((sp) => [
+      sp.id,
+      allDayAppointments.filter((a) => a.provider.id === sp.id).length,
+    ]),
+  );
+
+  const totalAppointmentsCount = allDayAppointments.length;
+
+  const filteredAppointments =
+    selectedServiceProviderId === 'all'
+      ? allDayAppointments
+      : allDayAppointments.filter((a) => a.provider.id === selectedServiceProviderId);
 
   function handlePrevWeek() {
     setSelectedDate((d) => addDays(d, -7));
@@ -58,10 +75,18 @@ export function MobileCalendarV2Shell() {
         onSelect={setSelectedDate}
       />
 
+      <CalendarV2ServiceProviderFilter
+        serviceProviders={serviceProviders}
+        selectedServiceProviderId={selectedServiceProviderId}
+        onSelectServiceProvider={setSelectedServiceProviderId}
+        appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
+        totalAppointmentsCount={totalAppointmentsCount}
+      />
+
       <CalendarV2Timeline
         key={todayResetKey}
         selectedDate={selectedDate}
-        appointments={appointments}
+        appointments={filteredAppointments}
         onEditAppointment={handleEditAppointment}
       />
 
