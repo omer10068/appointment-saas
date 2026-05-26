@@ -1,49 +1,19 @@
 'use client';
 
 import { Clock, Pencil } from 'lucide-react';
+import { SERVICE_COLORS } from '../_lib/calendar-v2.design';
+import type { ServiceColor } from '../_lib/calendar-v2.types';
 
 interface Props {
   customerName: string;
   startTime: string;
   endTime: string;
   serviceName: string;
+  color: ServiceColor;
   serviceProviderName?: string;
   note?: string;
-  status?: 'confirmed' | 'pending' | 'cancelled';
   compact?: boolean;
   onEdit?: () => void;
-}
-
-const colorStyles = {
-  mint: {
-    bg: 'bg-[#e8f5e9]',
-    accent: 'bg-[#4caf50]',
-    text: 'text-[#2e7d32]',
-  },
-  peach: {
-    bg: 'bg-[#fff3e0]',
-    accent: 'bg-[#ff9800]',
-    text: 'text-[#e65100]',
-  },
-  lavender: {
-    bg: 'bg-[#f3e5f5]',
-    accent: 'bg-[#9c27b0]',
-    text: 'text-[#7b1fa2]',
-  },
-  rose: {
-    bg: 'bg-[#fce4ec]',
-    accent: 'bg-[#e91e63]',
-    text: 'text-[#c2185b]',
-  },
-} as const;
-
-function getCardColor(serviceName: string): keyof typeof colorStyles {
-  if (serviceName.includes('תספורת וצבע')) return 'mint';
-  if (serviceName.includes('טיפול פנים')) return 'peach';
-  if (serviceName.includes('תספורת גבר')) return 'lavender';
-  if (serviceName.includes('גבות')) return 'rose';
-
-  return 'mint';
 }
 
 export function CalendarV2AppointmentCard({
@@ -51,114 +21,174 @@ export function CalendarV2AppointmentCard({
   startTime,
   endTime,
   serviceName,
+  color,
   serviceProviderName,
-  status,
   compact = false,
   onEdit,
 }: Props) {
-  const styles = colorStyles[getCardColor(serviceName)];
+  const c = SERVICE_COLORS[color];
 
   if (compact) {
     return (
       <div
-        className={`${styles.bg} rounded-e-xl p-2 sm:p-2.5 w-full h-full relative overflow-hidden transition-all duration-200 hover:shadow-md`}
+        className={`${c.bg} rounded-e-xl p-1 w-full h-full relative overflow-hidden transition-all duration-200 hover:shadow-md`}
         dir="rtl"
       >
-        {/* Accent bar */}
-        <div className={`absolute top-0 right-0 w-1 h-full ${styles.accent}`} />
-
-        {/* Compact Content - single row */}
-        <div className="pr-2 flex h-full items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            <h3 className="font-semibold text-gray-900 text-xs sm:text-sm truncate">
+        <div className={`absolute top-0 bottom-0 right-0 w-1 rounded-full ${c.bar}`} />
+{/* 
+        <div className="pr-2 flex h-full items-center justify-between gap-2 border border-violet-700">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className={`text-[11px] font-medium text-black/90 truncate shrink-0`}>
               {serviceName}
-            </h3>
-
-            <span className="text-gray-900 text-xs sm:text-sm truncate">
+            </span>
+            <span className={`text-[12px] font-normal text-black/90 truncate`}>
               {customerName}
             </span>
+          </div>
 
-            <div className="flex items-center gap-1 shrink-0">
-              <Clock className={`w-3 h-3 ${styles.text}`} />
-              <span className={`text-xs ${styles.text} tabular-nums`}>
-                {startTime} - {endTime}
-              </span>
-            </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Clock className={`w-3 h-3 text-black/90 `} />
+            <span className={`text-[10px] mt-px leading-none text-black/90 tabular-nums`} dir="ltr">
+              {startTime}–{endTime}
+            </span>
           </div>
 
           {onEdit && (
             <button
               type="button"
               onClick={onEdit}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/70 hover:bg-white flex items-center justify-center transition-colors shadow-sm shrink-0"
+              className="w-6 h-6 rounded-full bg-white/70 hover:bg-white flex items-center justify-center transition-colors shadow-sm shrink-0"
               aria-label="עריכה"
             >
-              <Pencil className="w-3.5 h-3.5 text-gray-500" />
+              <Pencil className={`w-3 h-3 text-black/90`} />
             </button>
           )}
+        </div> */}
+              <div className="h-full w-full pr-3 pl-2 flex flex-col justify-between gap-0">
+        {/* Top row: Customer name + TODO BUTTON */}
+        <div className="flex items-start justify-between gap-0">
+          {/* Customer name */}
+          <span
+            className={`text-[13px] font-semibold text-black/90 truncate leading-3 border border-violet-700`}
+            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}
+          >
+            {customerName}
+          </span>
+          {/* {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="w-6 h-6 rounded-full bg-white/70 hover:bg-white flex items-center justify-center transition-colors shadow-sm shrink-0"
+              aria-label="עריכה"
+            >
+              <Pencil className={`w-3 h-3 text-black/90`} />
+            </button>
+          )} */}
         </div>
+
+        {/* Service name */}
+
+        <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }} className={`text-[10px] font-medium text-black/90 truncate leading-tight `}>
+          • {serviceName}
+        </span>
+
+        {/* Bottom row: time + provider */}
+        {/* <div className="flex items-center justify-between gap-1 border border-violet-800">
+          <div className="flex items-center gap-1">
+            <Clock className={`w-3 h-3 shrink-0 text-black/90`} />
+            <span className={`text-[10px] mt-px leading-none text-black/90 tabular-nums`} dir="ltr">
+              {startTime}–{endTime}
+            </span>
+          </div>
+          {serviceProviderName && (
+            <span className={`text-[10px] text-black/90 truncate`}>
+              {serviceProviderName.split(' ')[0]}
+            </span>
+          )}
+        </div> */}
+        {/* Bottom row: time + provider */}
+        <div className="flex flex-1 items-end justify-between gap-1 border border-violet-700">
+          <div className="flex items-end gap-1">
+            <Clock className={`w-3 h-2.25 shrink-0 text-black/90 `} />
+            <span className={`text-[10px] leading-2 text-black/90 tabular-nums`} dir="ltr">
+              {startTime} - {endTime}
+            </span>
+          </div>
+          {serviceProviderName && (
+            <span className={`text-[10px] leading-2 text-black/90 truncate`}>
+              {serviceProviderName.split(' ')[0]}
+            </span>
+          )}
+        </div>
+      </div>
       </div>
     );
   }
 
   return (
     <div
-      className={`${styles.bg} rounded-e-2xl p-2 sm:p-4 w-full h-full relative overflow-hidden transition-all duration-200 hover:shadow-md`}
+      className={`${c.bg} rounded-e-xl h-full w-full relative flex overflow-visible transition-all duration-200 hover:shadow-md`}
       dir="rtl"
     >
-      {/* Accent bar */}
-      <div className={`absolute top-0 right-0 w-1 sm:w-1.5 h-full ${styles.accent}`} />
+      <div className={`absolute top-0 bottom-0 right-0 w-1 rounded-full ${c.bar}`} />
 
-      {/* Content */}
-      <div className="h-full sm:pr-2 flex flex-col justify-between">
+      <div className="w-full pr-3 pl-2 py-2 flex flex-col justify-between gap-1.5">
+        {/* Top row: customer name */}
+        <div className="flex items-start justify-between gap-1">
+          {/* Customer name */}
+          <span
+            className={`text-[13px] font-semibold text-black/90 truncate leading-tight`}
+            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}
+          >
+            {customerName}
+          </span>
+          {/* {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="w-6 h-6 rounded-full bg-white/70 hover:bg-white flex items-center justify-center transition-colors shadow-sm shrink-0"
+              aria-label="עריכה"
+            >
+              <Pencil className={`w-3 h-3 text-black/90`} />
+            </button>
+          )} */}
+        </div>
 
-        <div className="h-full sm:pr-2 flex flex-row-reverse justify-between">
-          {/* Edit button + Service Provider name */}
-          <div className="h-full sm:pr-2 flex flex-col justify-between">
-            <div className="flex flex-row justify-end w-full">
-              {onEdit && (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/70 hover:bg-white flex items-center justify-center transition-colors shadow-sm shrink-0"
-                  aria-label="עריכה"
-                >
-                  <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />
-                </button>
-              )}
-            </div>
+        {/* Service name */}
 
-            {serviceProviderName && (
-              <span className="text-xs sm:text-sm text-gray-400 truncate">
-                {serviceProviderName}
-              </span>
-            )}
+        <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }} className={`text-[11px] font-medium text-black/90 truncate leading-tight`}>
+          {serviceName}
+        </span>
+
+        {/* Bottom row: time + provider */}
+        {/* <div className="flex items-center justify-between gap-1 border border-violet-800">
+          <div className="flex items-center gap-1">
+            <Clock className={`w-3 h-3 shrink-0 text-black/90`} />
+            <span className={`text-[10px] mt-px leading-none text-black/90 tabular-nums`} dir="ltr">
+              {startTime}–{endTime}
+            </span>
           </div>
-          {/* Service name + Customer name */}
-          <div className="pr-2 h-full sm:pr-2 flex flex-col justify-between">
-            <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
-              {serviceName}
-            </h3>
-
-            <p className="text-gray-800 text-xs sm:text-base mb-1 truncate">
-              {customerName}
-            </p>
-
-            {/* Time & Therapist row */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${styles.text}`} />
-                <span className={`text-xs sm:text-sm font-medium ${styles.text} tabular-nums`}>
-                  {startTime} - {endTime}
-                </span>
-              </div>
-            </div>
+          {serviceProviderName && (
+            <span className={`text-[10px] text-black/90 truncate`}>
+              {serviceProviderName.split(' ')[0]}
+            </span>
+          )}
+        </div> */}
+        {/* Bottom row: time + provider */}
+        <div className="w-full flex flex-1 items-end justify-between gap-1">
+          <div className="flex items-center gap-1">
+            <Clock className={`w-3 h-3 shrink-0 text-black/90`} />
+            <span className={`text-[10px] mt-px leading-none text-black/90 tabular-nums`} dir="ltr">
+              {startTime}–{endTime}
+            </span>
           </div>
+          {serviceProviderName && (
+            <span className={`text-[10px] text-black/90 truncate`}>
+              {serviceProviderName.split(' ')[0]}
+            </span>
+          )}
         </div>
       </div>
-
-
-
     </div>
   );
 }

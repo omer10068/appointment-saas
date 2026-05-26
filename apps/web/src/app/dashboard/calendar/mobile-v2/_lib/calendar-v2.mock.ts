@@ -3,7 +3,7 @@ import type { Appointment, Service, ServiceProvider, Customer } from './calendar
 const SERVICES: Service[] = [
   { id: 's1', name: 'תספורת', durationMinutes: 45, color: 'rose' },
   { id: 's2', name: 'צביעה', durationMinutes: 90, color: 'mint' },
-  { id: 's3', name: 'פן', durationMinutes: 30, color: 'peach' },
+  { id: 's3', name: 'פן', durationMinutes: 30, color: 'cream' },
   { id: 's4', name: 'טיפול שיער', durationMinutes: 60, color: 'lavender' },
 ];
 

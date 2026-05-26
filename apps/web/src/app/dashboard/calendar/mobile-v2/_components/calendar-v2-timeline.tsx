@@ -213,6 +213,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                               startTime={formatTime(appt.startTime)}
                               endTime={formatTime(appt.endTime)}
                               serviceName={appt.service.name}
+                              color={appt.service.color}
                               serviceProviderName={appt.provider.name}
                               note={appt.notes}
                               compact={layout.height < 64}
@@ -256,6 +257,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                       startTime={formatTime(appt.startTime)}
                       endTime={formatTime(appt.endTime)}
                       serviceName={appt.service.name}
+                      color={appt.service.color}
                       serviceProviderName={appt.provider.name}
                       note={appt.notes}
                       compact={layout.height < 64}

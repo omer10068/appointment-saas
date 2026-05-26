@@ -1,4 +1,4 @@
-export type ServiceColor = 'rose' | 'mint' | 'peach' | 'lavender';
+export type ServiceColor = 'rose' | 'mint' | 'cream' | 'lavender' | 'sky';
 
 export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
 
