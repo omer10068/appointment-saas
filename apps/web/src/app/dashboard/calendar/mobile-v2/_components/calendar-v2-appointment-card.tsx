@@ -35,7 +35,7 @@ export function CalendarV2AppointmentCard({
         dir="rtl"
       >
         <div className={`absolute top-0 bottom-0 right-0 w-1 rounded-full ${c.bar}`} />
-{/* 
+        {/* 
         <div className="pr-2 flex h-full items-center justify-between gap-2 border border-violet-700">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className={`text-[11px] font-medium text-black/90 truncate shrink-0`}>
@@ -64,17 +64,17 @@ export function CalendarV2AppointmentCard({
             </button>
           )}
         </div> */}
-              <div className="h-full w-full pr-3 pl-2 flex flex-col justify-between gap-0">
-        {/* Top row: Customer name + TODO BUTTON */}
-        <div className="flex items-start justify-between gap-0">
-          {/* Customer name */}
-          <span
-            className={`text-[13px] font-semibold text-black/90 truncate leading-3 border border-violet-700`}
-            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}
-          >
-            {customerName}
-          </span>
-          {/* {onEdit && (
+        <div className="h-full w-full pr-3 pl-2 flex flex-col justify-between gap-0">
+          {/* Top row: Customer name + TODO BUTTON */}
+          <div className="flex items-start justify-between gap-0">
+            {/* Customer name */}
+            <span
+              className={`text-[13px] font-semibold text-black/90 truncate leading-3 border border-violet-700`}
+              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}
+            >
+              {customerName}
+            </span>
+            {/* {onEdit && (
             <button
               type="button"
               onClick={onEdit}
@@ -84,16 +84,15 @@ export function CalendarV2AppointmentCard({
               <Pencil className={`w-3 h-3 text-black/90`} />
             </button>
           )} */}
-        </div>
+          </div>
 
-        {/* Service name */}
+          {/* Service name */}
+          <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }} className={`text-[10px] font-medium text-black/90 truncate leading-tight `}>
+            • {serviceName}
+          </span>
 
-        <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }} className={`text-[10px] font-medium text-black/90 truncate leading-tight `}>
-          • {serviceName}
-        </span>
-
-        {/* Bottom row: time + provider */}
-        {/* <div className="flex items-center justify-between gap-1 border border-violet-800">
+          {/* Bottom row: time + provider */}
+          {/* <div className="flex items-center justify-between gap-1 border border-violet-800">
           <div className="flex items-center gap-1">
             <Clock className={`w-3 h-3 shrink-0 text-black/90`} />
             <span className={`text-[10px] mt-px leading-none text-black/90 tabular-nums`} dir="ltr">
@@ -106,21 +105,23 @@ export function CalendarV2AppointmentCard({
             </span>
           )}
         </div> */}
-        {/* Bottom row: time + provider */}
-        <div className="flex flex-1 items-end justify-between gap-1 border border-violet-700">
-          <div className="flex items-end gap-1">
-            <Clock className={`w-3 h-2.25 shrink-0 text-black/90 `} />
-            <span className={`text-[10px] leading-2 text-black/90 tabular-nums`} dir="ltr">
-              {startTime} - {endTime}
-            </span>
+          {/* Bottom row: time + provider */}
+
+          <div className="flex items-end justify-between gap-1 border border-violet-700">
+            <div className="flex items-end gap-1">
+              <Clock className={`w-3 h-2.25 shrink-0 text-black/90 `} />
+              <span className={`text-[10px] leading-2 text-black/90 tabular-nums`} dir="ltr">
+                {startTime} - {endTime}
+              </span>
+            </div>
+
+            {serviceProviderName && (
+              <span className={`text-[10px] leading-2 text-black/90 truncate`}>
+                {serviceProviderName.split(' ')[0]}
+              </span>
+            )}
           </div>
-          {serviceProviderName && (
-            <span className={`text-[10px] leading-2 text-black/90 truncate`}>
-              {serviceProviderName.split(' ')[0]}
-            </span>
-          )}
         </div>
-      </div>
       </div>
     );
   }
@@ -131,18 +132,18 @@ export function CalendarV2AppointmentCard({
       dir="rtl"
     >
       <div className={`absolute top-0 bottom-0 right-0 w-1 rounded-full ${c.bar}`} />
-
-      <div className="w-full pr-3 pl-2 py-2 flex flex-col justify-between gap-1.5">
-        {/* Top row: customer name */}
-        <div className="flex items-start justify-between gap-1">
-          {/* Customer name */}
-          <span
-            className={`text-[13px] font-semibold text-black/90 truncate leading-tight`}
-            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}
-          >
-            {customerName}
-          </span>
-          {/* {onEdit && (
+      <div className="h-full w-full flex pr-3 pl-2 flex-col justify-center">
+        <div className="w-full flex flex-col justify-around h-full">
+          {/* Top row: customer name */}
+          <div className="flex items-start justify-between ">
+            {/* Customer name */}
+            <span
+              className={`text-[13px] font-semibold truncate leading-tight`}
+              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}
+            >
+              {customerName}
+            </span>
+            {/* {onEdit && (
             <button
               type="button"
               onClick={onEdit}
@@ -152,16 +153,17 @@ export function CalendarV2AppointmentCard({
               <Pencil className={`w-3 h-3 text-black/90`} />
             </button>
           )} */}
-        </div>
+          </div>
 
-        {/* Service name */}
+          {/* Service name */}
 
-        <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }} className={`text-[11px] font-medium text-black/90 truncate leading-tight`}>
-          {serviceName}
-        </span>
+          <span style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}
+            className={`text-[9px] font-medium truncate leading-tight`}>
+           • {serviceName}
+          </span>
 
-        {/* Bottom row: time + provider */}
-        {/* <div className="flex items-center justify-between gap-1 border border-violet-800">
+          {/* Bottom row: time + provider */}
+          {/* <div className="flex items-center justify-between gap-1 border border-violet-800">
           <div className="flex items-center gap-1">
             <Clock className={`w-3 h-3 shrink-0 text-black/90`} />
             <span className={`text-[10px] mt-px leading-none text-black/90 tabular-nums`} dir="ltr">
@@ -174,19 +176,21 @@ export function CalendarV2AppointmentCard({
             </span>
           )}
         </div> */}
-        {/* Bottom row: time + provider */}
-        <div className="w-full flex flex-1 items-end justify-between gap-1">
-          <div className="flex items-center gap-1">
-            <Clock className={`w-3 h-3 shrink-0 text-black/90`} />
-            <span className={`text-[10px] mt-px leading-none text-black/90 tabular-nums`} dir="ltr">
-              {startTime}–{endTime}
-            </span>
+          {/* Bottom row: time + provider */}
+          <div className="flex items-end justify-between gap-1">
+            <div className="flex gap-0.75">
+              <Clock className={`w-2.75 h-[13.5px] shrink-0 text-black/90`} />
+              <span className={`text-[10px] text-black/90 tabular-nums`} dir="ltr">
+                {startTime} - {endTime}
+              </span>
+            </div>
+
+            {serviceProviderName && (
+              <span className={`text-[10px] text-black/90 truncate `}>
+                {serviceProviderName.split(' ')[0]}
+              </span>
+            )}
           </div>
-          {serviceProviderName && (
-            <span className={`text-[10px] text-black/90 truncate`}>
-              {serviceProviderName.split(' ')[0]}
-            </span>
-          )}
         </div>
       </div>
     </div>

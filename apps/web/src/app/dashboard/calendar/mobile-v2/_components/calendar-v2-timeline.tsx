@@ -216,7 +216,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                               color={appt.service.color}
                               serviceProviderName={appt.provider.name}
                               note={appt.notes}
-                              compact={layout.height < 64}
+                              compact={layout.height < 50}
                               onEdit={
                                 onEditAppointment ? () => onEditAppointment(appt.id) : undefined
                               }
