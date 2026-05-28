@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, Fragment } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import type { Appointment, ServiceProvider } from '../_lib/calendar-v2.types';
 import { TIMELINE, LAYOUT } from '../_lib/calendar-v2.design';
 import { isSameDay, formatTime } from '../_lib/calendar-v2.utils';
@@ -57,6 +57,7 @@ function appointmentLayout(appt: Appointment): { top: number; height: number } |
 // ── Component ─────────────────────────────────────────────────────────────────
 export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointment, serviceProviders }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
   const laneProviders = serviceProviders && serviceProviders.length > 1 ? serviceProviders : null;
 
@@ -64,6 +65,15 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = 0;
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      setContainerWidth(entries[0]?.contentRect.width ?? 0);
+    });
+    observer.observe(scrollRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   if (dayAppointments.length === 0) {
     return (
@@ -216,7 +226,10 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                               color={appt.service.color}
                               serviceProviderName={appt.provider.name}
                               note={appt.notes}
-                              compact={layout.height < 50}
+                              cardSize={{
+                                width: Math.max(0, (containerWidth - TIME_LABEL_WIDTH) / laneProviders.length - LANE_INSET_PX * 2),
+                                height: Math.max(0, layout.height - APPT_VERTICAL_GAP_PX * 2),
+                              }}
                               onEdit={
                                 onEditAppointment ? () => onEditAppointment(appt.id) : undefined
                               }
@@ -260,7 +273,10 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                       color={appt.service.color}
                       serviceProviderName={appt.provider.name}
                       note={appt.notes}
-                      compact={layout.height < 64}
+                      cardSize={{
+                        width: Math.max(0, containerWidth - TIME_LABEL_WIDTH - APPT_INSET_PX),
+                        height: Math.max(0, layout.height - APPT_VERTICAL_GAP_PX * 2),
+                      }}
                       onEdit={
                         onEditAppointment ? () => onEditAppointment(appt.id) : undefined
                       }
