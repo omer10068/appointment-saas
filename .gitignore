@@ -11,3 +11,6 @@ build/
 apps/api/src/generated/
 
 *.tsbuildinfo
+
+# Local reference projects / generated UI prototypes
+/_reference/

@@ -12,7 +12,7 @@ export interface DashboardDictionary {
     calendar: string;
     customers: string;
     services: string;
-    staff: string;
+    serviceProviders: string;
     availability: string;
     businessProfile: string;
     settings: string;

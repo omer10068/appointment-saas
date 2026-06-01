@@ -16,7 +16,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard/calendar',         labelKey: 'calendar' },
   { href: '/dashboard/customers',        labelKey: 'customers' },
   { href: '/dashboard/services',         labelKey: 'services' },
-  { href: '/dashboard/staff',            labelKey: 'staff' },
+  { href: '/dashboard/service-providers', labelKey: 'serviceProviders' },
   { href: '/dashboard/availability',     labelKey: 'availability' },
   { href: '/dashboard/business-profile', labelKey: 'businessProfile' },
   { href: '/dashboard/settings',         labelKey: 'settings' },

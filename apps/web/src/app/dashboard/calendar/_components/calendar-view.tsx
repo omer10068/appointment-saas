@@ -595,7 +595,7 @@ function DayView({
             <div className={cn(
               "h-12 w-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0",
               isToday
-                ? "bg-blue-600 text-white"
+                ? "bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100",
             )}>
               <span className="text-xs font-medium uppercase">
@@ -797,7 +797,7 @@ function MonthView({
                   <span className={cn(
                     "text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full",
                     !current             && "text-gray-400 dark:text-gray-600",
-                    isToday              && "bg-blue-600 text-white",
+                    isToday              && "bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white",
                     current && !isToday  && "text-gray-900 dark:text-gray-100",
                   )}>
                     {date.getDate()}
@@ -823,7 +823,7 @@ function MonthView({
                         ))
                       ) : (
                         <div className="flex items-center gap-1">
-                          <div className="h-2 w-2 rounded-full bg-blue-600" />
+                          <div className="h-2 w-2 rounded-full bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)]" />
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {dayAppts.length} {L.appointments}
                           </span>
@@ -889,7 +889,7 @@ function MobileAgendaView({
               <div className={cn(
                 "h-9 w-9 rounded-lg flex flex-col items-center justify-center flex-shrink-0",
                 isToday
-                  ? "bg-blue-600 text-white"
+                  ? "bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100",
               )}>
                 <span className="text-[10px] font-medium uppercase leading-none">
@@ -1054,7 +1054,7 @@ function MobileFiltersPanel({
             className={cn(
               "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
               selectedStaff === null
-                ? "bg-blue-600 text-white border-blue-600"
+                ? "bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white border-blue-600"
                 : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800",
             )}
           >
@@ -1067,7 +1067,7 @@ function MobileFiltersPanel({
               className={cn(
                 "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                 selectedStaff === s.id
-                  ? "bg-blue-600 text-white border-blue-600"
+                  ? "bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white border-blue-600"
                   : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800",
               )}
             >
@@ -1085,7 +1085,7 @@ function MobileFiltersPanel({
             className={cn(
               "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
               selectedStatus === null
-                ? "bg-blue-600 text-white border-blue-600"
+                ? "bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white border-blue-600"
                 : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800",
             )}
           >
@@ -1098,7 +1098,7 @@ function MobileFiltersPanel({
               className={cn(
                 "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                 selectedStatus === status
-                  ? "bg-blue-600 text-white border-blue-600"
+                  ? "bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white border-blue-600"
                   : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800",
               )}
             >
@@ -1514,14 +1514,14 @@ export function CalendarView({
             <SlidersHorizontal className="h-4 w-4" />
             <span className="hidden sm:inline">{L.filters}</span>
             {activeFilters > 0 && (
-              <span className="h-4 w-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-medium">
+              <span className="h-4 w-4 rounded-full bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white text-[10px] flex items-center justify-center font-medium">
                 {activeFilters}
               </span>
             )}
           </button>
 
           {/* New appointment */}
-          <button className="h-8 px-3 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1.5">
+          <button className="h-8 px-3 text-sm rounded-md bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] text-white hover:bg-[linear-gradient(145deg,#8BB8FF_0%,#5B98FA_45%,#3F85DE_100%)] transition-colors flex items-center gap-1.5">
             <Plus className="h-4 w-4" />
             <span>{L.newAppointment}</span>
           </button>
