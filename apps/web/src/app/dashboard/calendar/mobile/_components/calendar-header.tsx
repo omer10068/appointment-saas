@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronRight, ChevronLeft } from 'lucide-react';
-import { formatMonthYear, isCurrentWeek } from '../_lib/calendar-v2.utils';
+import { formatMonthYear, isCurrentWeek } from '../_lib/calendar.utils';
 
 interface Props {
   selectedDate: Date;
@@ -10,7 +10,7 @@ interface Props {
   onToday: () => void;
 }
 
-export function CalendarV2Header({ selectedDate, onPrevWeek, onNextWeek, onToday }: Props) {
+export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday }: Props) {
   const showToday = !isCurrentWeek(selectedDate);
 
   return (

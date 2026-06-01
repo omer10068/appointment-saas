@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import type { ServiceProvider } from '../_lib/calendar-v2.types';
+import type { ServiceProvider } from '../_lib/calendar.types';
 
 interface Props {
   serviceProviders: ServiceProvider[];
@@ -47,7 +47,7 @@ function FilterPill({ label, count, isActive, onClick }: FilterPillProps) {
   );
 }
 
-export function CalendarV2ServiceProviderFilter({
+export function CalendarServiceProviderFilter({
   serviceProviders,
   selectedServiceProviderId,
   onSelectServiceProvider,

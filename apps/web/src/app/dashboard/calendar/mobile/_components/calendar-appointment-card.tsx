@@ -1,8 +1,7 @@
 'use client';
 
-import { Clock, Pencil } from 'lucide-react';
-import { SERVICE_COLORS } from '../_lib/calendar-v2.design';
-import type { ServiceColor } from '../_lib/calendar-v2.types';
+import { SERVICE_COLORS } from '../_lib/calendar.design';
+import type { ServiceColor } from '../_lib/calendar.types';
 
 interface CardSize {
   width: number;
@@ -21,7 +20,7 @@ interface Props {
   onEdit?: () => void;
 }
 
-export function CalendarV2AppointmentCard({
+export function CalendarAppointmentCard({
   customerName,
   startTime,
   endTime,
@@ -29,10 +28,9 @@ export function CalendarV2AppointmentCard({
   color,
   serviceProviderName,
   cardSize,
-  onEdit,
 }: Props) {
   const c = SERVICE_COLORS[color];
-  const isCompact = cardSize.height > 34 && cardSize.height < 56; // cardSize.width < 80;
+  const isCompact = cardSize.height > 34 && cardSize.height < 56;
   const isTiny = cardSize.height <= 34;
   const isExtraTiny = cardSize.height <= 27;
 
@@ -47,14 +45,12 @@ export function CalendarV2AppointmentCard({
         <div className={`h-full w-full min-w-0 pr-4 pl-3 flex flex-col justify-between py-0.75`}>
           <div className={`h-full w-full flex flex-row ${isExtraTiny ? 'items-center' : 'items-end'} justify-between`}>
             <div className={`h-full flex flex-col justify-center items-start`}>
-              {/* Service Name */}
               <span
                 className={`text-[${isExtraTiny ? '10px' : '11px'}] align-middle font-semibold ${c.customerText}`}
               >
                 {serviceName}
               </span>
 
-              {/* Customer Name */}
               {!isExtraTiny &&
                 <span
                   className={`text-[10.5px] font-medium leading-[1.15] truncate ${c.serviceText}`}
@@ -63,19 +59,13 @@ export function CalendarV2AppointmentCard({
                 </span>}
             </div>
 
-
             <span
               className={`shrink-0 whitespace-nowrap tabular-nums text-[10px] font-semibold leading-none ${c.metaText}`}
               dir="ltr"
             >
               {startTime} – {endTime}
             </span>
-
-
           </div>
-
-          {/* Time + Service Provider */}
-
         </div>
       </div>
     );
@@ -89,21 +79,18 @@ export function CalendarV2AppointmentCard({
       <div className={`absolute top-0 bottom-0 right-0 w-1 ${c.bar}`} />
 
       <div className={`h-full w-full min-w-0 pr-4 pl-2.5 flex flex-col justify-between ${isCompact ? `py-1` : `py-2.5`}`}>
-        {/* Service Name */}
         <span
           className={`${isCompact ? `text-[12px]` : `text-[13px]`} font-semibold leading-[1.15] truncate ${c.customerText} `}
         >
           {serviceName}
         </span>
 
-        {/* Customer Name */}
         <span
           className={`${isCompact ? `text-[11px]` : `text-[11.5px]`} font-medium leading-[1.15] truncate ${c.serviceText}`}
         >
           {customerName}
         </span>
 
-        {/* Time + Service Provider */}
         <div className="min-w-0 flex items-center justify-between gap-2">
           <span
             className={`shrink-0 whitespace-nowrap tabular-nums text-[${isCompact ? `10px` : `11px`}] font-semibold leading-none ${c.metaText}`}

@@ -1,7 +1,7 @@
 'use client';
 
 import { Home, Calendar, Users, Scissors, MoreHorizontal } from 'lucide-react';
-import { LAYOUT } from '../_lib/calendar-v2.design';
+import { LAYOUT } from '../_lib/calendar.design';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost
 const NAV_ITEMS = [
@@ -16,7 +16,7 @@ interface Props {
   activeKey?: string;
 }
 
-export function CalendarV2BottomNav({ activeKey = 'calendar' }: Props) {
+export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800"

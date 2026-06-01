@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, Fragment } from 'react';
-import type { Appointment, ServiceProvider } from '../_lib/calendar-v2.types';
-import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar-v2.design';
-import { isSameDay, formatTime } from '../_lib/calendar-v2.utils';
-import { CalendarV2AppointmentCard } from './calendar-v2-appointment-card';
-import { CalendarV2EmptyState } from './calendar-v2-empty-state';
+import type { Appointment, ServiceProvider } from '../_lib/calendar.types';
+import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar.design';
+import { isSameDay, formatTime } from '../_lib/calendar.utils';
+import { CalendarAppointmentCard } from './calendar-appointment-card';
+import { CalendarEmptyState } from './calendar-empty-state';
 
 interface Props {
   selectedDate: Date;
@@ -55,7 +55,7 @@ function appointmentLayout(appt: Appointment): { top: number; height: number } |
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointment, serviceProviders }: Props) {
+export function CalendarTimeline({ selectedDate, appointments, onEditAppointment, serviceProviders }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
@@ -78,7 +78,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
   if (dayAppointments.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto flex flex-col">
-        <CalendarV2EmptyState />
+        <CalendarEmptyState />
       </div>
     );
   }
@@ -217,7 +217,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                               left: LANE_INSET_PX,
                             }}
                           >
-                            <CalendarV2AppointmentCard
+                            <CalendarAppointmentCard
                               customerName={appt.customer.name}
                               startTime={formatTime(appt.startTime)}
                               endTime={formatTime(appt.endTime)}
@@ -242,7 +242,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
               })}
             </>
           ) : (
-            // ── Single-provider mode (unchanged) ─────────────────────────
+            // ── Single-provider mode ──────────────────────────────────────
             dayAppointments.map((appt) => {
               const layout = appointmentLayout(appt);
               if (!layout) return null;
@@ -266,7 +266,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                       left: LANE_INSET_PX,
                     }}
                   >
-                    <CalendarV2AppointmentCard
+                    <CalendarAppointmentCard
                       customerName={appt.customer.name}
                       startTime={formatTime(appt.startTime)}
                       endTime={formatTime(appt.endTime)}

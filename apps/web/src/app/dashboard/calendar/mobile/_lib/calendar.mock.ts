@@ -1,4 +1,4 @@
-import type { Appointment, Service, ServiceProvider, Customer } from './calendar-v2.types';
+import type { Appointment, Service, ServiceProvider, Customer } from './calendar.types';
 
 const SERVICES: Service[] = [
   { id: 's1', name: 'תספורת', durationMinutes: 45, color: 'rose' },

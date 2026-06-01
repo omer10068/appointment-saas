@@ -1,0 +1,154 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
+import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
+import { addDays, isSameDay } from '../_lib/calendar.utils';
+import { CalendarHeader } from './calendar-header';
+import { CalendarDayPicker } from './calendar-day-picker';
+import { CalendarServiceProviderFilter } from './calendar-service-provider-filter';
+import { CalendarTimeline } from './calendar-timeline';
+import { CalendarNewButton } from './calendar-new-button';
+import { CalendarBottomNav } from './calendar-bottom-nav';
+
+export function MobileCalendarShell() {
+  const { currentBusinessId } = useDashboardBusiness();
+
+  const [today] = useState<Date>(() => new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  const [todayResetKey, setTodayResetKey] = useState(0);
+  const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
+
+  const { serviceProviders, appointments, isLoading, error } = useMobileCalendarData(
+    currentBusinessId,
+    selectedDate,
+  );
+
+  // Appointment counts for the selected day, broken down by provider (for filter pills)
+  const allDayAppointments = useMemo(
+    () => appointments.filter((a) => isSameDay(a.startTime, selectedDate)),
+    [appointments, selectedDate],
+  );
+
+  const appointmentCountsByServiceProviderId = useMemo<Record<string, number>>(
+    () =>
+      Object.fromEntries(
+        serviceProviders.map((sp) => [
+          sp.id,
+          allDayAppointments.filter((a) => a.provider.id === sp.id).length,
+        ]),
+      ),
+    [serviceProviders, allDayAppointments],
+  );
+
+  // Pass the full week to the timeline so it can do its own day-filtering;
+  // pre-filter by provider when one is selected (single-lane mode).
+  const timelineAppointments = useMemo(
+    () =>
+      selectedServiceProviderId === 'all'
+        ? appointments
+        : appointments.filter((a) => a.provider.id === selectedServiceProviderId),
+    [appointments, selectedServiceProviderId],
+  );
+
+  function handlePrevWeek() {
+    setSelectedDate((d) => addDays(d, -7));
+  }
+
+  function handleNextWeek() {
+    setSelectedDate((d) => addDays(d, 7));
+  }
+
+  function handleToday() {
+    setSelectedDate(new Date());
+    setTodayResetKey((k) => k + 1);
+  }
+
+  function handleEditAppointment(id: string) {
+    // Placeholder — appointment edit modal not yet implemented
+    console.log('[Calendar] edit appointment:', id);
+  }
+
+  function handleNewAppointment() {
+    // Placeholder — new appointment modal not yet implemented
+    console.log('[Calendar] new appointment');
+  }
+
+  return (
+    // PHONE PREVIEW WRAPPER
+    // Mobile  : fixed full-screen overlay (inset-0)
+    // Desktop : centered narrow phone container (430 × 90dvh, rounded, shadow)
+    //
+    // The md: transform makes `fixed` children (bottom-nav, FAB) position
+    // relative to this container on desktop, not the viewport — no extra work needed.
+    //
+    // Remove the md: classes when a proper desktop layout is designed.
+    <div
+      className={[
+        'fixed inset-0 z-50 flex flex-col overflow-hidden',
+        'bg-gray-50 dark:bg-gray-950',
+        'md:inset-auto md:top-1/2 md:left-1/2',
+        'md:-translate-x-1/2 md:-translate-y-1/2',
+        'md:w-[430px] md:h-[90dvh]',
+        'md:rounded-[2rem] md:shadow-2xl md:overflow-hidden',
+      ].join(' ')}
+      dir="rtl"
+    >
+      <CalendarHeader
+        selectedDate={selectedDate}
+        onPrevWeek={handlePrevWeek}
+        onNextWeek={handleNextWeek}
+        onToday={handleToday}
+      />
+
+      <CalendarDayPicker
+        selectedDate={selectedDate}
+        today={today}
+        onSelect={setSelectedDate}
+      />
+
+      {/* ── Content area ───────────────────────────────────────────────── */}
+
+      {!currentBusinessId ? (
+        <div className="flex-1 flex items-center justify-center px-6">
+          <p className="text-sm text-gray-400 text-center">לא נבחר עסק</p>
+        </div>
+      ) : error ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
+          <p className="text-sm text-gray-500 text-center">{error}</p>
+          <button
+            className="text-xs text-blue-600 underline"
+            onClick={() => window.location.reload()}
+          >
+            נסה שוב
+          </button>
+        </div>
+      ) : isLoading && appointments.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-gray-600 animate-spin" />
+        </div>
+      ) : (
+        <>
+          <CalendarServiceProviderFilter
+            serviceProviders={serviceProviders}
+            selectedServiceProviderId={selectedServiceProviderId}
+            onSelectServiceProvider={setSelectedServiceProviderId}
+            appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
+            totalAppointmentsCount={allDayAppointments.length}
+          />
+
+          <CalendarTimeline
+            key={todayResetKey}
+            selectedDate={selectedDate}
+            appointments={timelineAppointments}
+            onEditAppointment={handleEditAppointment}
+            serviceProviders={selectedServiceProviderId === 'all' ? serviceProviders : undefined}
+          />
+        </>
+      )}
+
+      <CalendarNewButton onClick={handleNewAppointment} />
+      <CalendarBottomNav activeKey="calendar" />
+    </div>
+  );
+}
