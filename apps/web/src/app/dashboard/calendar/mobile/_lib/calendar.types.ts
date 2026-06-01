@@ -1,6 +1,12 @@
 export type ServiceColor = 'rose' | 'mint' | 'cream' | 'lavender' | 'sky';
 
-export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+export type AppointmentStatus =
+  | 'scheduled'
+  | 'confirmed'
+  | 'completed'
+  | 'cancelled_by_customer'
+  | 'cancelled_by_business'
+  | 'no_show';
 
 export interface Service {
   id: string;
@@ -12,6 +18,8 @@ export interface Service {
 export interface ServiceProvider {
   id: string;
   name: string;
+  /** BusinessUser.id of the linked staff member, if any. Used to auto-select the current user's lane. */
+  businessUserId?: string;
 }
 
 export interface Customer {

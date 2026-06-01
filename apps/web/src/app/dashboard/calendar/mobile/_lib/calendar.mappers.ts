@@ -26,10 +26,10 @@ function stableColorForId(id: string): ServiceColor {
 
 const STATUS_MAP: Record<ContractsStatus, Appointment['status']> = {
   SCHEDULED: 'scheduled',
-  CONFIRMED: 'scheduled',
+  CONFIRMED: 'confirmed',
   COMPLETED: 'completed',
-  CANCELLED_BY_CUSTOMER: 'cancelled',
-  CANCELLED_BY_BUSINESS: 'cancelled',
+  CANCELLED_BY_CUSTOMER: 'cancelled_by_customer',
+  CANCELLED_BY_BUSINESS: 'cancelled_by_business',
   NO_SHOW: 'no_show',
 };
 
@@ -52,6 +52,7 @@ export function mapDtoToServiceProvider(dto: DashboardServiceProviderDto): Servi
   return {
     id: dto.id,
     name: dto.displayName,
+    businessUserId: dto.businessUserId,
   };
 }
 

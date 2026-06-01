@@ -1,28 +1,43 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { addDays, isSameDay } from '../_lib/calendar.utils';
+import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
 import { CalendarDayPicker } from './calendar-day-picker';
 import { CalendarServiceProviderFilter } from './calendar-service-provider-filter';
 import { CalendarTimeline } from './calendar-timeline';
 import { CalendarNewButton } from './calendar-new-button';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 
 export function MobileCalendarShell() {
-  const { currentBusinessId } = useDashboardBusiness();
+  const { currentBusinessId, currentBusiness } = useDashboardBusiness();
 
   const [today] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [todayResetKey, setTodayResetKey] = useState(0);
   const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   const { serviceProviders, appointments, isLoading, error } = useMobileCalendarData(
     currentBusinessId,
     selectedDate,
   );
+
+  // Auto-select the current user's own provider lane on first load.
+  // Uses businessUserId (preserved from DTO) to match without name comparison.
+  const autoFilterApplied = useRef(false);
+  useEffect(() => {
+    if (autoFilterApplied.current || serviceProviders.length === 0 || !currentBusiness) return;
+    const myProvider = serviceProviders.find((sp) => sp.businessUserId === currentBusiness.id);
+    if (myProvider) {
+      setSelectedServiceProviderId(myProvider.id);
+    }
+    autoFilterApplied.current = true;
+  }, [serviceProviders, currentBusiness]);
 
   // Appointment counts for the selected day, broken down by provider (for filter pills)
   const allDayAppointments = useMemo(
@@ -64,11 +79,6 @@ export function MobileCalendarShell() {
     setTodayResetKey((k) => k + 1);
   }
 
-  function handleEditAppointment(id: string) {
-    // Placeholder — appointment edit modal not yet implemented
-    console.log('[Calendar] edit appointment:', id);
-  }
-
   function handleNewAppointment() {
     // Placeholder — new appointment modal not yet implemented
     console.log('[Calendar] new appointment');
@@ -79,7 +89,7 @@ export function MobileCalendarShell() {
     // Mobile  : fixed full-screen overlay (inset-0)
     // Desktop : centered narrow phone container (430 × 90dvh, rounded, shadow)
     //
-    // The md: transform makes `fixed` children (bottom-nav, FAB) position
+    // The md: transform makes `fixed` children (bottom-nav, FAB, sheet) position
     // relative to this container on desktop, not the viewport — no extra work needed.
     //
     // Remove the md: classes when a proper desktop layout is designed.
@@ -89,8 +99,8 @@ export function MobileCalendarShell() {
         'bg-gray-50 dark:bg-gray-950',
         'md:inset-auto md:top-1/2 md:left-1/2',
         'md:-translate-x-1/2 md:-translate-y-1/2',
-        'md:w-[430px] md:h-[90dvh]',
-        'md:rounded-[2rem] md:shadow-2xl md:overflow-hidden',
+        'md:w-107.5 md:h-[90dvh]',
+        'md:rounded-4xl md:shadow-2xl md:overflow-hidden',
       ].join(' ')}
       dir="rtl"
     >
@@ -141,7 +151,7 @@ export function MobileCalendarShell() {
             key={todayResetKey}
             selectedDate={selectedDate}
             appointments={timelineAppointments}
-            onEditAppointment={handleEditAppointment}
+            onSelectAppointment={setSelectedAppointment}
             serviceProviders={selectedServiceProviderId === 'all' ? serviceProviders : undefined}
           />
         </>
@@ -149,6 +159,11 @@ export function MobileCalendarShell() {
 
       <CalendarNewButton onClick={handleNewAppointment} />
       <CalendarBottomNav activeKey="calendar" />
+
+      <CalendarAppointmentSheet
+        appointment={selectedAppointment}
+        onClose={() => setSelectedAppointment(null)}
+      />
     </div>
   );
 }

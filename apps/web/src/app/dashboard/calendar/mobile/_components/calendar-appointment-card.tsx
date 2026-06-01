@@ -17,7 +17,7 @@ interface Props {
   serviceProviderName?: string;
   note?: string;
   cardSize: CardSize;
-  onEdit?: () => void;
+  onClick?: () => void;
 }
 
 export function CalendarAppointmentCard({
@@ -28,6 +28,7 @@ export function CalendarAppointmentCard({
   color,
   serviceProviderName,
   cardSize,
+  onClick,
 }: Props) {
   const c = SERVICE_COLORS[color];
   const isCompact = cardSize.height > 34 && cardSize.height < 56;
@@ -37,7 +38,11 @@ export function CalendarAppointmentCard({
   if (isTiny || isExtraTiny) {
     return (
       <div
-        className={`${c.bg} rounded-e-xl w-full h-full relative overflow-hidden transition-all duration-200`}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+        className={`${c.bg} rounded-e-xl w-full h-full relative overflow-hidden transition-all duration-200 ${onClick ? 'cursor-pointer active:brightness-95' : ''}`}
         dir="rtl"
       >
         <div className={`absolute top-0 bottom-0 right-0 w-1 ${c.bar}`} />
@@ -73,7 +78,11 @@ export function CalendarAppointmentCard({
 
   return (
     <div
-      className={`${c.bg} rounded-e-xl w-full h-full relative overflow-hidden transition-all duration-200`}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+      className={`${c.bg} rounded-e-xl w-full h-full relative overflow-hidden transition-all duration-200 ${onClick ? 'cursor-pointer active:brightness-95' : ''}`}
       dir="rtl"
     >
       <div className={`absolute top-0 bottom-0 right-0 w-1 ${c.bar}`} />

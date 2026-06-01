@@ -60,7 +60,7 @@ export function getMockAppointments(date: Date): Appointment[] {
       provider: PROVIDERS[0],
       startTime: at(date, 11, 30),
       endTime: at(date, 12, 0),
-      status: 'cancelled',
+      status: 'cancelled_by_customer',
     },
     {
       id: 'a4',

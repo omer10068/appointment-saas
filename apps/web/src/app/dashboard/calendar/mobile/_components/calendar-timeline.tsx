@@ -10,7 +10,7 @@ import { CalendarEmptyState } from './calendar-empty-state';
 interface Props {
   selectedDate: Date;
   appointments: Appointment[];
-  onEditAppointment?: (id: string) => void;
+  onSelectAppointment?: (appointment: Appointment) => void;
   /** When provided with 2+ providers, the timeline switches to side-by-side lane mode. */
   serviceProviders?: ServiceProvider[];
 }
@@ -55,7 +55,7 @@ function appointmentLayout(appt: Appointment): { top: number; height: number } |
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function CalendarTimeline({ selectedDate, appointments, onEditAppointment, serviceProviders }: Props) {
+export function CalendarTimeline({ selectedDate, appointments, onSelectAppointment, serviceProviders }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
@@ -229,8 +229,8 @@ export function CalendarTimeline({ selectedDate, appointments, onEditAppointment
                                 width: Math.max(0, (containerWidth - TIME_LABEL_WIDTH) / laneProviders.length - LANE_INSET_PX * 2),
                                 height: Math.max(0, layout.height - APPT_VERTICAL_GAP_PX * 2),
                               }}
-                              onEdit={
-                                onEditAppointment ? () => onEditAppointment(appt.id) : undefined
+                              onClick={
+                                onSelectAppointment ? () => onSelectAppointment(appt) : undefined
                               }
                             />
                           </div>
@@ -278,8 +278,8 @@ export function CalendarTimeline({ selectedDate, appointments, onEditAppointment
                         width: Math.max(0, containerWidth - TIME_LABEL_WIDTH - APPT_INSET_PX),
                         height: Math.max(0, layout.height - APPT_VERTICAL_GAP_PX * 2),
                       }}
-                      onEdit={
-                        onEditAppointment ? () => onEditAppointment(appt.id) : undefined
+                      onClick={
+                        onSelectAppointment ? () => onSelectAppointment(appt) : undefined
                       }
                     />
                   </div>
