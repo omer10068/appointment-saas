@@ -262,6 +262,8 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                     style={{
                       top: APPT_VERTICAL_GAP_PX,
                       bottom: APPT_VERTICAL_GAP_PX,
+                      right: LANE_INSET_PX,
+                      left: LANE_INSET_PX,
                     }}
                   >
                     <CalendarV2AppointmentCard
