@@ -11,6 +11,11 @@ export const LAYOUT = {
   fabBottomOffset: 80,
 } as const;
 
+export const GRID = {
+  hourLineColor: '#E8E8E8',
+  halfHourLineColor: '#EFEFEF',
+} as const;
+
 export const SERVICE_COLORS: Record<
   ServiceColor,
   {
@@ -27,85 +32,49 @@ export const SERVICE_COLORS: Record<
     bg: 'bg-[#FCE4EC]',
     bar: 'bg-[#EC407A]/36',
     border: 'border-[#f8bbd0]',
-    customerText: 'text-rose-900',
-    serviceText: 'text-rose-700',
-    metaText: 'text-rose-500',
-    editIcon: 'text-rose-400',
+    customerText: 'text-[#4A1F2C]',
+    serviceText: 'text-[#7A3D50]',
+    metaText: 'text-[#9B5B6F]',
+    editIcon: 'text-[#B6788C]',
   },
+
   mint: {
     bg: 'bg-[#E8F5E9]',
     bar: 'bg-[#4CAF50]/36',
     border: 'border-[#c8e6c9]',
-    customerText: 'text-emerald-900',
-    serviceText: 'text-emerald-700',
-    metaText: 'text-emerald-500',
-    editIcon: 'text-emerald-400',
+    customerText: 'text-[#1F3D2A]',
+    serviceText: 'text-[#3D6B4C]',
+    metaText: 'text-[#5F8A69]',
+    editIcon: 'text-[#7CAA84]',
   },
+
   cream: {
     bg: 'bg-[#FFF8E1]',
     bar: 'bg-[#C49020]/36',
     border: 'border-[#ffecb3]',
-    customerText: 'text-amber-900',
-    serviceText: 'text-amber-700',
-    metaText: 'text-amber-500',
-    editIcon: 'text-amber-400',
+    customerText: 'text-[#4A3715]',
+    serviceText: 'text-[#7A5A1F]',
+    metaText: 'text-[#9A7730]',
+    editIcon: 'text-[#B89342]',
   },
+
   lavender: {
-    bg: 'bg-[#F3E5F5]',
-    bar: 'bg-[#AB47BC]/36',
-    border: 'border-[#e1bee7]',
-    customerText: 'text-purple-900',
-    serviceText: 'text-purple-700',
-    metaText: 'text-purple-500',
-    editIcon: 'text-purple-400',
+    bg: 'bg-[#F6ECF8]',
+    bar: 'bg-[#AB47BC]/28',
+    border: 'border-[#e7d3ec]',
+    customerText: 'text-[#3B2345]',
+    serviceText: 'text-[#5E3D69]',
+    metaText: 'text-[#7B5A85]',
+    editIcon: 'text-[#9B7CA3]',
   },
+
   sky: {
     bg: 'bg-[#E3F2FD]',
     bar: 'bg-[#42A5F5]/36',
     border: 'border-[#bbdefb]',
-    customerText: 'text-sky-900',
-    serviceText: 'text-sky-700',
-    metaText: 'text-sky-500',
-    editIcon: 'text-sky-400',
-  },
-};
-
-export const STATUS_STYLES: Record<
-  AppointmentStatus,
-  {
-    label: string;
-    cardOpacity: string;
-    badgeBg: string;
-    badgeText: string;
-    nameDecoration: string;
-  }
-> = {
-  scheduled: {
-    label: '',
-    cardOpacity: '',
-    badgeBg: '',
-    badgeText: '',
-    nameDecoration: '',
-  },
-  completed: {
-    label: 'הושלם',
-    cardOpacity: 'opacity-70',
-    badgeBg: 'bg-gray-200',
-    badgeText: 'text-gray-600',
-    nameDecoration: '',
-  },
-  cancelled: {
-    label: 'בוטל',
-    cardOpacity: 'opacity-50',
-    badgeBg: 'bg-red-100',
-    badgeText: 'text-red-700',
-    nameDecoration: 'line-through',
-  },
-  no_show: {
-    label: 'לא הגיע',
-    cardOpacity: 'opacity-50',
-    badgeBg: 'bg-amber-100',
-    badgeText: 'text-amber-700',
-    nameDecoration: '',
+    customerText: 'text-[#16384F]',
+    serviceText: 'text-[#2C5C7A]',
+    metaText: 'text-[#4C7E9E]',
+    editIcon: 'text-[#6FA3C7]',
   },
 };

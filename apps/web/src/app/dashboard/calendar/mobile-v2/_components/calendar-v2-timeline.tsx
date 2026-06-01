@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, Fragment } from 'react';
 import type { Appointment, ServiceProvider } from '../_lib/calendar-v2.types';
-import { TIMELINE, LAYOUT } from '../_lib/calendar-v2.design';
+import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar-v2.design';
 import { isSameDay, formatTime } from '../_lib/calendar-v2.utils';
 import { CalendarV2AppointmentCard } from './calendar-v2-appointment-card';
 import { CalendarV2EmptyState } from './calendar-v2-empty-state';
@@ -102,8 +102,8 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
             slot.isHour ? (
               <div
                 key={slot.topPx}
-                className="absolute inset-x-0 border-t border-[#d8d5de]"
-                style={{ top: slot.topPx }}
+                className="absolute inset-x-0 border-t"
+                style={{ top: slot.topPx, borderColor: GRID.hourLineColor }}
               />
             ) : (
               <div
@@ -111,8 +111,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                 className="absolute inset-x-0 h-px"
                 style={{
                   top: slot.topPx,
-                  backgroundImage:
-                    'repeating-linear-gradient(to left, #eceaef 0 3px, transparent 3px 6px)',
+                  backgroundImage: `repeating-linear-gradient(to left, ${GRID.halfHourLineColor} 0 3px, transparent 3px 6px)`,
                 }}
               />
             ),
