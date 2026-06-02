@@ -27,8 +27,37 @@ export function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-export function formatTime(date: Date): string {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+/**
+ * Returns the time-of-day in the given IANA timezone as "HH:MM".
+ * Uses Intl — no external library needed.
+ */
+export function formatTime(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const h = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const m = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  return `${h}:${m}`;
+}
+
+/**
+ * Returns the number of minutes elapsed since midnight in the given IANA timezone.
+ * Used for pixel-accurate appointment positioning on the timeline grid.
+ * The % 24 guards against the "24:00" representation some runtimes emit for midnight.
+ */
+export function minutesFromMidnightInTimeZone(date: Date, timezone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const h = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
+  const m = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+  return h * 60 + m;
 }
 
 export function getWeekDays(date: Date): Date[] {

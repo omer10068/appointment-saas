@@ -15,6 +15,11 @@ import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 
 export function MobileCalendarShell() {
   const { currentBusinessId, currentBusiness } = useDashboardBusiness();
+  // Use the business's IANA timezone for all time display and timeline positioning.
+  // Falls back to the browser's own timezone so behaviour is unchanged when the field is absent.
+  const timezone =
+    currentBusiness?.business.timezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const [today] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
@@ -80,8 +85,7 @@ export function MobileCalendarShell() {
   }
 
   function handleNewAppointment() {
-    // Placeholder — new appointment modal not yet implemented
-    console.log('[Calendar] new appointment');
+    // TODO: open new-appointment modal (not yet implemented)
   }
 
   return (
@@ -151,6 +155,7 @@ export function MobileCalendarShell() {
             key={todayResetKey}
             selectedDate={selectedDate}
             appointments={timelineAppointments}
+            timezone={timezone}
             onSelectAppointment={setSelectedAppointment}
             serviceProviders={selectedServiceProviderId === 'all' ? serviceProviders : undefined}
           />
@@ -162,6 +167,7 @@ export function MobileCalendarShell() {
 
       <CalendarAppointmentSheet
         appointment={selectedAppointment}
+        timezone={timezone}
         onClose={() => setSelectedAppointment(null)}
       />
     </div>

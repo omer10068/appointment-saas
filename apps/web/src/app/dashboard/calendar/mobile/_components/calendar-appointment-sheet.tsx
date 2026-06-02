@@ -18,10 +18,11 @@ const STATUS_BADGE: Record<AppointmentStatus, string> = {
 
 interface Props {
   appointment: Appointment | null;
+  timezone: string;
   onClose: () => void;
 }
 
-export function CalendarAppointmentSheet({ appointment, onClose }: Props) {
+export function CalendarAppointmentSheet({ appointment, timezone, onClose }: Props) {
   const dict = useDashboardI18n();
   const tList = dict.appointmentsList;
 
@@ -47,7 +48,7 @@ export function CalendarAppointmentSheet({ appointment, onClose }: Props) {
   const c = SERVICE_COLORS[appointment.service.color];
 
   return (
-    <div className="fixed inset-0 z-[60]" dir="rtl">
+    <div className="fixed inset-0 z-60" dir="rtl">
       {/* Backdrop */}
       <div
         className={[
@@ -95,7 +96,7 @@ export function CalendarAppointmentSheet({ appointment, onClose }: Props) {
         <div className="px-4 pb-8 flex flex-col gap-4">
           <DetailRow label="שעה">
             <span className="tabular-nums" dir="ltr">
-              {formatTime(appointment.startTime)} – {formatTime(appointment.endTime)}
+              {formatTime(appointment.startTime, timezone)} – {formatTime(appointment.endTime, timezone)}
             </span>
           </DetailRow>
 

@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import type { Appointment, ServiceProvider } from '../_lib/calendar.types';
 import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar.design';
-import { isSameDay, formatTime } from '../_lib/calendar.utils';
+import { isSameDay, formatTime, minutesFromMidnightInTimeZone } from '../_lib/calendar.utils';
 import { CalendarAppointmentCard } from './calendar-appointment-card';
 import { CalendarEmptyState } from './calendar-empty-state';
 
 interface Props {
   selectedDate: Date;
   appointments: Appointment[];
+  timezone: string;
   onSelectAppointment?: (appointment: Appointment) => void;
   /** When provided with 2+ providers, the timeline switches to side-by-side lane mode. */
   serviceProviders?: ServiceProvider[];
@@ -42,9 +43,12 @@ const GRID_SLOTS = Array.from(
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function appointmentLayout(appt: Appointment): { top: number; height: number } | null {
-  const startMin = appt.startTime.getHours() * 60 + appt.startTime.getMinutes();
-  const endMin = appt.endTime.getHours() * 60 + appt.endTime.getMinutes();
+function appointmentLayout(
+  appt: Appointment,
+  timezone: string,
+): { top: number; height: number } | null {
+  const startMin = minutesFromMidnightInTimeZone(appt.startTime, timezone);
+  const endMin = minutesFromMidnightInTimeZone(appt.endTime, timezone);
   const clampedStart = Math.max(startMin, TIMELINE_START_MIN);
   const clampedEnd = Math.min(endMin, TIMELINE_END_MIN);
   if (clampedEnd <= clampedStart) return null;
@@ -55,7 +59,7 @@ function appointmentLayout(appt: Appointment): { top: number; height: number } |
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function CalendarTimeline({ selectedDate, appointments, onSelectAppointment, serviceProviders }: Props) {
+export function CalendarTimeline({ selectedDate, appointments, timezone, onSelectAppointment, serviceProviders }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
@@ -195,7 +199,7 @@ export function CalendarTimeline({ selectedDate, appointments, onSelectAppointme
                 return (
                   <Fragment key={sp.id}>
                     {laneAppts.map((appt) => {
-                      const layout = appointmentLayout(appt);
+                      const layout = appointmentLayout(appt, timezone);
                       if (!layout) return null;
                       return (
                         <div
@@ -219,8 +223,8 @@ export function CalendarTimeline({ selectedDate, appointments, onSelectAppointme
                           >
                             <CalendarAppointmentCard
                               customerName={appt.customer.name}
-                              startTime={formatTime(appt.startTime)}
-                              endTime={formatTime(appt.endTime)}
+                              startTime={formatTime(appt.startTime, timezone)}
+                              endTime={formatTime(appt.endTime, timezone)}
                               serviceName={appt.service.name}
                               color={appt.service.color}
                               serviceProviderName={appt.provider.name}
@@ -244,7 +248,7 @@ export function CalendarTimeline({ selectedDate, appointments, onSelectAppointme
           ) : (
             // ── Single-provider mode ──────────────────────────────────────
             dayAppointments.map((appt) => {
-              const layout = appointmentLayout(appt);
+              const layout = appointmentLayout(appt, timezone);
               if (!layout) return null;
               return (
                 <div
@@ -268,8 +272,8 @@ export function CalendarTimeline({ selectedDate, appointments, onSelectAppointme
                   >
                     <CalendarAppointmentCard
                       customerName={appt.customer.name}
-                      startTime={formatTime(appt.startTime)}
-                      endTime={formatTime(appt.endTime)}
+                      startTime={formatTime(appt.startTime, timezone)}
+                      endTime={formatTime(appt.endTime, timezone)}
                       serviceName={appt.service.name}
                       color={appt.service.color}
                       serviceProviderName={appt.provider.name}
