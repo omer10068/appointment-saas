@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
+import { updateDashboardAppointmentStatus } from '../../../../../lib/api';
 import { addDays, isSameDay } from '../_lib/calendar.utils';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
@@ -14,12 +17,22 @@ import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 
 export function MobileCalendarShell() {
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+
   const { currentBusinessId, currentBusiness } = useDashboardBusiness();
+
   // Use the business's IANA timezone for all time display and timeline positioning.
   // Falls back to the browser's own timezone so behaviour is unchanged when the field is absent.
   const timezone =
     currentBusiness?.business.timezone ??
     Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // OWNER and MANAGER may mutate appointment status; MEMBER is read-only.
+  // The backend is the authoritative RBAC check — this only controls UI visibility.
+  const canMutate =
+    currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
 
   const [today] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
@@ -27,10 +40,8 @@ export function MobileCalendarShell() {
   const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
-  const { serviceProviders, appointments, isLoading, error } = useMobileCalendarData(
-    currentBusinessId,
-    selectedDate,
-  );
+  const { serviceProviders, appointments, isLoading, error, refreshWeek } =
+    useMobileCalendarData(currentBusinessId, selectedDate);
 
   // Auto-select the current user's own provider lane on first load.
   // Uses businessUserId (preserved from DTO) to match without name comparison.
@@ -86,6 +97,21 @@ export function MobileCalendarShell() {
 
   function handleNewAppointment() {
     // TODO: open new-appointment modal (not yet implemented)
+  }
+
+  async function handleStatusUpdate(
+    appointmentId: string,
+    newStatus: ContractsStatus,
+  ): Promise<void> {
+    if (!currentBusinessId) return;
+    await updateDashboardAppointmentStatus(
+      currentBusinessId,
+      appointmentId,
+      { status: newStatus },
+      () => getTokenRef.current(),
+    );
+    // Refresh only the appointments — providers/services are unaffected by a status change.
+    refreshWeek();
   }
 
   return (
@@ -168,7 +194,9 @@ export function MobileCalendarShell() {
       <CalendarAppointmentSheet
         appointment={selectedAppointment}
         timezone={timezone}
-        onClose={() => setSelectedAppointment(null)}
+        canMutate={canMutate}
+        onStatusUpdate={handleStatusUpdate}
+        onClosed={() => setSelectedAppointment(null)}
       />
     </div>
   );

@@ -23,6 +23,8 @@ export interface MobileCalendarData {
   appointments: Appointment[];
   isLoading: boolean;
   error: string | null;
+  /** Re-fetches only the current week's appointments. Does not reload providers/services. */
+  refreshWeek: () => void;
 }
 
 export function useMobileCalendarData(
@@ -39,6 +41,7 @@ export function useMobileCalendarData(
   const [isLoadingStatic, setIsLoadingStatic] = useState(false);
   const [isLoadingWeek, setIsLoadingWeek] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [weekRefreshKey, setWeekRefreshKey] = useState(0);
 
   // Stable week-start state — only updates when selectedDate crosses a week boundary.
   // Using state (not useMemo) ensures a stable object reference for the effect dep.
@@ -116,7 +119,7 @@ export function useMobileCalendarData(
     return () => {
       cancelled = true;
     };
-  }, [businessId, weekStart]);
+  }, [businessId, weekStart, weekRefreshKey]);
 
   const appointments = useMemo(
     () => weekDtos.map((dto) => mapDtoToAppointment(dto, serviceMap)),
@@ -128,5 +131,6 @@ export function useMobileCalendarData(
     appointments,
     isLoading: isLoadingStatic || isLoadingWeek,
     error,
+    refreshWeek: () => setWeekRefreshKey((k) => k + 1),
   };
 }

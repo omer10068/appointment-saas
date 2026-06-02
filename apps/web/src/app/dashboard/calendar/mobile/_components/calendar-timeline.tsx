@@ -227,6 +227,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                               endTime={formatTime(appt.endTime, timezone)}
                               serviceName={appt.service.name}
                               color={appt.service.color}
+                              status={appt.status}
                               serviceProviderName={appt.provider.name}
                               note={appt.notes}
                               cardSize={{
@@ -276,6 +277,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                       endTime={formatTime(appt.endTime, timezone)}
                       serviceName={appt.service.name}
                       color={appt.service.color}
+                      status={appt.status}
                       serviceProviderName={appt.provider.name}
                       note={appt.notes}
                       cardSize={{

@@ -28,6 +28,25 @@ export function isSameDay(a: Date, b: Date): boolean {
 }
 
 /**
+ * Returns a localised date string in the given IANA timezone as "DD/MM/YYYY <weekday>".
+ * he-IL weekday 'long' already includes "יום" (e.g. "יום ראשון"), so no prefix is added.
+ */
+export function formatDate(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('he-IL', {
+    timeZone: timezone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+  }).formatToParts(date);
+  const weekday = parts.find((p) => p.type === 'weekday')?.value ?? '';
+  const day     = (parts.find((p) => p.type === 'day')?.value   ?? '').padStart(2, '0');
+  const month   = (parts.find((p) => p.type === 'month')?.value ?? '').padStart(2, '0');
+  const year    = parts.find((p) => p.type === 'year')?.value   ?? '';
+  return `${weekday}, ${day}/${month}/${year}`;
+}
+
+/**
  * Returns the time-of-day in the given IANA timezone as "HH:MM".
  * Uses Intl — no external library needed.
  */

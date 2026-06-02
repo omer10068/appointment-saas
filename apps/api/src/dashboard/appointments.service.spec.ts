@@ -602,5 +602,86 @@ describe('AppointmentsService', () => {
         expect(mockPrisma.appointment.update).not.toHaveBeenCalled();
       },
     );
+
+    // ── Time-based rules ──────────────────────────────────────────────────────
+
+    const PAST_DATE = new Date('2020-01-01T09:00:00.000Z');
+    const FUTURE_DATE = new Date('2030-06-15T09:00:00.000Z');
+
+    it.each(['COMPLETED', 'NO_SHOW'] as const)(
+      'throws BadRequestException when marking future appointment as %s',
+      async (status) => {
+        mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+        mockPrisma.appointment.findFirst.mockResolvedValue({
+          ...mockAppointment,
+          startsAt: FUTURE_DATE,
+          status: 'SCHEDULED',
+        });
+
+        await expect(
+          service.setAppointmentStatus(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+            status,
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.appointment.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it('throws BadRequestException when cancelling an appointment that has already started', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.appointment.findFirst.mockResolvedValue({
+        ...mockAppointment,
+        startsAt: PAST_DATE,
+        status: 'SCHEDULED',
+      });
+
+      await expect(
+        service.setAppointmentStatus(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+          status: 'CANCELLED_BY_BUSINESS',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.appointment.update).not.toHaveBeenCalled();
+    });
+
+    it('allows CANCELLED_BY_BUSINESS for a future appointment', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.appointment.findFirst.mockResolvedValue({
+        ...mockAppointment,
+        startsAt: FUTURE_DATE,
+        status: 'SCHEDULED',
+      });
+      mockPrisma.appointment.update.mockResolvedValue({
+        ...mockAppointmentRow,
+        status: 'CANCELLED_BY_BUSINESS',
+      } as unknown as Appointment);
+
+      await expect(
+        service.setAppointmentStatus(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+          status: 'CANCELLED_BY_BUSINESS',
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it.each(['COMPLETED', 'NO_SHOW'] as const)(
+      'allows %s for an appointment that has already started',
+      async (status) => {
+        mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+        mockPrisma.appointment.findFirst.mockResolvedValue({
+          ...mockAppointment,
+          startsAt: PAST_DATE,
+          status: 'SCHEDULED',
+        });
+        mockPrisma.appointment.update.mockResolvedValue({
+          ...mockAppointmentRow,
+          status,
+        } as unknown as Appointment);
+
+        await expect(
+          service.setAppointmentStatus(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+            status,
+          }),
+        ).resolves.toBeDefined();
+      },
+    );
   });
 });
