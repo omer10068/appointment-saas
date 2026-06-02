@@ -55,10 +55,21 @@ export function MobileCalendarShell() {
     autoFilterApplied.current = true;
   }, [serviceProviders, currentBusiness]);
 
-  // Appointment counts for the selected day, broken down by provider (for filter pills)
+  // All appointments for the selected day (used by the timeline)
   const allDayAppointments = useMemo(
     () => appointments.filter((a) => isSameDay(a.startTime, selectedDate)),
     [appointments, selectedDate],
+  );
+
+  // Countable appointments exclude cancelled statuses so filter pills reflect
+  // active/actionable appointments only. COMPLETED and NO_SHOW are kept because
+  // they represent real appointments that occurred (historical actuals).
+  const countableDayAppointments = useMemo(
+    () =>
+      allDayAppointments.filter(
+        (a) => a.status !== 'cancelled_by_business' && a.status !== 'cancelled_by_customer',
+      ),
+    [allDayAppointments],
   );
 
   const appointmentCountsByServiceProviderId = useMemo<Record<string, number>>(
@@ -66,10 +77,10 @@ export function MobileCalendarShell() {
       Object.fromEntries(
         serviceProviders.map((sp) => [
           sp.id,
-          allDayAppointments.filter((a) => a.provider.id === sp.id).length,
+          countableDayAppointments.filter((a) => a.provider.id === sp.id).length,
         ]),
       ),
-    [serviceProviders, allDayAppointments],
+    [serviceProviders, countableDayAppointments],
   );
 
   // Pass the full week to the timeline so it can do its own day-filtering;
@@ -174,7 +185,7 @@ export function MobileCalendarShell() {
             selectedServiceProviderId={selectedServiceProviderId}
             onSelectServiceProvider={setSelectedServiceProviderId}
             appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
-            totalAppointmentsCount={allDayAppointments.length}
+            totalAppointmentsCount={countableDayAppointments.length}
           />
 
           <CalendarTimeline

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, Fragment } from 'react';
-import type { Appointment, ServiceProvider } from '../_lib/calendar.types';
+import type { Appointment, AppointmentStatus, ServiceProvider } from '../_lib/calendar.types';
 import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar.design';
 import { isSameDay, formatTime, minutesFromMidnightInTimeZone } from '../_lib/calendar.utils';
 import { CalendarAppointmentCard } from './calendar-appointment-card';
@@ -43,6 +43,12 @@ const GRID_SLOTS = Array.from(
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+const CANCELLED_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
+  'cancelled_by_customer',
+  'cancelled_by_business',
+]);
+
 function appointmentLayout(
   appt: Appointment,
   timezone: string,
@@ -56,6 +62,59 @@ function appointmentLayout(
     top: Math.round((clampedStart - TIMELINE_START_MIN) * MINUTE_HEIGHT),
     height: Math.round((clampedEnd - clampedStart) * MINUTE_HEIGHT),
   };
+}
+
+function pixelsOverlap(
+  a: { top: number; height: number },
+  b: { top: number; height: number },
+): boolean {
+  return a.top < b.top + b.height && a.top + a.height > b.top;
+}
+
+/**
+ * Resolves the final render list for a lane:
+ *
+ * 1. Cancelled appointments that overlap ANY non-cancelled appointment are
+ *    completely suppressed — the active card is the only thing shown.
+ * 2. Among remaining cancelled (cancelled-only slots), overlapping cancelled
+ *    cards are deduplicated: the first one in array order is kept, the rest
+ *    suppressed. Array order reflects API insertion order (createdAt asc),
+ *    so the earliest-created record is preferred without adding extra fields.
+ *
+ * Active appointments are always preserved and returned first.
+ */
+function resolveRenderList(appts: Appointment[], timezone: string): Appointment[] {
+  const active = appts.filter((a) => !CANCELLED_STATUSES.has(a.status));
+  const cancelled = appts.filter((a) => CANCELLED_STATUSES.has(a.status));
+
+  if (cancelled.length === 0) return active;
+
+  // Pre-compute layouts for active appointments
+  const activeLayouts = active
+    .map((a) => appointmentLayout(a, timezone))
+    .filter((l): l is NonNullable<typeof l> => l !== null);
+
+  // Step 1: drop cancelled that overlap any active
+  const nonOverlapping = cancelled.filter((ca) => {
+    const caL = appointmentLayout(ca, timezone);
+    if (!caL) return false;
+    return !activeLayouts.some((aL) => pixelsOverlap(caL, aL));
+  });
+
+  // Step 2: deduplicate overlapping cancelled-only clusters (keep first in order)
+  const surviving: Appointment[] = [];
+  const survivingLayouts: { top: number; height: number }[] = [];
+
+  for (const ca of nonOverlapping) {
+    const caL = appointmentLayout(ca, timezone);
+    if (!caL) continue;
+    if (!survivingLayouts.some((kL) => pixelsOverlap(caL, kL))) {
+      surviving.push(ca);
+      survivingLayouts.push(caL);
+    }
+  }
+
+  return [...active, ...surviving];
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -93,11 +152,6 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
       className="flex-1 overflow-y-auto bg-transparent"
       style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
     >
-      {/*
-       * mt-2 creates an 8px gap above the timeline.
-       * Lane name labels use translateY(-50%) to center on the top (8:00) grid
-       * line — the 8px gap is exactly enough to keep them inside the scroll area.
-       */}
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
 
         {/* ── Layer 0: grid lines ───────────────────────────────────────── */}
@@ -152,7 +206,6 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          {/* Separator between time axis and appointment area */}
           <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-[#d8d5de] pointer-events-none" />
 
           {laneProviders ? (
@@ -166,12 +219,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                 />
               ))}
 
-              {/*
-               * Lane name labels — centered on the 8:00 grid line (top: 0).
-               * translateY(-50%) lifts each label so its midpoint sits exactly
-               * on the line. The bg-gray-50 mask makes the line appear to
-               * continue on both sides of the text:  ───יובל───|───אביבית───
-               */}
+              {/* Lane name labels */}
               {laneProviders.map((sp, i) => (
                 <div
                   key={`lane-label-${sp.id}`}
@@ -195,10 +243,11 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                 const laneWidthPct = 100 / laneProviders.length;
                 const laneRightPct = i * laneWidthPct;
                 const laneAppts = dayAppointments.filter((a) => a.provider.id === sp.id);
+                const renderList = resolveRenderList(laneAppts, timezone);
 
                 return (
                   <Fragment key={sp.id}>
-                    {laneAppts.map((appt) => {
+                    {renderList.map((appt) => {
                       const layout = appointmentLayout(appt, timezone);
                       if (!layout) return null;
                       return (
@@ -248,7 +297,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
             </>
           ) : (
             // ── Single-provider mode ──────────────────────────────────────
-            dayAppointments.map((appt) => {
+            resolveRenderList(dayAppointments, timezone).map((appt) => {
               const layout = appointmentLayout(appt, timezone);
               if (!layout) return null;
               return (
