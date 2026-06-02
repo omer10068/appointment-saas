@@ -30,8 +30,9 @@ A customer of a business. Can access only businesses that explicitly added them 
 - Backend: NestJS + TypeScript
 - Database: PostgreSQL
 - ORM: Prisma 7
+- Authentication: Clerk
 - Local infrastructure: Docker Compose
-- Frontend later: Next.js + React
+- Frontend: Next.js + React + TypeScript (active, under `apps/web`)
 
 ## Architecture Style
 
@@ -137,3 +138,4 @@ Completed:
 - ConfigModule setup
 - PrismaModule and PrismaService
 - Health endpoint connected to PostgreSQL
+- Next.js web frontend (`apps/web`) — dashboard (desktop) and mobile calendar MVP (`/mobile/calendar`)

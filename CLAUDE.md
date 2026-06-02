@@ -137,12 +137,14 @@ Expected HTTP responses:
 
 ## Current Backend Testing Status
 
-- Read-only dashboard E2E coverage is green for all currently implemented read endpoints (9 suites / 67 tests).
-- Current next phase is mutation tests by domain.
-- Start mutation coverage with **services mutations** — inspect implemented service mutation endpoints first; test only existing create/update/status/delete routes.
-- Do not assume DELETE or status-update endpoints exist before inspecting the controller.
-- Appointments mutations come last — they depend on business, customers, services, service providers, working hours, availability, and appointment status rules.
-- Detailed roadmap and mutation order live in `docs/backend-roadmap.md`.
+All backend mutation phases are complete. Do not treat any mutation domain as pending.
+
+- All dashboard mutation E2E coverage is green: services, service providers, customers, business users, working hours, availability exceptions, and appointments.
+- Appointment status endpoint enforces time-based rules in addition to RBAC and terminal-status protection: COMPLETED and NO_SHOW require the appointment to have already started; CANCELLED_BY_BUSINESS requires it has not yet started.
+- Available-slots engine (dashboard + public) is complete and covered by E2E tests.
+- Public booking read endpoints (`/public/businesses/:slug/…`) are complete.
+- Approximate test counts: 22+ E2E suites / 400+ tests, 17+ unit suites / 285+ unit tests.
+- Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Workflow
 

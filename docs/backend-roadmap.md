@@ -103,7 +103,7 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 - Seeds clean up in FK-safe order in both `beforeAll` (idempotent pre-cleanup) and `afterAll`.
 - Dev seed is never used in tests.
 
-**Current test counts:** 22 E2E suites / 393 tests — 17 unit suites / 280 tests — lint clean — build clean.
+**Approximate test counts:** 22+ E2E suites / 400+ tests — 17+ unit suites / 285+ unit tests — lint clean — build clean.
 
 ## Domain naming — locked decisions
 
@@ -255,7 +255,14 @@ Endpoints covered (57 tests):
 - `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId`
 - `PATCH /dashboard/businesses/:businessId/appointments/:appointmentId/status`
 
-Verified: OWNER/MANAGER allowed; MEMBER read-only / 403 on all mutations; missing auth 401; DTO validation; past `startsAt` rejection; empty PATCH rejection; terminal status-change protection; overlap conflict detection (409); availability validation against business hours / SP hours / availability exceptions (400); cross-tenant Pattern A and Pattern B.
+Verified: OWNER/MANAGER allowed; MEMBER read-only / 403 on all mutations; missing auth 401; DTO validation; past `startsAt` rejection; empty PATCH rejection; terminal status-change protection; time-based status rules; overlap conflict detection (409); availability validation against business hours / SP hours / availability exceptions (400); cross-tenant Pattern A and Pattern B.
+
+**Time-based rules for `PATCH .../status`** (enforced in `setAppointmentStatus`, after terminal-status check):
+
+- `COMPLETED` and `NO_SHOW` require `existing.startsAt <= now` — the appointment must have already started.
+- `CANCELLED_BY_BUSINESS` requires `existing.startsAt > now` — the appointment must not have started yet.
+- In-progress appointments (started but not ended) may be marked COMPLETED or NO_SHOW but not CANCELLED_BY_BUSINESS.
+- Unit tests: 7 new cases added to `appointments.service.spec.ts` covering all combinations.
 
 Appointment create and update enforce two independent validation layers in this order:
 
