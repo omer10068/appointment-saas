@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState, Fragment } from 'react';
-import type { Appointment, ServiceProvider } from '../_lib/calendar-v2.types';
-import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar-v2.design';
-import { isSameDay, formatTime } from '../_lib/calendar-v2.utils';
-import { CalendarV2AppointmentCard } from './calendar-v2-appointment-card';
-import { CalendarV2EmptyState } from './calendar-v2-empty-state';
+import type { Appointment, AppointmentStatus, ServiceProvider } from '../_lib/calendar.types';
+import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar.design';
+import { isSameDay, formatTime, minutesFromMidnightInTimeZone } from '../_lib/calendar.utils';
+import { CalendarAppointmentCard } from './calendar-appointment-card';
+import { CalendarEmptyState } from './calendar-empty-state';
 
 interface Props {
   selectedDate: Date;
   appointments: Appointment[];
-  onEditAppointment?: (id: string) => void;
+  timezone: string;
+  onSelectAppointment?: (appointment: Appointment) => void;
   /** When provided with 2+ providers, the timeline switches to side-by-side lane mode. */
   serviceProviders?: ServiceProvider[];
 }
@@ -42,9 +43,18 @@ const GRID_SLOTS = Array.from(
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function appointmentLayout(appt: Appointment): { top: number; height: number } | null {
-  const startMin = appt.startTime.getHours() * 60 + appt.startTime.getMinutes();
-  const endMin = appt.endTime.getHours() * 60 + appt.endTime.getMinutes();
+
+const CANCELLED_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
+  'cancelled_by_customer',
+  'cancelled_by_business',
+]);
+
+function appointmentLayout(
+  appt: Appointment,
+  timezone: string,
+): { top: number; height: number } | null {
+  const startMin = minutesFromMidnightInTimeZone(appt.startTime, timezone);
+  const endMin = minutesFromMidnightInTimeZone(appt.endTime, timezone);
   const clampedStart = Math.max(startMin, TIMELINE_START_MIN);
   const clampedEnd = Math.min(endMin, TIMELINE_END_MIN);
   if (clampedEnd <= clampedStart) return null;
@@ -54,8 +64,61 @@ function appointmentLayout(appt: Appointment): { top: number; height: number } |
   };
 }
 
+function pixelsOverlap(
+  a: { top: number; height: number },
+  b: { top: number; height: number },
+): boolean {
+  return a.top < b.top + b.height && a.top + a.height > b.top;
+}
+
+/**
+ * Resolves the final render list for a lane:
+ *
+ * 1. Cancelled appointments that overlap ANY non-cancelled appointment are
+ *    completely suppressed — the active card is the only thing shown.
+ * 2. Among remaining cancelled (cancelled-only slots), overlapping cancelled
+ *    cards are deduplicated: the first one in array order is kept, the rest
+ *    suppressed. Array order reflects API insertion order (createdAt asc),
+ *    so the earliest-created record is preferred without adding extra fields.
+ *
+ * Active appointments are always preserved and returned first.
+ */
+function resolveRenderList(appts: Appointment[], timezone: string): Appointment[] {
+  const active = appts.filter((a) => !CANCELLED_STATUSES.has(a.status));
+  const cancelled = appts.filter((a) => CANCELLED_STATUSES.has(a.status));
+
+  if (cancelled.length === 0) return active;
+
+  // Pre-compute layouts for active appointments
+  const activeLayouts = active
+    .map((a) => appointmentLayout(a, timezone))
+    .filter((l): l is NonNullable<typeof l> => l !== null);
+
+  // Step 1: drop cancelled that overlap any active
+  const nonOverlapping = cancelled.filter((ca) => {
+    const caL = appointmentLayout(ca, timezone);
+    if (!caL) return false;
+    return !activeLayouts.some((aL) => pixelsOverlap(caL, aL));
+  });
+
+  // Step 2: deduplicate overlapping cancelled-only clusters (keep first in order)
+  const surviving: Appointment[] = [];
+  const survivingLayouts: { top: number; height: number }[] = [];
+
+  for (const ca of nonOverlapping) {
+    const caL = appointmentLayout(ca, timezone);
+    if (!caL) continue;
+    if (!survivingLayouts.some((kL) => pixelsOverlap(caL, kL))) {
+      surviving.push(ca);
+      survivingLayouts.push(caL);
+    }
+  }
+
+  return [...active, ...surviving];
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
-export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointment, serviceProviders }: Props) {
+export function CalendarTimeline({ selectedDate, appointments, timezone, onSelectAppointment, serviceProviders }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
@@ -78,7 +141,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
   if (dayAppointments.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto flex flex-col">
-        <CalendarV2EmptyState />
+        <CalendarEmptyState />
       </div>
     );
   }
@@ -89,11 +152,6 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
       className="flex-1 overflow-y-auto bg-transparent"
       style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
     >
-      {/*
-       * mt-2 creates an 8px gap above the timeline.
-       * Lane name labels use translateY(-50%) to center on the top (8:00) grid
-       * line — the 8px gap is exactly enough to keep them inside the scroll area.
-       */}
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
 
         {/* ── Layer 0: grid lines ───────────────────────────────────────── */}
@@ -148,7 +206,6 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          {/* Separator between time axis and appointment area */}
           <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-[#d8d5de] pointer-events-none" />
 
           {laneProviders ? (
@@ -162,12 +219,7 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                 />
               ))}
 
-              {/*
-               * Lane name labels — centered on the 8:00 grid line (top: 0).
-               * translateY(-50%) lifts each label so its midpoint sits exactly
-               * on the line. The bg-gray-50 mask makes the line appear to
-               * continue on both sides of the text:  ───יובל───|───אביבית───
-               */}
+              {/* Lane name labels */}
               {laneProviders.map((sp, i) => (
                 <div
                   key={`lane-label-${sp.id}`}
@@ -191,11 +243,12 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                 const laneWidthPct = 100 / laneProviders.length;
                 const laneRightPct = i * laneWidthPct;
                 const laneAppts = dayAppointments.filter((a) => a.provider.id === sp.id);
+                const renderList = resolveRenderList(laneAppts, timezone);
 
                 return (
                   <Fragment key={sp.id}>
-                    {laneAppts.map((appt) => {
-                      const layout = appointmentLayout(appt);
+                    {renderList.map((appt) => {
+                      const layout = appointmentLayout(appt, timezone);
                       if (!layout) return null;
                       return (
                         <div
@@ -217,20 +270,21 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                               left: LANE_INSET_PX,
                             }}
                           >
-                            <CalendarV2AppointmentCard
+                            <CalendarAppointmentCard
                               customerName={appt.customer.name}
-                              startTime={formatTime(appt.startTime)}
-                              endTime={formatTime(appt.endTime)}
+                              startTime={formatTime(appt.startTime, timezone)}
+                              endTime={formatTime(appt.endTime, timezone)}
                               serviceName={appt.service.name}
                               color={appt.service.color}
+                              status={appt.status}
                               serviceProviderName={appt.provider.name}
                               note={appt.notes}
                               cardSize={{
                                 width: Math.max(0, (containerWidth - TIME_LABEL_WIDTH) / laneProviders.length - LANE_INSET_PX * 2),
                                 height: Math.max(0, layout.height - APPT_VERTICAL_GAP_PX * 2),
                               }}
-                              onEdit={
-                                onEditAppointment ? () => onEditAppointment(appt.id) : undefined
+                              onClick={
+                                onSelectAppointment ? () => onSelectAppointment(appt) : undefined
                               }
                             />
                           </div>
@@ -242,9 +296,9 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
               })}
             </>
           ) : (
-            // ── Single-provider mode (unchanged) ─────────────────────────
-            dayAppointments.map((appt) => {
-              const layout = appointmentLayout(appt);
+            // ── Single-provider mode ──────────────────────────────────────
+            resolveRenderList(dayAppointments, timezone).map((appt) => {
+              const layout = appointmentLayout(appt, timezone);
               if (!layout) return null;
               return (
                 <div
@@ -266,20 +320,21 @@ export function CalendarV2Timeline({ selectedDate, appointments, onEditAppointme
                       left: LANE_INSET_PX,
                     }}
                   >
-                    <CalendarV2AppointmentCard
+                    <CalendarAppointmentCard
                       customerName={appt.customer.name}
-                      startTime={formatTime(appt.startTime)}
-                      endTime={formatTime(appt.endTime)}
+                      startTime={formatTime(appt.startTime, timezone)}
+                      endTime={formatTime(appt.endTime, timezone)}
                       serviceName={appt.service.name}
                       color={appt.service.color}
+                      status={appt.status}
                       serviceProviderName={appt.provider.name}
                       note={appt.notes}
                       cardSize={{
                         width: Math.max(0, containerWidth - TIME_LABEL_WIDTH - APPT_INSET_PX),
                         height: Math.max(0, layout.height - APPT_VERTICAL_GAP_PX * 2),
                       }}
-                      onEdit={
-                        onEditAppointment ? () => onEditAppointment(appt.id) : undefined
+                      onClick={
+                        onSelectAppointment ? () => onSelectAppointment(appt) : undefined
                       }
                     />
                   </div>

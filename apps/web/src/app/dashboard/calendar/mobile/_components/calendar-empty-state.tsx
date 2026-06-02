@@ -1,6 +1,6 @@
 import { CalendarX } from 'lucide-react';
 
-export function CalendarV2EmptyState() {
+export function CalendarEmptyState() {
   return (
     <div className="flex flex-col items-center justify-center flex-1 px-6 py-16">
       <CalendarX size={48} className="text-gray-300 mb-4" />

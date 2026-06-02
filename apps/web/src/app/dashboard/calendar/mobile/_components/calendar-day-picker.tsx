@@ -1,6 +1,6 @@
 'use client';
 
-import { getWeekDays, isSameDay, HEBREW_DAY_ABBR } from '../_lib/calendar-v2.utils';
+import { getWeekDays, isSameDay, HEBREW_DAY_ABBR } from '../_lib/calendar.utils';
 
 interface Props {
   selectedDate: Date;
@@ -8,7 +8,7 @@ interface Props {
   onSelect: (date: Date) => void;
 }
 
-export function CalendarV2DayPicker({ selectedDate, today, onSelect }: Props) {
+export function CalendarDayPicker({ selectedDate, today, onSelect }: Props) {
   const weekDays = getWeekDays(selectedDate);
 
   return (

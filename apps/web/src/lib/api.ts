@@ -56,6 +56,7 @@ export async function fetchWithAuth<T>(
     headers: {
       Authorization: `Bearer ${token ?? ''}`,
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': '1',
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });

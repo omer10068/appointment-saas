@@ -1,13 +1,13 @@
 'use client';
 
 import { Plus } from 'lucide-react';
-import { LAYOUT } from '../_lib/calendar-v2.design';
+import { LAYOUT } from '../_lib/calendar.design';
 
 interface Props {
   onClick?: () => void;
 }
 
-export function CalendarV2NewButton({ onClick }: Props) {
+export function CalendarNewButton({ onClick }: Props) {
   return (
     <button
       onClick={onClick}

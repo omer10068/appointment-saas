@@ -1,4 +1,4 @@
-import type { ServiceColor, AppointmentStatus } from './calendar-v2.types';
+import type { ServiceColor } from './calendar.types';
 
 export const TIMELINE = {
   startHour: 8,

@@ -337,7 +337,7 @@ export class AppointmentsService {
 
     const existing = await this.prisma.appointment.findFirst({
       where: { id: appointmentId, businessId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, startsAt: true },
     });
     if (!existing) throw new NotFoundException('Appointment not found');
 
@@ -350,6 +350,25 @@ export class AppointmentsService {
     if (TERMINAL_STATUSES.includes(existing.status)) {
       throw new BadRequestException(
         'Cannot change status of a completed or cancelled appointment',
+      );
+    }
+
+    const now = new Date();
+    const hasStarted = existing.startsAt <= now;
+
+    if (
+      (dto.status === AppointmentStatus.COMPLETED ||
+        dto.status === AppointmentStatus.NO_SHOW) &&
+      !hasStarted
+    ) {
+      throw new BadRequestException(
+        'Cannot mark a future appointment as completed or no-show',
+      );
+    }
+
+    if (dto.status === AppointmentStatus.CANCELLED_BY_BUSINESS && hasStarted) {
+      throw new BadRequestException(
+        'Cannot cancel an appointment that has already started',
       );
     }
 
