@@ -68,6 +68,10 @@ export function CalendarAppointmentCard({
   const badgeLabel = BADGE_LABEL[status];
   const badgeClass = BADGE_CLASS[status] ?? '';
   const opacityClass = TERMINAL_OPACITY[status] ?? '';
+  // Subtle line-through on service/customer names for cancelled appointments only.
+  // Uses decoration-current/40 so the strike inherits the service colour, staying polished.
+  const isCancelled = status === 'cancelled_by_customer' || status === 'cancelled_by_business';
+  const strikeClass = isCancelled ? 'line-through decoration-current/40' : '';
 
   const interactiveClass = onClick ? 'cursor-pointer active:brightness-95' : '';
 
@@ -121,10 +125,10 @@ export function CalendarAppointmentCard({
       >
         <div className={`absolute top-0 bottom-0 right-0 w-1 ${c.bar}`} />
         <div className="h-full w-full min-w-0 pr-4 pl-2.5 flex flex-col justify-between py-1">
-          <span className={`text-[12px] font-semibold leading-[1.15] truncate ${c.customerText}`}>
+          <span className={`text-[12px] font-semibold leading-[1.15] truncate ${c.customerText} ${strikeClass}`}>
             {serviceName}
           </span>
-          <span className={`text-[11px] font-medium leading-[1.15] truncate ${c.serviceText}`}>
+          <span className={`text-[11px] font-medium leading-[1.15] truncate ${c.serviceText} ${strikeClass}`}>
             {customerName}
           </span>
           <div className="min-w-0 flex items-center justify-between gap-1.5">
@@ -167,10 +171,10 @@ export function CalendarAppointmentCard({
       )}
 
       <div className={`h-full w-full min-w-0 pr-4 pl-2.5 flex flex-col justify-between py-2.5`}>
-        <span className={`text-[13px] font-semibold leading-[1.15] truncate ${c.customerText}`}>
+        <span className={`text-[13px] font-semibold leading-[1.15] truncate ${c.customerText} ${strikeClass}`}>
           {serviceName}
         </span>
-        <span className={`text-[11.5px] font-medium leading-[1.15] truncate ${c.serviceText}`}>
+        <span className={`text-[11.5px] font-medium leading-[1.15] truncate ${c.serviceText} ${strikeClass}`}>
           {customerName}
         </span>
         <div className="min-w-0 flex items-center justify-between gap-2">
