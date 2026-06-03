@@ -106,6 +106,61 @@ export function isCurrentWeek(date: Date): boolean {
   return isSameDay(startOfWeek(date), startOfWeek(new Date()));
 }
 
+// ─── Hebrew weekday abbreviations (Sun=0 … Sat=6) ────────────────────────────
+const HE_WEEKDAY_ABR = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'] as const;
+
+// en-US short weekday → 0-based index, timezone-aware
+function dowInTimezone(date: Date, timezone: string): number {
+  const dayStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+  }).format(date);
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return map[dayStr] ?? 0;
+}
+
+export interface DateChip {
+  date: Date;
+  /** YYYY-MM-DD in business timezone — stable key and used for selected-date comparison. */
+  localDateStr: string;
+  /** "היום", "מחר", or abbreviated Hebrew weekday (e.g. "ג׳"). */
+  weekdayLabel: string;
+  /** Day and month as "D/M" (e.g. "3/6"). */
+  dayMonth: string;
+}
+
+/**
+ * Returns `count` DateChips starting from today in the given business timezone.
+ * All dates are today or in the future — never past.
+ */
+export function getDateStripDays(timezone: string, count = 14): DateChip[] {
+  const today = new Date();
+  return Array.from({ length: count }, (_, i) => {
+    const date = addDays(today, i);
+    const localDateStr = toLocalDateString(date, timezone);
+
+    let weekdayLabel: string;
+    if (i === 0) {
+      weekdayLabel = 'היום';
+    } else if (i === 1) {
+      weekdayLabel = 'מחר';
+    } else {
+      weekdayLabel = HE_WEEKDAY_ABR[dowInTimezone(date, timezone)] ?? '';
+    }
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      day: 'numeric',
+      month: 'numeric',
+    }).formatToParts(date);
+    const day = parts.find((p) => p.type === 'day')?.value ?? '';
+    const month = parts.find((p) => p.type === 'month')?.value ?? '';
+    const dayMonth = `${day}/${month}`;
+
+    return { date, localDateStr, weekdayLabel, dayMonth };
+  });
+}
+
 /**
  * Formats an Israeli phone number for display.
  * +972-5X-XXX-XXXX → 05X-XXX-XXXX (mobile)

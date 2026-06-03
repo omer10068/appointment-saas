@@ -10,7 +10,7 @@ import {
   fetchDashboardCustomers,
 } from '../../../../../lib/api';
 import type { AvailableSlotItem } from '../../../../../lib/api';
-import { addDays, toLocalDateString } from './calendar.utils';
+import { toLocalDateString } from './calendar.utils';
 import type { ServiceProvider } from './calendar.types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -29,11 +29,9 @@ export interface CreateAppointmentFormState {
   /** Active providers that offer the currently selected service. Empty until a service is chosen. */
   bookableProviders: ServiceProvider[];
 
-  // ── Date navigation ──────────────────────────────────────────────────────────
+  // ── Date guard ───────────────────────────────────────────────────────────────
   /** True when selectedDate is before business-today. Blocks slot fetch and submit. */
   isPastDate: boolean;
-  /** True when prevDay is allowed (selectedDate is after business-today). */
-  canGoPrev: boolean;
 
   // ── Customer data ────────────────────────────────────────────────────────────
   customers: DashboardCustomerDto[];
@@ -54,15 +52,14 @@ export interface CreateAppointmentFormState {
   // ── Actions ──────────────────────────────────────────────────────────────────
   selectService: (id: string | null) => void;
   selectProvider: (id: string | null) => void;
+  selectDate: (date: Date) => void;
   selectSlot: (slot: AvailableSlotItem | null) => void;
   selectCustomer: (id: string | null) => void;
-  prevDay: () => void;
-  nextDay: () => void;
   /**
-   * Clamps date to business-today if past, then resets slot/error state.
-   * Call when the sheet opens to ensure the form never starts on a past date.
+   * Full form reset: clears all selections, clamps date to business-today if past.
+   * Call when the sheet opens so every opening starts fresh.
    */
-  resetDate: (date: Date) => void;
+  resetForm: (initialDate: Date) => void;
   /** Creates the appointment. Returns true on success, false on failure. */
   submit: () => Promise<boolean>;
 }
@@ -108,10 +105,8 @@ export function useCreateAppointmentForm(params: {
   const todayLocalDate = toLocalDateString(new Date(), timezone);
   const selectedLocalDate = toLocalDateString(selectedDate, timezone);
   const isPastDate = selectedLocalDate < todayLocalDate;
-  const canGoPrev = selectedLocalDate > todayLocalDate;
 
   // ── Derived: bookable providers ───────────────────────────────────────────────
-  // Active providers that offer the selected service. Empty until a service is selected.
   const bookableProviders = useMemo(() => {
     if (!selectedServiceId) return [];
     return serviceProviders.filter(
@@ -148,7 +143,7 @@ export function useCreateAppointmentForm(params: {
     };
   }, [businessId]);
 
-  // ── Fetch available slots when all three upstream selections are ready ─────────
+  // ── Fetch available slots when all upstream selections are ready ──────────────
   useEffect(() => {
     if (!businessId || !selectedServiceId || !selectedProviderId || isPastDate) {
       setSlots([]);
@@ -194,8 +189,8 @@ export function useCreateAppointmentForm(params: {
     setSelectedSlot(null);
     setSlots([]);
 
-    // Always reset provider on service change; then auto-select the user's own
-    // provider if they offer the new service (same matching as the timeline lane filter).
+    // Reset provider on service change, then auto-select the user's own provider
+    // if they offer the new service (mirrors the timeline lane filter logic).
     setSelectedProviderId(null);
     if (id && currentBusinessUserId) {
       const mine = serviceProviders.find(
@@ -214,6 +209,12 @@ export function useCreateAppointmentForm(params: {
     setSlots([]);
   }
 
+  function selectDate(date: Date) {
+    setSelectedDate(date);
+    setSelectedSlot(null);
+    setSlots([]);
+  }
+
   function selectSlot(slot: AvailableSlotItem | null) {
     setSelectedSlot(slot);
   }
@@ -222,25 +223,15 @@ export function useCreateAppointmentForm(params: {
     setSelectedCustomerId(id);
   }
 
-  function prevDay() {
-    if (!canGoPrev) return;
-    setSelectedDate((d) => addDays(d, -1));
-    setSelectedSlot(null);
-    setSlots([]);
-  }
-
-  function nextDay() {
-    setSelectedDate((d) => addDays(d, 1));
-    setSelectedSlot(null);
-    setSlots([]);
-  }
-
-  function resetDate(date: Date) {
+  function resetForm(date: Date) {
     const todayStr = toLocalDateString(new Date(), timezone);
     const dateStr = toLocalDateString(date, timezone);
     const clamped = dateStr < todayStr ? new Date() : date;
+    setSelectedServiceId(null);
+    setSelectedProviderId(null);
     setSelectedDate(clamped);
     setSelectedSlot(null);
+    setSelectedCustomerId(null);
     setSlots([]);
     setSlotsError(null);
     setSubmitError(null);
@@ -287,7 +278,6 @@ export function useCreateAppointmentForm(params: {
     selectedCustomerId,
     bookableProviders,
     isPastDate,
-    canGoPrev,
     customers,
     isLoadingCustomers,
     slots,
@@ -298,11 +288,10 @@ export function useCreateAppointmentForm(params: {
     submitError,
     selectService,
     selectProvider,
+    selectDate,
     selectSlot,
     selectCustomer,
-    prevDay,
-    nextDay,
-    resetDate,
+    resetForm,
     submit,
   };
 }

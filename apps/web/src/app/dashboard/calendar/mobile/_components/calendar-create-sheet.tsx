@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { X, ChevronRight, ChevronLeft, Loader2, Check } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { X, Loader2, Check } from 'lucide-react';
 import { useDashboardI18n } from '../../../_i18n/useDashboardI18n';
-import { formatDate, formatIsraeliPhone } from '../_lib/calendar.utils';
+import { formatIsraeliPhone, getDateStripDays, toLocalDateString } from '../_lib/calendar.utils';
+import type { DateChip } from '../_lib/calendar.utils';
 import { useCreateAppointmentForm } from '../_lib/useCreateAppointmentForm';
 import type { Service, ServiceProvider } from '../_lib/calendar.types';
 
@@ -63,17 +64,17 @@ export function CalendarCreateSheet({
     currentBusinessUserId,
   });
 
-  // Keep stable refs so the open-transition effect doesn't need them in its dep array.
+  // Stable refs so the open-transition effect doesn't stale-close over form/initialDate.
   const formRef = useRef(form);
   formRef.current = form;
   const initialDateRef = useRef(initialDate);
   initialDateRef.current = initialDate;
 
+  // On every open: reset all selections and clamp date to business-today if needed.
   useEffect(() => {
     if (!open) return;
     isClosingRef.current = false;
-    // Clamp the form date to business-today whenever the sheet opens.
-    formRef.current.resetDate(initialDateRef.current);
+    formRef.current.resetForm(initialDateRef.current);
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, [open]);
@@ -93,6 +94,11 @@ export function CalendarCreateSheet({
       triggerClose();
     }
   }
+
+  // ── Date strip ────────────────────────────────────────────────────────────────
+  // Recomputed when timezone changes. getDateStripDays always starts from today.
+  const dateStrip = useMemo(() => getDateStripDays(timezone), [timezone]);
+  const selectedLocalDate = toLocalDateString(form.selectedDate, timezone);
 
   if (!open) return null;
 
@@ -188,34 +194,13 @@ export function CalendarCreateSheet({
               </FormSection>
             )}
 
-            {/* ── Date ────────────────────────────────────────────────────── */}
+            {/* ── Date strip ──────────────────────────────────────────────── */}
             <FormSection label="תאריך">
-              <div className="flex items-center justify-between">
-                {/* In RTL: ChevronRight is the right/previous chevron */}
-                <button
-                  onClick={form.prevDay}
-                  disabled={!form.canGoPrev}
-                  aria-label="יום קודם"
-                  className={[
-                    'p-2 rounded-xl transition-colors',
-                    form.canGoPrev
-                      ? 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200'
-                      : 'text-gray-200 dark:text-gray-700 cursor-not-allowed',
-                  ].join(' ')}
-                >
-                  <ChevronRight size={18} />
-                </button>
-                <span className="text-[14px] font-medium text-gray-700 dark:text-gray-200">
-                  {formatDate(form.selectedDate, timezone)}
-                </span>
-                <button
-                  onClick={form.nextDay}
-                  aria-label="יום הבא"
-                  className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-              </div>
+              <DateStrip
+                days={dateStrip}
+                selectedLocalDate={selectedLocalDate}
+                onSelect={form.selectDate}
+              />
             </FormSection>
 
             {/* ── Available slots (shown once service + provider are selected) */}
@@ -271,14 +256,31 @@ export function CalendarCreateSheet({
                             : form.selectCustomer(c.businessCustomerId)
                         }
                         className={[
-                          'flex items-center justify-between py-3 px-2 rounded-xl text-right w-full transition-colors',
+                          'flex items-center gap-3 py-3 px-2 rounded-xl w-full transition-colors',
                           selected
                             ? 'bg-[#f0f0f8] dark:bg-indigo-950/30'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-800/40',
                         ].join(' ')}
                       >
-                        {/* Name + phone (right/start side in RTL) */}
-                        <div className="flex flex-col items-end gap-0.5 min-w-0 flex-1">
+                        {/* Avatar / check — right side (RTL start, first flex child) */}
+                        <div
+                          className={[
+                            'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
+                            'text-[12px] font-semibold transition-colors',
+                            selected
+                              ? 'bg-[#2d2d3a] text-white dark:bg-indigo-600'
+                              : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+                          ].join(' ')}
+                        >
+                          {selected ? (
+                            <Check size={16} strokeWidth={2.5} />
+                          ) : (
+                            getInitials(c.fullName)
+                          )}
+                        </div>
+
+                        {/* Name + phone — expands left, text right-aligned (items-start = right in RTL flex-col) */}
+                        <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
                           <span
                             className={[
                               'text-[14px] font-medium leading-tight truncate max-w-full',
@@ -296,23 +298,6 @@ export function CalendarCreateSheet({
                             >
                               {formatIsraeliPhone(c.phone)}
                             </span>
-                          )}
-                        </div>
-
-                        {/* Avatar / check indicator (left/end side in RTL) */}
-                        <div
-                          className={[
-                            'w-9 h-9 rounded-full flex items-center justify-center shrink-0 ms-3',
-                            'text-[12px] font-semibold transition-colors',
-                            selected
-                              ? 'bg-[#2d2d3a] text-white dark:bg-indigo-600'
-                              : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
-                          ].join(' ')}
-                        >
-                          {selected ? (
-                            <Check size={16} strokeWidth={2.5} />
-                          ) : (
-                            getInitials(c.fullName)
                           )}
                         </div>
                       </button>
@@ -390,5 +375,53 @@ function SelectionPill({
     >
       {label}
     </button>
+  );
+}
+
+function DateStrip({
+  days,
+  selectedLocalDate,
+  onSelect,
+}: {
+  days: DateChip[];
+  selectedLocalDate: string;
+  onSelect: (date: Date) => void;
+}) {
+  return (
+    <div
+      className="flex gap-2 overflow-x-auto pb-1"
+      style={{ scrollbarWidth: 'none' }}
+    >
+      {days.map((chip) => {
+        const active = chip.localDateStr === selectedLocalDate;
+        return (
+          <button
+            key={chip.localDateStr}
+            type="button"
+            onClick={() => onSelect(chip.date)}
+            className={[
+              'flex flex-col items-center justify-center gap-0.5',
+              'min-w-13.5 py-2.5 rounded-xl shrink-0',
+              'transition-all duration-150',
+              active
+                ? 'bg-[#2d2d3a] text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'text-[11px] font-medium leading-none',
+                active ? 'text-white/60' : 'text-gray-400 dark:text-gray-500',
+              ].join(' ')}
+            >
+              {chip.weekdayLabel}
+            </span>
+            <span className="text-[13px] font-semibold leading-none mt-0.5">
+              {chip.dayMonth}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
