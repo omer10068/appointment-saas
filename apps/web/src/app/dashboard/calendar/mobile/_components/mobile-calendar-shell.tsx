@@ -15,6 +15,7 @@ import { CalendarTimeline } from './calendar-timeline';
 import { CalendarNewButton } from './calendar-new-button';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
+import { CalendarCreateSheet } from './calendar-create-sheet';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -39,6 +40,7 @@ export function MobileCalendarShell() {
   const [todayResetKey, setTodayResetKey] = useState(0);
   const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
 
   const { serviceProviders, appointments, isLoading, error, refreshWeek } =
     useMobileCalendarData(currentBusinessId, selectedDate);
@@ -107,7 +109,7 @@ export function MobileCalendarShell() {
   }
 
   function handleNewAppointment() {
-    // TODO: open new-appointment modal (not yet implemented)
+    setShowCreateSheet(true);
   }
 
   async function handleStatusUpdate(
@@ -199,7 +201,7 @@ export function MobileCalendarShell() {
         </>
       )}
 
-      <CalendarNewButton onClick={handleNewAppointment} />
+      {canMutate && <CalendarNewButton onClick={handleNewAppointment} />}
       <CalendarBottomNav activeKey="calendar" />
 
       <CalendarAppointmentSheet
@@ -208,6 +210,11 @@ export function MobileCalendarShell() {
         canMutate={canMutate}
         onStatusUpdate={handleStatusUpdate}
         onClosed={() => setSelectedAppointment(null)}
+      />
+
+      <CalendarCreateSheet
+        open={showCreateSheet}
+        onClosed={() => setShowCreateSheet(false)}
       />
     </div>
   );
