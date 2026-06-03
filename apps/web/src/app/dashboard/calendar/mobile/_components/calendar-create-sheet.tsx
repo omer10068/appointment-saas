@@ -54,9 +54,26 @@ export function CalendarCreateSheet({
   const [visible, setVisible] = useState(false);
   const isClosingRef = useRef(false);
 
+  // ── Form state ────────────────────────────────────────────────────────────────
+  const form = useCreateAppointmentForm({
+    businessId,
+    timezone,
+    initialDate,
+    serviceProviders,
+    currentBusinessUserId,
+  });
+
+  // Keep stable refs so the open-transition effect doesn't need them in its dep array.
+  const formRef = useRef(form);
+  formRef.current = form;
+  const initialDateRef = useRef(initialDate);
+  initialDateRef.current = initialDate;
+
   useEffect(() => {
     if (!open) return;
     isClosingRef.current = false;
+    // Clamp the form date to business-today whenever the sheet opens.
+    formRef.current.resetDate(initialDateRef.current);
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, [open]);
@@ -67,15 +84,6 @@ export function CalendarCreateSheet({
     setVisible(false);
     setTimeout(onClosed, 310);
   }
-
-  // ── Form state ────────────────────────────────────────────────────────────────
-  const form = useCreateAppointmentForm({
-    businessId,
-    timezone,
-    initialDate,
-    serviceProviders,
-    currentBusinessUserId,
-  });
 
   // ── Submit handler ────────────────────────────────────────────────────────────
   async function handleSubmit() {
@@ -100,37 +108,39 @@ export function CalendarCreateSheet({
         aria-hidden="true"
       />
 
-      {/* Sheet */}
+      {/* Sheet — flex col so header/footer never get pushed off screen */}
       <div
         className={[
           'absolute bottom-0 left-0 right-0',
+          'flex flex-col',
+          'max-h-[92dvh]',
           'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        {/* Drag handle — flex-none */}
+        <div className="flex-none flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-3 pb-5 border-b border-gray-100 dark:border-gray-800">
+        {/* Header — flex-none, always visible */}
+        <div className="flex-none flex items-center justify-between px-6 pt-4 pb-4 border-b border-gray-100 dark:border-gray-800">
           <span className="text-[17px] font-semibold text-gray-800 dark:text-gray-100">
             {tForm.addAppointment}
           </span>
           <button
             onClick={triggerClose}
             aria-label="סגור"
-            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Scrollable form body */}
-        <div className="overflow-y-auto" style={{ maxHeight: '72dvh' }}>
-          <div className="px-5 py-5 flex flex-col gap-6 pb-8">
+        {/* Scrollable form body — flex-1, scrolls independently */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-6 py-5 flex flex-col gap-6 pb-8">
 
             {/* ── Service ─────────────────────────────────────────────────── */}
             <FormSection label={tForm.service}>
@@ -181,11 +191,17 @@ export function CalendarCreateSheet({
             {/* ── Date ────────────────────────────────────────────────────── */}
             <FormSection label="תאריך">
               <div className="flex items-center justify-between">
-                {/* In RTL: the first child (ChevronRight) is the right/previous chevron */}
+                {/* In RTL: ChevronRight is the right/previous chevron */}
                 <button
                   onClick={form.prevDay}
+                  disabled={!form.canGoPrev}
                   aria-label="יום קודם"
-                  className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors"
+                  className={[
+                    'p-2 rounded-xl transition-colors',
+                    form.canGoPrev
+                      ? 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200'
+                      : 'text-gray-200 dark:text-gray-700 cursor-not-allowed',
+                  ].join(' ')}
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -205,7 +221,9 @@ export function CalendarCreateSheet({
             {/* ── Available slots (shown once service + provider are selected) */}
             {form.selectedServiceId && form.selectedProviderId && (
               <FormSection label="שעה">
-                {form.isLoadingSlots ? (
+                {form.isPastDate ? (
+                  <p className="text-[13px] text-amber-500">לא ניתן לקבוע תור לתאריך שעבר</p>
+                ) : form.isLoadingSlots ? (
                   <div className="flex justify-center py-3">
                     <Loader2 size={20} className="animate-spin text-gray-400" />
                   </div>
@@ -307,8 +325,8 @@ export function CalendarCreateSheet({
           </div>
         </div>
 
-        {/* Footer: submit button + error */}
-        <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-800">
+        {/* Footer — flex-none, always visible */}
+        <div className="flex-none px-6 py-4 border-t border-gray-100 dark:border-gray-800">
           {form.submitError && (
             <p className="mb-3 text-[13px] text-red-500 text-center">
               {form.submitError}

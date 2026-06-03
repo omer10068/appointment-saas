@@ -29,6 +29,12 @@ export interface CreateAppointmentFormState {
   /** Active providers that offer the currently selected service. Empty until a service is chosen. */
   bookableProviders: ServiceProvider[];
 
+  // ── Date navigation ──────────────────────────────────────────────────────────
+  /** True when selectedDate is before business-today. Blocks slot fetch and submit. */
+  isPastDate: boolean;
+  /** True when prevDay is allowed (selectedDate is after business-today). */
+  canGoPrev: boolean;
+
   // ── Customer data ────────────────────────────────────────────────────────────
   customers: DashboardCustomerDto[];
   isLoadingCustomers: boolean;
@@ -52,6 +58,11 @@ export interface CreateAppointmentFormState {
   selectCustomer: (id: string | null) => void;
   prevDay: () => void;
   nextDay: () => void;
+  /**
+   * Clamps date to business-today if past, then resets slot/error state.
+   * Call when the sheet opens to ensure the form never starts on a past date.
+   */
+  resetDate: (date: Date) => void;
   /** Creates the appointment. Returns true on success, false on failure. */
   submit: () => Promise<boolean>;
 }
@@ -91,6 +102,13 @@ export function useCreateAppointmentForm(params: {
   // ── Submit state ─────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // ── Derived: today and past-date guard ───────────────────────────────────────
+  // Computed each render so it stays accurate across midnight without extra state.
+  const todayLocalDate = toLocalDateString(new Date(), timezone);
+  const selectedLocalDate = toLocalDateString(selectedDate, timezone);
+  const isPastDate = selectedLocalDate < todayLocalDate;
+  const canGoPrev = selectedLocalDate > todayLocalDate;
 
   // ── Derived: bookable providers ───────────────────────────────────────────────
   // Active providers that offer the selected service. Empty until a service is selected.
@@ -132,7 +150,7 @@ export function useCreateAppointmentForm(params: {
 
   // ── Fetch available slots when all three upstream selections are ready ─────────
   useEffect(() => {
-    if (!businessId || !selectedServiceId || !selectedProviderId) {
+    if (!businessId || !selectedServiceId || !selectedProviderId || isPastDate) {
       setSlots([]);
       setSlotsError(null);
       return;
@@ -167,7 +185,7 @@ export function useCreateAppointmentForm(params: {
     };
     // selectedDate is a Date — use its string representation as the stable dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId, selectedServiceId, selectedProviderId, selectedDate.toDateString()]);
+  }, [businessId, selectedServiceId, selectedProviderId, selectedDate.toDateString(), isPastDate]);
 
   // ── Actions ───────────────────────────────────────────────────────────────────
 
@@ -205,6 +223,7 @@ export function useCreateAppointmentForm(params: {
   }
 
   function prevDay() {
+    if (!canGoPrev) return;
     setSelectedDate((d) => addDays(d, -1));
     setSelectedSlot(null);
     setSlots([]);
@@ -214,6 +233,17 @@ export function useCreateAppointmentForm(params: {
     setSelectedDate((d) => addDays(d, 1));
     setSelectedSlot(null);
     setSlots([]);
+  }
+
+  function resetDate(date: Date) {
+    const todayStr = toLocalDateString(new Date(), timezone);
+    const dateStr = toLocalDateString(date, timezone);
+    const clamped = dateStr < todayStr ? new Date() : date;
+    setSelectedDate(clamped);
+    setSelectedSlot(null);
+    setSlots([]);
+    setSlotsError(null);
+    setSubmitError(null);
   }
 
   async function submit(): Promise<boolean> {
@@ -243,6 +273,7 @@ export function useCreateAppointmentForm(params: {
   }
 
   const isFormValid =
+    !isPastDate &&
     !!selectedServiceId &&
     !!selectedProviderId &&
     !!selectedSlot &&
@@ -255,6 +286,8 @@ export function useCreateAppointmentForm(params: {
     selectedSlot,
     selectedCustomerId,
     bookableProviders,
+    isPastDate,
+    canGoPrev,
     customers,
     isLoadingCustomers,
     slots,
@@ -269,6 +302,7 @@ export function useCreateAppointmentForm(params: {
     selectCustomer,
     prevDay,
     nextDay,
+    resetDate,
     submit,
   };
 }
