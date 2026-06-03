@@ -28,6 +28,20 @@ export function isSameDay(a: Date, b: Date): boolean {
 }
 
 /**
+ * Returns the date as YYYY-MM-DD in the given IANA timezone.
+ * Use this when building the `date` query param for the available-slots endpoint.
+ * en-CA locale reliably produces ISO-style date format across all browsers.
+ */
+export function toLocalDateString(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+/**
  * Returns a localised date string in the given IANA timezone as "DD/MM/YYYY <weekday>".
  * he-IL weekday 'long' already includes "יום" (e.g. "יום ראשון"), so no prefix is added.
  */
@@ -90,4 +104,25 @@ export function formatMonthYear(date: Date): string {
 
 export function isCurrentWeek(date: Date): boolean {
   return isSameDay(startOfWeek(date), startOfWeek(new Date()));
+}
+
+/**
+ * Formats an Israeli phone number for display.
+ * +972-5X-XXX-XXXX → 05X-XXX-XXXX (mobile)
+ * +972-X-XXXXXXX  → 0X-XXXXXXX   (landline)
+ * Other formats are returned as-is.
+ */
+export function formatIsraeliPhone(phone: string): string {
+  const stripped = phone.replace(/\s+/g, '');
+  if (stripped.startsWith('+972')) {
+    const local = '0' + stripped.slice(4);
+    if (local.length === 10) {
+      return `${local.slice(0, 3)}-${local.slice(3, 6)}-${local.slice(6)}`;
+    }
+    if (local.length === 9) {
+      return `${local.slice(0, 2)}-${local.slice(2)}`;
+    }
+    return local;
+  }
+  return phone;
 }

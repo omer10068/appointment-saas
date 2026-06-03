@@ -19,6 +19,8 @@ import type { Appointment, Service, ServiceProvider } from './calendar.types';
 
 export interface MobileCalendarData {
   serviceProviders: ServiceProvider[];
+  /** Active services for this business. Used by the create-appointment form. */
+  services: Service[];
   /** All appointments for the visible week, mapped to UI types. */
   appointments: Appointment[];
   isLoading: boolean;
@@ -36,6 +38,7 @@ export function useMobileCalendarData(
   getTokenRef.current = getToken;
 
   const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [serviceMap, setServiceMap] = useState<Map<string, Service>>(new Map());
   const [weekDtos, setWeekDtos] = useState<DashboardAppointmentDto[]>([]);
   const [isLoadingStatic, setIsLoadingStatic] = useState(false);
@@ -71,9 +74,12 @@ export function useMobileCalendarData(
     ])
       .then(([providerDtos, serviceDtos]) => {
         if (cancelled) return;
-        const services = serviceDtos.map(mapDtoToService);
+        const allServices = serviceDtos.map(mapDtoToService);
+        // Active services exposed for the create-appointment form.
+        // The full map (including inactive) is kept for mapping historical appointments.
+        setServices(serviceDtos.filter((dto) => dto.isActive).map(mapDtoToService));
         setServiceProviders(providerDtos.map(mapDtoToServiceProvider));
-        setServiceMap(buildServiceMap(services));
+        setServiceMap(buildServiceMap(allServices));
       })
       .catch(() => {
         if (!cancelled) setError('שגיאה בטעינת הנתונים');
@@ -128,6 +134,7 @@ export function useMobileCalendarData(
 
   return {
     serviceProviders,
+    services,
     appointments,
     isLoading: isLoadingStatic || isLoadingWeek,
     error,

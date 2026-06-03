@@ -42,7 +42,7 @@ export function MobileCalendarShell() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
 
-  const { serviceProviders, appointments, isLoading, error, refreshWeek } =
+  const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
   // Auto-select the current user's own provider lane on first load.
@@ -215,6 +215,13 @@ export function MobileCalendarShell() {
       <CalendarCreateSheet
         open={showCreateSheet}
         onClosed={() => setShowCreateSheet(false)}
+        onCreated={refreshWeek}
+        businessId={currentBusinessId}
+        timezone={timezone}
+        initialDate={selectedDate}
+        services={services}
+        serviceProviders={serviceProviders}
+        currentBusinessUserId={currentBusiness?.id}
       />
     </div>
   );

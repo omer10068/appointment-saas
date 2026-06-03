@@ -20,6 +20,10 @@ export interface ServiceProvider {
   name: string;
   /** BusinessUser.id of the linked staff member, if any. Used to auto-select the current user's lane. */
   businessUserId?: string;
+  /** Service IDs offered by this provider. Used to filter providers for a selected service. */
+  serviceIds?: string[];
+  /** Whether this provider is currently active and accepting bookings. */
+  isActive?: boolean;
 }
 
 export interface Customer {
