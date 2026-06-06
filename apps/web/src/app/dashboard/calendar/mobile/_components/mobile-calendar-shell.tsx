@@ -42,6 +42,22 @@ export function MobileCalendarShell() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
 
+  // ── Success banner ────────────────────────────────────────────────────────────
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
+
+  function showSuccess(message: string) {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    setSuccessBanner(message);
+    successTimerRef.current = setTimeout(() => setSuccessBanner(null), 3500);
+  }
+
   const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
@@ -160,6 +176,14 @@ export function MobileCalendarShell() {
         onSelect={setSelectedDate}
       />
 
+      {/* ── Success banner (auto-dismisses after 3.5 s) ─────────────────── */}
+      {successBanner && (
+        <div className="flex-none flex items-center justify-center gap-2 bg-emerald-500 dark:bg-emerald-600 text-white text-[13px] font-semibold px-4 py-2.5">
+          <span aria-hidden="true">✓</span>
+          <span>{successBanner}</span>
+        </div>
+      )}
+
       {/* ── Content area ───────────────────────────────────────────────── */}
 
       {!currentBusinessId ? (
@@ -220,6 +244,7 @@ export function MobileCalendarShell() {
           // then refresh so it appears in the timeline immediately.
           setSelectedDate(appointmentDate);
           refreshWeek();
+          showSuccess('התור נוסף בהצלחה');
         }}
         businessId={currentBusinessId}
         timezone={timezone}
