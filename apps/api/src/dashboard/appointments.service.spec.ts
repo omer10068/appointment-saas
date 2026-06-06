@@ -408,6 +408,42 @@ describe('AppointmentsService', () => {
         service.createAppointment(USER_ID, BUSINESS_ID, createDto),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('throws ConflictException when same customer has overlapping appointment with a different provider', async () => {
+      setupHappyPath();
+      // SP conflict check passes; customer conflict check fires
+      mockPrisma.appointment.findFirst
+        .mockResolvedValueOnce(null)             // checkServiceProviderConflict: no conflict
+        .mockResolvedValueOnce(mockAppointment); // checkCustomerConflict: conflict!
+
+      await expect(
+        service.createAppointment(USER_ID, BUSINESS_ID, createDto),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('excludes cancelled appointments from the customer conflict check', async () => {
+      setupHappyPath();
+      mockPrisma.appointment.create.mockResolvedValue(
+        mockAppointmentRow as unknown as Appointment,
+      );
+
+      await service.createAppointment(USER_ID, BUSINESS_ID, createDto);
+
+      // Verify the customer conflict query excludes cancelled statuses
+      expect(mockPrisma.appointment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            businessCustomerId: CUSTOMER_ID,
+            status: expect.objectContaining({
+              notIn: expect.arrayContaining([
+                'CANCELLED_BY_CUSTOMER',
+                'CANCELLED_BY_BUSINESS',
+              ]),
+            }),
+          }),
+        }),
+      );
+    });
   });
 
   // ─── updateAppointment ────────────────────────────────────────────────────
@@ -482,8 +518,9 @@ describe('AppointmentsService', () => {
 
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.appointment.findFirst
-        .mockResolvedValueOnce(mockAppointment)
-        .mockResolvedValueOnce(null);
+        .mockResolvedValueOnce(mockAppointment) // fetch existing
+        .mockResolvedValueOnce(null)             // SP conflict check
+        .mockResolvedValueOnce(null);            // customer conflict check
       mockPrisma.appointment.update.mockResolvedValue(
         mockAppointmentRow as unknown as Appointment,
       );
@@ -527,6 +564,49 @@ describe('AppointmentsService', () => {
 
       expect(mockPrisma.serviceProvider.findFirst).toHaveBeenCalled();
       expect(mockPrisma.serviceProviderService.findFirst).toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when rescheduled appointment causes customer time overlap', async () => {
+      const newStartsAt = new Date('2030-06-15T11:00:00.000Z');
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.appointment.findFirst
+        .mockResolvedValueOnce(mockAppointment)  // fetch existing
+        .mockResolvedValueOnce(null)              // SP conflict: ok
+        .mockResolvedValueOnce(mockAppointment); // customer conflict: conflict!
+
+      await expect(
+        service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+          startsAt: newStartsAt.toISOString(),
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('update excludes the current appointment itself from the customer conflict check', async () => {
+      const newStartsAt = new Date('2030-06-15T11:00:00.000Z');
+
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.appointment.findFirst
+        .mockResolvedValueOnce(mockAppointment)
+        .mockResolvedValueOnce(null) // SP conflict
+        .mockResolvedValueOnce(null); // customer conflict: self excluded, no other conflict
+      mockPrisma.appointment.update.mockResolvedValue(
+        mockAppointmentRow as unknown as Appointment,
+      );
+
+      await service.updateAppointment(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {
+        startsAt: newStartsAt.toISOString(),
+      });
+
+      // Customer conflict query must exclude the appointment being updated
+      expect(mockPrisma.appointment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            businessCustomerId: CUSTOMER_ID,
+            id: { not: APPOINTMENT_ID },
+          }),
+        }),
+      );
     });
   });
 

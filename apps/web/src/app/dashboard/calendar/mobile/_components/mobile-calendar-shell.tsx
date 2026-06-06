@@ -15,6 +15,7 @@ import { CalendarTimeline } from './calendar-timeline';
 import { CalendarNewButton } from './calendar-new-button';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
+import { CalendarCreateSheet } from './calendar-create-sheet';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -39,8 +40,25 @@ export function MobileCalendarShell() {
   const [todayResetKey, setTodayResetKey] = useState(0);
   const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
 
-  const { serviceProviders, appointments, isLoading, error, refreshWeek } =
+  // ── Success banner ────────────────────────────────────────────────────────────
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
+
+  function showSuccess(message: string) {
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    setSuccessBanner(message);
+    successTimerRef.current = setTimeout(() => setSuccessBanner(null), 3500);
+  }
+
+  const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
   // Auto-select the current user's own provider lane on first load.
@@ -107,7 +125,7 @@ export function MobileCalendarShell() {
   }
 
   function handleNewAppointment() {
-    // TODO: open new-appointment modal (not yet implemented)
+    setShowCreateSheet(true);
   }
 
   async function handleStatusUpdate(
@@ -158,6 +176,14 @@ export function MobileCalendarShell() {
         onSelect={setSelectedDate}
       />
 
+      {/* ── Success banner (auto-dismisses after 3.5 s) ─────────────────── */}
+      {successBanner && (
+        <div className="flex-none flex items-center justify-center gap-2 bg-emerald-500 dark:bg-emerald-600 text-white text-[13px] font-semibold px-4 py-2.5">
+          <span aria-hidden="true">✓</span>
+          <span>{successBanner}</span>
+        </div>
+      )}
+
       {/* ── Content area ───────────────────────────────────────────────── */}
 
       {!currentBusinessId ? (
@@ -199,7 +225,7 @@ export function MobileCalendarShell() {
         </>
       )}
 
-      <CalendarNewButton onClick={handleNewAppointment} />
+      {canMutate && <CalendarNewButton onClick={handleNewAppointment} />}
       <CalendarBottomNav activeKey="calendar" />
 
       <CalendarAppointmentSheet
@@ -208,6 +234,24 @@ export function MobileCalendarShell() {
         canMutate={canMutate}
         onStatusUpdate={handleStatusUpdate}
         onClosed={() => setSelectedAppointment(null)}
+      />
+
+      <CalendarCreateSheet
+        open={showCreateSheet}
+        onClosed={() => setShowCreateSheet(false)}
+        onCreated={(appointmentDate) => {
+          // Navigate the main calendar to the week of the new appointment,
+          // then refresh so it appears in the timeline immediately.
+          setSelectedDate(appointmentDate);
+          refreshWeek();
+          showSuccess('התור נוסף בהצלחה');
+        }}
+        businessId={currentBusinessId}
+        timezone={timezone}
+        initialDate={selectedDate}
+        services={services}
+        serviceProviders={serviceProviders}
+        currentBusinessUserId={currentBusiness?.id}
       />
     </div>
   );

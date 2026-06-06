@@ -413,6 +413,56 @@ export function updateDashboardAppointmentStatus(
   );
 }
 
+// ─── Available slots ──────────────────────────────────────────────────────────
+
+/**
+ * One bookable slot as returned by the backend.
+ * `startsAt` / `endsAt` are UTC ISO strings — pass `startsAt` directly to
+ * CreateAppointmentPayload; do not recalculate from local times.
+ * `localStartTime` / `localEndTime` are HH:MM strings in the business timezone
+ * and should be used only for display.
+ */
+export interface AvailableSlotItem {
+  startsAt: string;
+  endsAt: string;
+  localStartTime: string;
+  localEndTime: string;
+}
+
+export interface AvailableSlotsResponse {
+  date: string;
+  timezone: string;
+  serviceId: string;
+  serviceProviderId: string;
+  durationMinutes: number;
+  intervalMinutes: number;
+  slots: AvailableSlotItem[];
+}
+
+export function fetchAvailableSlots(
+  businessId: string,
+  query: {
+    serviceId: string;
+    serviceProviderId: string;
+    date: string; // YYYY-MM-DD in business timezone
+    intervalMinutes?: number;
+  },
+  getToken: () => Promise<string | null>,
+): Promise<AvailableSlotsResponse> {
+  const params = new URLSearchParams({
+    serviceId: query.serviceId,
+    serviceProviderId: query.serviceProviderId,
+    date: query.date,
+  });
+  if (query.intervalMinutes != null) {
+    params.set('intervalMinutes', String(query.intervalMinutes));
+  }
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/available-slots?${params.toString()}`,
+    getToken,
+  );
+}
+
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 export function fetchDashboardSummary(

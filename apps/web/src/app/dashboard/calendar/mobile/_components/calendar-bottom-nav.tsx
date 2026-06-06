@@ -1,29 +1,41 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Home, Calendar, Users, Scissors, MoreHorizontal } from 'lucide-react';
 import { LAYOUT } from '../_lib/calendar.design';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost.
 // `implemented` marks items that actually navigate; others show a "coming soon" hint.
 const NAV_ITEMS = [
-  { icon: Home,           label: 'בית',     key: 'home',      implemented: false },
+  { icon: Home,           label: 'בית',     key: 'home',      implemented: true  },
   { icon: Calendar,       label: 'לוח שנה', key: 'calendar',  implemented: true  },
   { icon: Users,          label: 'לקוחות',  key: 'customers', implemented: false },
   { icon: Scissors,       label: 'שירותים', key: 'services',  implemented: false },
   { icon: MoreHorizontal, label: 'עוד',      key: 'more',      implemented: false },
 ] as const;
 
+const NAV_ROUTES: Partial<Record<string, string>> = {
+  home:     '/mobile/home',
+  calendar: '/mobile/calendar',
+};
+
 interface Props {
   activeKey?: string;
 }
 
 export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
+  const router = useRouter();
   const [showingSoon, setShowingSoon] = useState(false);
 
-  function handleUnimplementedTap() {
-    setShowingSoon(true);
-    setTimeout(() => setShowingSoon(false), 2000);
+  function handleNavTap(key: string, implemented: boolean) {
+    if (!implemented) {
+      setShowingSoon(true);
+      setTimeout(() => setShowingSoon(false), 2000);
+      return;
+    }
+    const route = NAV_ROUTES[key];
+    if (route) router.push(route);
   }
 
   return (
@@ -47,7 +59,7 @@ export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
             <button
               key={key}
               aria-label={label}
-              onClick={implemented ? undefined : handleUnimplementedTap}
+              onClick={() => handleNavTap(key, implemented)}
               className={[
                 'flex flex-col items-center justify-center gap-0.5',
                 'min-w-13 h-full px-1 rounded-xl transition-colors',

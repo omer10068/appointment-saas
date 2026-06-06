@@ -53,6 +53,8 @@ export function mapDtoToServiceProvider(dto: DashboardServiceProviderDto): Servi
     id: dto.id,
     name: dto.displayName,
     businessUserId: dto.businessUserId,
+    serviceIds: dto.serviceIds,
+    isActive: dto.isActive,
   };
 }
 

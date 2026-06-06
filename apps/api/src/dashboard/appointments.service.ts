@@ -171,6 +171,14 @@ export class AppointmentsService {
       null,
     );
 
+    await this.checkCustomerConflict(
+      businessId,
+      dto.businessCustomerId,
+      startsAt,
+      endsAt,
+      null,
+    );
+
     await this.bookingValidation.validateBookingSlot({
       businessId,
       serviceProviderId: dto.serviceProviderId,
@@ -223,6 +231,7 @@ export class AppointmentsService {
       where: { id: appointmentId, businessId },
       select: {
         id: true,
+        businessCustomerId: true,
         serviceId: true,
         serviceProviderId: true,
         startsAt: true,
@@ -302,6 +311,16 @@ export class AppointmentsService {
       endsAt,
       appointmentId,
     );
+
+    if (needsRecompute) {
+      await this.checkCustomerConflict(
+        businessId,
+        existing.businessCustomerId,
+        startsAt,
+        endsAt,
+        appointmentId,
+      );
+    }
 
     const slotChanged = needsRecompute || dto.serviceProviderId !== undefined;
     if (slotChanged) {
@@ -467,6 +486,36 @@ export class AppointmentsService {
     if (!link) {
       throw new BadRequestException(
         'Service provider does not offer the selected service',
+      );
+    }
+  }
+
+  private async checkCustomerConflict(
+    businessId: string,
+    businessCustomerId: string,
+    startsAt: Date,
+    endsAt: Date,
+    excludeId: string | null,
+  ): Promise<void> {
+    const conflict = await this.prisma.appointment.findFirst({
+      where: {
+        businessId,
+        businessCustomerId,
+        status: {
+          notIn: [
+            AppointmentStatus.CANCELLED_BY_CUSTOMER,
+            AppointmentStatus.CANCELLED_BY_BUSINESS,
+          ],
+        },
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (conflict) {
+      throw new ConflictException(
+        'Customer already has an appointment at this time',
       );
     }
   }
