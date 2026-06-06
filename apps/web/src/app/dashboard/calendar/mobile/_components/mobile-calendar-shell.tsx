@@ -215,7 +215,12 @@ export function MobileCalendarShell() {
       <CalendarCreateSheet
         open={showCreateSheet}
         onClosed={() => setShowCreateSheet(false)}
-        onCreated={refreshWeek}
+        onCreated={(appointmentDate) => {
+          // Navigate the main calendar to the week of the new appointment,
+          // then refresh so it appears in the timeline immediately.
+          setSelectedDate(appointmentDate);
+          refreshWeek();
+        }}
         businessId={currentBusinessId}
         timezone={timezone}
         initialDate={selectedDate}

@@ -106,6 +106,40 @@ export function isCurrentWeek(date: Date): boolean {
   return isSameDay(startOfWeek(date), startOfWeek(new Date()));
 }
 
+// ─── Calendar date utilities ─────────────────────────────────────────────────
+
+/**
+ * Returns today's year, 0-based month, and day in the given IANA timezone.
+ * Uses toLocalDateString for reliable cross-browser parsing.
+ */
+export function todayInTimezone(timezone: string): { year: number; month: number; day: number } {
+  const s = toLocalDateString(new Date(), timezone); // "YYYY-MM-DD"
+  return {
+    year: Number(s.slice(0, 4)),
+    month: Number(s.slice(5, 7)) - 1, // 0-based
+    day: Number(s.slice(8, 10)),
+  };
+}
+
+/**
+ * Returns the day-of-week (0=Sunday … 6=Saturday) of the 1st day of the given
+ * year/month in the given IANA timezone.
+ * Uses UTC noon on the 1st to avoid DST edge cases.
+ */
+export function firstDowOfMonth(year: number, month: number, timezone: string): number {
+  const d = new Date(Date.UTC(year, month, 1, 12));
+  const dayStr = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(d);
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return map[dayStr] ?? 0;
+}
+
+/**
+ * Returns the number of days in the given year/month (Gregorian, timezone-independent).
+ */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
 // ─── Hebrew weekday abbreviations (Sun=0 … Sat=6) ────────────────────────────
 const HE_WEEKDAY_ABR = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'] as const;
 

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Loader2, Check, Search } from 'lucide-react';
 import { useDashboardI18n } from '../../../_i18n/useDashboardI18n';
-import { formatIsraeliPhone, getDateStripDays, toLocalDateString } from '../_lib/calendar.utils';
-import type { DateChip } from '../_lib/calendar.utils';
+import { formatDate, formatIsraeliPhone } from '../_lib/calendar.utils';
+import { CalendarDatePicker } from './calendar-date-picker';
 import { useCreateAppointmentForm } from '../_lib/useCreateAppointmentForm';
 import type { Service, ServiceProvider } from '../_lib/calendar.types';
 
@@ -13,8 +13,11 @@ import type { Service, ServiceProvider } from '../_lib/calendar.types';
 interface Props {
   open: boolean;
   onClosed: () => void;
-  /** Called immediately on successful appointment creation (before close animation). */
-  onCreated?: () => void;
+  /**
+   * Called immediately on successful appointment creation (before close animation).
+   * Receives the date the appointment was created on so the calendar can navigate there.
+   */
+  onCreated?: (appointmentDate: Date) => void;
   businessId: string | null;
   timezone: string;
   initialDate: Date;
@@ -51,7 +54,7 @@ export function CalendarCreateSheet({
   const dict = useDashboardI18n();
   const tForm = dict.appointmentForm;
 
-  // ── Animation (same pattern as CalendarAppointmentSheet) ────────────────────
+  // ── Animation ────────────────────────────────────────────────────────────────
   const [visible, setVisible] = useState(false);
   const isClosingRef = useRef(false);
 
@@ -73,6 +76,9 @@ export function CalendarCreateSheet({
   // ── Customer search ───────────────────────────────────────────────────────────
   const [customerSearch, setCustomerSearch] = useState('');
 
+  // Whether the month calendar panel is expanded.
+  const [showCalendar, setShowCalendar] = useState(false);
+
   const MAX_VISIBLE = 5;
 
   const allMatches = useMemo(() => {
@@ -80,7 +86,6 @@ export function CalendarCreateSheet({
     if (!q) return form.customers;
 
     const qDigits = q.replace(/\D/g, '');
-    // Strip leading 0 or 972 prefix so "052" matches "+97252..."
     let qPhone = qDigits;
     if (qPhone.startsWith('972')) qPhone = qPhone.slice(3);
     else if (qPhone.startsWith('0')) qPhone = qPhone.slice(1);
@@ -98,8 +103,6 @@ export function CalendarCreateSheet({
 
   const visibleCustomers = useMemo(() => {
     const top = allMatches.slice(0, MAX_VISIBLE);
-    // If the selected customer was filtered out, pin them at the top so the
-    // user always sees who is selected.
     if (
       form.selectedCustomerId &&
       !top.some((c) => c.businessCustomerId === form.selectedCustomerId)
@@ -115,11 +118,13 @@ export function CalendarCreateSheet({
   const hasMore = allMatches.length > MAX_VISIBLE;
 
   // On every open: reset all selections and clamp date to business-today if needed.
+  // Also bump openKey so CalendarDatePicker mounts fresh with the reset date.
   useEffect(() => {
     if (!open) return;
     isClosingRef.current = false;
     formRef.current.resetForm(initialDateRef.current);
     setCustomerSearch('');
+    setShowCalendar(false);
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, [open]);
@@ -135,15 +140,10 @@ export function CalendarCreateSheet({
   async function handleSubmit() {
     const success = await form.submit();
     if (success) {
-      onCreated?.();
+      onCreated?.(form.selectedDate);
       triggerClose();
     }
   }
-
-  // ── Date strip ────────────────────────────────────────────────────────────────
-  // Recomputed when timezone changes. getDateStripDays always starts from today.
-  const dateStrip = useMemo(() => getDateStripDays(timezone), [timezone]);
-  const selectedLocalDate = toLocalDateString(form.selectedDate, timezone);
 
   if (!open) return null;
 
@@ -239,13 +239,33 @@ export function CalendarCreateSheet({
               </FormSection>
             )}
 
-            {/* ── Date strip ──────────────────────────────────────────────── */}
+            {/* ── Date picker ──────────────────────────────────────────────── */}
             <FormSection label="תאריך">
-              <DateStrip
-                days={dateStrip}
-                selectedLocalDate={selectedLocalDate}
-                onSelect={form.selectDate}
-              />
+              {/* Toggle button: emoji + formatted selected date */}
+              <button
+                type="button"
+                onClick={() => setShowCalendar((s) => !s)}
+                className="flex items-center gap-2.5 w-full text-right active:opacity-60 transition-opacity"
+              >
+                <span className="text-[20px] leading-none select-none">📅</span>
+                <span className="text-[14px] font-medium text-gray-700 dark:text-gray-200">
+                  {formatDate(form.selectedDate, timezone)}
+                </span>
+              </button>
+
+              {/* Calendar panel — conditionally rendered; remounts fresh each open */}
+              {showCalendar && (
+                <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-4 mt-1">
+                  <CalendarDatePicker
+                    selectedDate={form.selectedDate}
+                    timezone={timezone}
+                    onSelect={(date) => {
+                      form.selectDate(date);
+                      setShowCalendar(false);
+                    }}
+                  />
+                </div>
+              )}
             </FormSection>
 
             {/* ── Available slots (shown once service + provider are selected) */}
@@ -339,7 +359,7 @@ export function CalendarCreateSheet({
                                 : 'hover:bg-gray-50 dark:hover:bg-gray-800/40',
                             ].join(' ')}
                           >
-                            {/* Avatar / check — right side (RTL start, first flex child) */}
+                            {/* Avatar / check — right side (RTL start) */}
                             <div
                               className={[
                                 'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
@@ -356,7 +376,7 @@ export function CalendarCreateSheet({
                               )}
                             </div>
 
-                            {/* Name + phone — expands left, items-start = right in RTL flex-col */}
+                            {/* Name + phone — items-start = right in RTL flex-col */}
                             <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
                               <span
                                 className={[
@@ -462,53 +482,5 @@ function SelectionPill({
     >
       {label}
     </button>
-  );
-}
-
-function DateStrip({
-  days,
-  selectedLocalDate,
-  onSelect,
-}: {
-  days: DateChip[];
-  selectedLocalDate: string;
-  onSelect: (date: Date) => void;
-}) {
-  return (
-    <div
-      className="flex gap-2 overflow-x-auto pb-1"
-      style={{ scrollbarWidth: 'none' }}
-    >
-      {days.map((chip) => {
-        const active = chip.localDateStr === selectedLocalDate;
-        return (
-          <button
-            key={chip.localDateStr}
-            type="button"
-            onClick={() => onSelect(chip.date)}
-            className={[
-              'flex flex-col items-center justify-center gap-0.5',
-              'min-w-13.5 py-2.5 rounded-xl shrink-0',
-              'transition-all duration-150',
-              active
-                ? 'bg-[#2d2d3a] text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
-            ].join(' ')}
-          >
-            <span
-              className={[
-                'text-[11px] font-medium leading-none',
-                active ? 'text-white/60' : 'text-gray-400 dark:text-gray-500',
-              ].join(' ')}
-            >
-              {chip.weekdayLabel}
-            </span>
-            <span className="text-[13px] font-semibold leading-none mt-0.5">
-              {chip.dayMonth}
-            </span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
