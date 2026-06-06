@@ -196,6 +196,44 @@ export function getDateStripDays(timezone: string, count = 14): DateChip[] {
 }
 
 /**
+ * Returns UTC ISO strings for the start and end of business-local today.
+ * Pass these as `from`/`to` when fetching today's appointments.
+ *
+ * The UTC offset is sampled at noon UTC on the target day to avoid DST edge
+ * cases (transitions almost never occur exactly at midnight).
+ */
+export function businessDayRange(timezone: string): { from: string; to: string } {
+  const now = new Date();
+  const todayStr = toLocalDateString(now, timezone); // "YYYY-MM-DD"
+  const year  = Number(todayStr.slice(0, 4));
+  const month = Number(todayStr.slice(5, 7)); // 1-based
+  const day   = Number(todayStr.slice(8, 10));
+
+  // Sample the UTC offset at noon UTC on the target day
+  const noonUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(noonUtc);
+  const get = (type: string): number =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const localNoonMs = Date.UTC(
+    get('year'), get('month') - 1, get('day'),
+    get('hour') % 24, get('minute'), get('second'),
+  );
+  const offsetMs = localNoonMs - noonUtc.getTime();
+
+  // Midnight in business tz expressed as UTC = midnight-as-UTC minus the tz offset
+  const midnightAsUtcMs = Date.UTC(year, month - 1, day, 0, 0, 0);
+  const fromMs = midnightAsUtcMs - offsetMs;
+  const toMs   = fromMs + 24 * 60 * 60 * 1000;
+
+  return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() };
+}
+
+/**
  * Formats an Israeli phone number for display.
  * +972-5X-XXX-XXXX → 05X-XXX-XXXX (mobile)
  * +972-X-XXXXXXX  → 0X-XXXXXXX   (landline)
