@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Loader2, Check } from 'lucide-react';
+import { X, Loader2, Check, Search } from 'lucide-react';
 import { useDashboardI18n } from '../../../_i18n/useDashboardI18n';
 import { formatIsraeliPhone, getDateStripDays, toLocalDateString } from '../_lib/calendar.utils';
 import type { DateChip } from '../_lib/calendar.utils';
@@ -70,11 +70,56 @@ export function CalendarCreateSheet({
   const initialDateRef = useRef(initialDate);
   initialDateRef.current = initialDate;
 
+  // ── Customer search ───────────────────────────────────────────────────────────
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  const MAX_VISIBLE = 5;
+
+  const allMatches = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return form.customers;
+
+    const qDigits = q.replace(/\D/g, '');
+    // Strip leading 0 or 972 prefix so "052" matches "+97252..."
+    let qPhone = qDigits;
+    if (qPhone.startsWith('972')) qPhone = qPhone.slice(3);
+    else if (qPhone.startsWith('0')) qPhone = qPhone.slice(1);
+
+    return form.customers.filter((c) => {
+      if (c.fullName.toLowerCase().includes(q)) return true;
+      if (qPhone && c.phone) {
+        const phoneDigits = c.phone.replace(/\D/g, '');
+        const localPhone = phoneDigits.startsWith('972') ? phoneDigits.slice(3) : phoneDigits;
+        if (localPhone.includes(qPhone)) return true;
+      }
+      return false;
+    });
+  }, [form.customers, customerSearch]);
+
+  const visibleCustomers = useMemo(() => {
+    const top = allMatches.slice(0, MAX_VISIBLE);
+    // If the selected customer was filtered out, pin them at the top so the
+    // user always sees who is selected.
+    if (
+      form.selectedCustomerId &&
+      !top.some((c) => c.businessCustomerId === form.selectedCustomerId)
+    ) {
+      const sel = form.customers.find(
+        (c) => c.businessCustomerId === form.selectedCustomerId,
+      );
+      if (sel) return [sel, ...top.slice(0, MAX_VISIBLE - 1)];
+    }
+    return top;
+  }, [allMatches, form.selectedCustomerId, form.customers]);
+
+  const hasMore = allMatches.length > MAX_VISIBLE;
+
   // On every open: reset all selections and clamp date to business-today if needed.
   useEffect(() => {
     if (!open) return;
     isClosingRef.current = false;
     formRef.current.resetForm(initialDateRef.current);
+    setCustomerSearch('');
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, [open]);
@@ -244,65 +289,107 @@ export function CalendarCreateSheet({
               ) : form.customers.length === 0 ? (
                 <p className="text-[13px] text-gray-400">{tForm.noCustomers}</p>
               ) : (
-                <div className="flex flex-col gap-0.5">
-                  {form.customers.map((c) => {
-                    const selected = form.selectedCustomerId === c.businessCustomerId;
-                    return (
-                      <button
-                        key={c.businessCustomerId}
-                        onClick={() =>
-                          selected
-                            ? form.selectCustomer(null)
-                            : form.selectCustomer(c.businessCustomerId)
-                        }
-                        className={[
-                          'flex items-center gap-3 py-3 px-2 rounded-xl w-full transition-colors',
-                          selected
-                            ? 'bg-[#f0f0f8] dark:bg-indigo-950/30'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-800/40',
-                        ].join(' ')}
-                      >
-                        {/* Avatar / check — right side (RTL start, first flex child) */}
-                        <div
-                          className={[
-                            'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
-                            'text-[12px] font-semibold transition-colors',
-                            selected
-                              ? 'bg-[#2d2d3a] text-white dark:bg-indigo-600'
-                              : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
-                          ].join(' ')}
-                        >
-                          {selected ? (
-                            <Check size={16} strokeWidth={2.5} />
-                          ) : (
-                            getInitials(c.fullName)
-                          )}
-                        </div>
+                <div className="flex flex-col gap-2">
 
-                        {/* Name + phone — expands left, text right-aligned (items-start = right in RTL flex-col) */}
-                        <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
-                          <span
-                            className={[
-                              'text-[14px] font-medium leading-tight truncate max-w-full',
+                  {/* Search input */}
+                  <div className="relative">
+                    <Search
+                      size={15}
+                      className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-400 pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      dir="rtl"
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      placeholder="חיפוש לפי שם או טלפון"
+                      className={[
+                        'w-full pl-3 pr-9 py-2.5 rounded-xl text-[14px]',
+                        'bg-gray-50 dark:bg-gray-800',
+                        'border border-gray-200 dark:border-gray-700',
+                        'text-gray-700 dark:text-gray-200',
+                        'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+                        'outline-none focus:border-[#2d2d3a] dark:focus:border-indigo-500',
+                        'transition-colors',
+                      ].join(' ')}
+                    />
+                  </div>
+
+                  {/* Results */}
+                  {visibleCustomers.length === 0 ? (
+                    <p className="text-[13px] text-gray-400 text-center py-2">
+                      לא נמצאו לקוחות
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      {visibleCustomers.map((c) => {
+                        const selected = form.selectedCustomerId === c.businessCustomerId;
+                        return (
+                          <button
+                            key={c.businessCustomerId}
+                            onClick={() =>
                               selected
-                                ? 'text-[#2d2d3a] dark:text-indigo-200'
-                                : 'text-gray-700 dark:text-gray-300',
+                                ? form.selectCustomer(null)
+                                : form.selectCustomer(c.businessCustomerId)
+                            }
+                            className={[
+                              'flex items-center gap-3 py-3 px-2 rounded-xl w-full transition-colors',
+                              selected
+                                ? 'bg-[#f0f0f8] dark:bg-indigo-950/30'
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-800/40',
                             ].join(' ')}
                           >
-                            {c.fullName}
-                          </span>
-                          {c.phone && (
-                            <span
-                              className="text-[12px] text-gray-400 leading-none"
-                              dir="ltr"
+                            {/* Avatar / check — right side (RTL start, first flex child) */}
+                            <div
+                              className={[
+                                'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
+                                'text-[12px] font-semibold transition-colors',
+                                selected
+                                  ? 'bg-[#2d2d3a] text-white dark:bg-indigo-600'
+                                  : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+                              ].join(' ')}
                             >
-                              {formatIsraeliPhone(c.phone)}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                              {selected ? (
+                                <Check size={16} strokeWidth={2.5} />
+                              ) : (
+                                getInitials(c.fullName)
+                              )}
+                            </div>
+
+                            {/* Name + phone — expands left, items-start = right in RTL flex-col */}
+                            <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
+                              <span
+                                className={[
+                                  'text-[14px] font-medium leading-tight truncate max-w-full',
+                                  selected
+                                    ? 'text-[#2d2d3a] dark:text-indigo-200'
+                                    : 'text-gray-700 dark:text-gray-300',
+                                ].join(' ')}
+                              >
+                                {c.fullName}
+                              </span>
+                              {c.phone && (
+                                <span
+                                  className="text-[12px] text-gray-400 leading-none"
+                                  dir="ltr"
+                                >
+                                  {formatIsraeliPhone(c.phone)}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* "More results" hint */}
+                  {hasMore && (
+                    <p className="text-[12px] text-gray-400 text-center pt-0.5">
+                      יש עוד תוצאות — חפש לפי שם או טלפון לצמצום
+                    </p>
+                  )}
+
                 </div>
               )}
             </FormSection>
