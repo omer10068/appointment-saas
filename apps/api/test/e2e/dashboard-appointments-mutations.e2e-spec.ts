@@ -28,6 +28,7 @@ const E2E_APT_MGR_USER_ID = 'e2e10000-0000-4000-8000-000000000003';
 const E2E_APT_MBR_USER_ID = 'e2e10000-0000-4000-8000-000000000004';
 const E2E_APT_OUT_USER_ID = 'e2e10000-0000-4000-8000-000000000005';
 const E2E_APT_SP_USER_ID = 'e2e10000-0000-4000-8000-000000000006';
+const E2E_APT_SP2_USER_ID = 'e2e10000-0000-4000-8000-000000000007'; // user backing the second SP
 
 const E2E_APT_CP_ID = 'e2e10000-0000-4000-8000-000000000010';
 const E2E_APT_BC_ID = 'e2e10000-0000-4000-8000-000000000011';
@@ -38,6 +39,7 @@ const E2E_APT_UNLINKED_SVC_ID = 'e2e10000-0000-4000-8000-000000000022';
 
 const E2E_APT_SP_ID = 'e2e10000-0000-4000-8000-000000000030';
 const E2E_APT_INACTIVE_SP_ID = 'e2e10000-0000-4000-8000-000000000031';
+const E2E_APT_SP2_ID = 'e2e10000-0000-4000-8000-000000000032'; // second active provider (for customer-conflict tests)
 
 // Pre-seeded appointments
 const E2E_APT_EXISTING_ID = 'e2e10000-0000-4000-8000-000000000040';
@@ -69,6 +71,7 @@ const MGR_PHONE = '+19990001002';
 const MBR_PHONE = '+19990001003';
 const OUT_PHONE = '+19990001004';
 const SP_USER_PHONE = '+19990001005';
+const SP2_USER_PHONE = '+19990001006';
 const OTHER_USER_PHONE = '+19990001010';
 const OTHER_SP_USER_PHONE = '+19990001011';
 const CP_PHONE = '+19990001020';
@@ -162,13 +165,13 @@ beforeAll(async () => {
   await prisma.serviceProviderService.deleteMany({
     where: {
       serviceProviderId: {
-        in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID],
+        in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID],
       },
     },
   });
   await prisma.serviceProvider.deleteMany({
     where: {
-      id: { in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID] },
+      id: { in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID] },
     },
   });
   await prisma.businessCustomer.deleteMany({
@@ -195,6 +198,7 @@ beforeAll(async () => {
           E2E_APT_MBR_USER_ID,
           E2E_APT_OUT_USER_ID,
           E2E_APT_SP_USER_ID,
+          E2E_APT_SP2_USER_ID,
           E2E_APT_OTHER_USER_ID,
           E2E_APT_OTHER_SP_USER_ID,
         ],
@@ -343,6 +347,36 @@ beforeAll(async () => {
 
   await prisma.serviceProviderService.create({
     data: { serviceProviderId: E2E_APT_SP_ID, serviceId: E2E_APT_SVC_ID },
+  });
+
+  // Second active ServiceProvider — used by customer-conflict tests
+  const sp2User = await prisma.user.create({
+    data: {
+      id: E2E_APT_SP2_USER_ID,
+      phoneNormalized: SP2_USER_PHONE,
+      status: 'ACTIVE',
+      platformRole: 'USER',
+    },
+  });
+  const sp2BU = await prisma.businessUser.create({
+    data: {
+      businessId: E2E_APT_BIZ_ID,
+      userId: sp2User.id,
+      role: BusinessUserRole.MEMBER,
+      status: BusinessUserStatus.ACTIVE,
+    },
+  });
+  await prisma.serviceProvider.create({
+    data: {
+      id: E2E_APT_SP2_ID,
+      businessId: E2E_APT_BIZ_ID,
+      businessUserId: sp2BU.id,
+      displayName: 'Second Provider',
+      isActive: true,
+    },
+  });
+  await prisma.serviceProviderService.create({
+    data: { serviceProviderId: E2E_APT_SP2_ID, serviceId: E2E_APT_SVC_ID },
   });
 
   // Customer
@@ -597,13 +631,13 @@ afterAll(async () => {
   await prisma.serviceProviderService.deleteMany({
     where: {
       serviceProviderId: {
-        in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID],
+        in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID],
       },
     },
   });
   await prisma.serviceProvider.deleteMany({
     where: {
-      id: { in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID] },
+      id: { in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID] },
     },
   });
   await prisma.businessCustomer.deleteMany({
@@ -630,6 +664,7 @@ afterAll(async () => {
           E2E_APT_MBR_USER_ID,
           E2E_APT_OUT_USER_ID,
           E2E_APT_SP_USER_ID,
+          E2E_APT_SP2_USER_ID,
           E2E_APT_OTHER_USER_ID,
           E2E_APT_OTHER_SP_USER_ID,
         ],
@@ -841,6 +876,22 @@ describe('POST /dashboard/businesses/:businessId/appointments', () => {
         businessCustomerId: E2E_APT_BC_ID,
         serviceId: E2E_APT_SVC_ID,
         serviceProviderId: E2E_APT_SP_ID,
+        startsAt: CONFLICT_STARTS_AT,
+      })
+      .expect(409);
+  });
+
+  it('same customer overlapping appointment via different provider → 409', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    // SP2 has no appointment at CONFLICT_STARTS_AT, so the provider conflict passes.
+    // The customer (E2E_APT_BC_ID) already has EXISTING at 09:00-10:00, which
+    // overlaps with 09:30-10:30 → customer conflict → 409.
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .send({
+        businessCustomerId: E2E_APT_BC_ID,
+        serviceId: E2E_APT_SVC_ID,
+        serviceProviderId: E2E_APT_SP2_ID,
         startsAt: CONFLICT_STARTS_AT,
       })
       .expect(409);

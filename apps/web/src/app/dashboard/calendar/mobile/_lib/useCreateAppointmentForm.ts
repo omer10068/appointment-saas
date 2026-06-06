@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import type { DashboardCustomerDto } from '@appointment/contracts';
 import { CustomerStatus } from '@appointment/contracts';
 import {
+  ApiError,
   createDashboardAppointment,
   fetchAvailableSlots,
   fetchDashboardCustomers,
@@ -255,8 +256,12 @@ export function useCreateAppointmentForm(params: {
         () => getTokenRef.current(),
       );
       return true;
-    } catch {
-      setSubmitError('שגיאה ביצירת התור, נסה שוב');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSubmitError('ללקוח זה כבר יש תור בשעה זו');
+      } else {
+        setSubmitError('שגיאה ביצירת התור, נסה שוב');
+      }
       return false;
     } finally {
       setIsSubmitting(false);
