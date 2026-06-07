@@ -115,7 +115,7 @@ function LoadingSkeleton() {
   );
 }
 
-// ─── Read-only detail sheet (MEMBER view) ─────────────────────────────────────
+// ─── Read-only detail sheet ───────────────────────────────────────────────────
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -135,6 +135,8 @@ interface CustomerDetailSheetProps {
   businessId: string | null;
   getToken: () => Promise<string | null>;
   timezone: string;
+  canEdit: boolean;
+  onEdit: () => void;
   onClosed: () => void;
 }
 
@@ -143,6 +145,8 @@ function CustomerDetailSheet({
   businessId,
   getToken,
   timezone,
+  canEdit,
+  onEdit,
   onClosed,
 }: CustomerDetailSheetProps) {
   const [visible, setVisible] = useState(false);
@@ -219,7 +223,7 @@ function CustomerDetailSheet({
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-8">
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
           <div className="flex flex-col gap-4">
             <DetailRow label="טלפון">
               <span dir="ltr">{formatIsraeliPhone(customer.phone)}</span>
@@ -247,6 +251,20 @@ function CustomerDetailSheet({
             timezone={timezone}
           />
         </div>
+
+        {/* Fixed bottom — edit button for OWNER/MANAGER, padding for MEMBER */}
+        {canEdit ? (
+          <div className="px-4 pt-3 pb-8 shrink-0">
+            <button
+              onClick={onEdit}
+              className="w-full h-12 rounded-2xl bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white text-[15px] font-semibold transition-opacity active:opacity-75"
+            >
+              עריכת לקוח
+            </button>
+          </div>
+        ) : (
+          <div className="pb-8 shrink-0" />
+        )}
       </div>
     </div>
   );
@@ -324,8 +342,9 @@ export function MobileCustomersShell() {
 
   // ── Sheet state ───────────────────────────────────────────────────────────────
 
-  const [selectedCustomer, setSelectedCustomer]   = useState<DashboardCustomerDto | null>(null);
-  const [showCreateSheet, setShowCreateSheet]     = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<DashboardCustomerDto | null>(null);
+  const [isEditing, setIsEditing]               = useState(false);
+  const [showCreateSheet, setShowCreateSheet]   = useState(false);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -435,25 +454,24 @@ export function MobileCustomersShell() {
 
       <CalendarBottomNav activeKey="customers" />
 
-      {/* Detail sheet — MEMBER only */}
-      {!canMutate && (
-        <CustomerDetailSheet
-          customer={selectedCustomer}
-          businessId={businessId}
-          getToken={() => getTokenRef.current()}
-          timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
-          onClosed={() => setSelectedCustomer(null)}
-        />
-      )}
+      {/* Detail sheet — all roles; always opens on row tap */}
+      <CustomerDetailSheet
+        customer={selectedCustomer}
+        businessId={businessId}
+        getToken={() => getTokenRef.current()}
+        timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
+        canEdit={canMutate}
+        onEdit={() => setIsEditing(true)}
+        onClosed={() => { setSelectedCustomer(null); setIsEditing(false); }}
+      />
 
-      {/* Edit sheet — OWNER/MANAGER */}
-      {canMutate && (
+      {/* Edit sheet — OWNER/MANAGER; layers on top of detail sheet */}
+      {isEditing && canMutate && (
         <CustomerEditSheet
           customer={selectedCustomer}
           businessId={businessId}
           getToken={() => getTokenRef.current()}
-          timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
-          onClosed={() => setSelectedCustomer(null)}
+          onClosed={() => { setIsEditing(false); setSelectedCustomer(null); }}
           onSaved={retry}
         />
       )}
