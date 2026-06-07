@@ -85,7 +85,10 @@ export function CalendarCreateSheet({
     const q = customerSearch.trim().toLowerCase();
     if (!q) return form.customers;
 
-    const qDigits = q.replace(/\D/g, '');
+    // Only parse query as phone digits when it looks like a phone number.
+    // A mixed query like "054גגג" must not strip letters and match wrong phones.
+    const looksLikePhone = /^[\d+\-\s]+$/.test(q);
+    const qDigits = looksLikePhone ? q.replace(/\D/g, '') : '';
     let qPhone = qDigits;
     if (qPhone.startsWith('972')) qPhone = qPhone.slice(3);
     else if (qPhone.startsWith('0')) qPhone = qPhone.slice(1);

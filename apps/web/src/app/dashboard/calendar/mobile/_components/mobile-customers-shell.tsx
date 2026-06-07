@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Search, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import type { CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { fetchDashboardCustomers } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { CustomerCreateSheet } from './customer-create-sheet';
+import { CustomerEditSheet } from './customer-edit-sheet';
 import { formatIsraeliPhone } from '../_lib/calendar.utils';
 import { LAYOUT } from '../_lib/calendar.design';
 
@@ -112,7 +114,7 @@ function LoadingSkeleton() {
   );
 }
 
-// ─── Customer detail sheet ────────────────────────────────────────────────────
+// ─── Read-only detail sheet (MEMBER view) ─────────────────────────────────────
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -141,7 +143,6 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
     isClosingRef.current = false;
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
-    // Re-animate when a different customer is tapped.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer?.businessCustomerId]);
 
@@ -156,7 +157,6 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
 
   return (
     <div className="fixed inset-0 z-60" dir="rtl">
-      {/* Backdrop */}
       <div
         className={[
           'absolute inset-0 bg-black/40 transition-opacity duration-300',
@@ -166,7 +166,6 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
         aria-hidden="true"
       />
 
-      {/* Sheet */}
       <div
         className={[
           'absolute bottom-0 left-0 right-0',
@@ -175,12 +174,10 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
         </div>
 
-        {/* Header strip */}
         <div className="bg-gray-50 dark:bg-gray-800 mx-4 mt-2 mb-4 rounded-2xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
@@ -208,7 +205,6 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
           </button>
         </div>
 
-        {/* Detail rows */}
         <div className="px-4 flex flex-col gap-4">
           <DetailRow label="טלפון">
             <span dir="ltr">{formatIsraeliPhone(customer.phone)}</span>
@@ -243,6 +239,8 @@ export function MobileCustomersShell() {
   const { currentBusiness } = useDashboardBusiness();
   const businessName = currentBusiness?.business.name;
   const businessId   = currentBusiness?.business.id ?? null;
+  const canMutate    =
+    currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
 
   // ── Customers fetch ──────────────────────────────────────────────────────────
 
@@ -274,22 +272,37 @@ export function MobileCustomersShell() {
   }, [businessId, retryKey]);
 
   // ── Search ────────────────────────────────────────────────────────────────────
+  // Strip non-digit chars from both query and phone so that "0521120018" matches
+  // a phone displayed as "052-112-0018".
 
   const [searchQuery, setSearchQuery] = useState('');
 
   const filtered = searchQuery.trim()
     ? customers.filter((c) => {
         const q = searchQuery.toLowerCase();
-        return (
-          c.fullName.toLowerCase().includes(q) ||
-          formatIsraeliPhone(c.phone).includes(searchQuery)
-        );
+
+        if (c.fullName.toLowerCase().includes(q)) return true;
+        if (c.email && c.email.toLowerCase().includes(q)) return true;
+
+        // Phone: only search by digits when the query looks like a phone number
+        // (digits, dashes, spaces, +). A mixed query like "054גגג" must NOT strip
+        // the letters and then accidentally match unrelated phones.
+        if (/^[\d+\-\s]+$/.test(q)) {
+          const queryDigits = q.replace(/\D/g, '');
+          if (queryDigits.length > 0) {
+            const phoneDigits = formatIsraeliPhone(c.phone).replace(/\D/g, '');
+            if (phoneDigits.includes(queryDigits)) return true;
+          }
+        }
+
+        return false;
       })
     : customers;
 
-  // ── Selected customer (for detail sheet) ─────────────────────────────────────
+  // ── Sheet state ───────────────────────────────────────────────────────────────
 
-  const [selectedCustomer, setSelectedCustomer] = useState<DashboardCustomerDto | null>(null);
+  const [selectedCustomer, setSelectedCustomer]   = useState<DashboardCustomerDto | null>(null);
+  const [showCreateSheet, setShowCreateSheet]     = useState(false);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -385,12 +398,49 @@ export function MobileCustomersShell() {
         )}
       </div>
 
+      {/* FAB — OWNER/MANAGER only */}
+      {canMutate && (
+        <button
+          onClick={() => setShowCreateSheet(true)}
+          aria-label="הוסף לקוח"
+          className="absolute left-4 w-14 h-14 rounded-full bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white shadow-lg flex items-center justify-center active:opacity-75 transition-opacity z-10"
+          style={{ bottom: LAYOUT.fabBottomOffset }}
+        >
+          <Plus size={24} />
+        </button>
+      )}
+
       <CalendarBottomNav activeKey="customers" />
 
-      <CustomerDetailSheet
-        customer={selectedCustomer}
-        onClosed={() => setSelectedCustomer(null)}
-      />
+      {/* Detail sheet — MEMBER only */}
+      {!canMutate && (
+        <CustomerDetailSheet
+          customer={selectedCustomer}
+          onClosed={() => setSelectedCustomer(null)}
+        />
+      )}
+
+      {/* Edit sheet — OWNER/MANAGER */}
+      {canMutate && (
+        <CustomerEditSheet
+          customer={selectedCustomer}
+          businessId={businessId}
+          getToken={() => getTokenRef.current()}
+          onClosed={() => setSelectedCustomer(null)}
+          onSaved={retry}
+        />
+      )}
+
+      {/* Create sheet — OWNER/MANAGER */}
+      {canMutate && (
+        <CustomerCreateSheet
+          open={showCreateSheet}
+          businessId={businessId}
+          getToken={() => getTokenRef.current()}
+          onClosed={() => setShowCreateSheet(false)}
+          onCreated={retry}
+        />
+      )}
     </div>
   );
 }
