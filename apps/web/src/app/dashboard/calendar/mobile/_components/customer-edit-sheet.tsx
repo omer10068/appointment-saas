@@ -9,6 +9,7 @@ import {
   updateDashboardCustomerStatus,
 } from '../../../../../lib/api';
 import { formatIsraeliPhone } from '../_lib/calendar.utils';
+import { CustomerAppointmentHistory } from './customer-appointment-history';
 
 // ─── Status segment config ────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ interface Props {
   customer: DashboardCustomerDto | null;
   businessId: string | null;
   getToken: () => Promise<string | null>;
+  timezone: string;
   onClosed: () => void;
   /** Called immediately on successful save, before the close animation. */
   onSaved: () => void;
@@ -59,6 +61,7 @@ export function CustomerEditSheet({
   customer,
   businessId,
   getToken,
+  timezone,
   onClosed,
   onSaved,
 }: Props) {
@@ -280,6 +283,18 @@ export function CustomerEditSheet({
               })}
             </div>
           </FormField>
+
+          <div className="h-px bg-gray-100 dark:bg-gray-800" />
+
+          <CustomerAppointmentHistory
+            businessId={businessId}
+            businessCustomerId={customer.businessCustomerId}
+            getToken={getToken}
+            timezone={timezone}
+          />
+
+          {/* Bottom breathing room before the fixed save button */}
+          <div className="h-2" />
         </div>
 
         {/* Error + submit */}

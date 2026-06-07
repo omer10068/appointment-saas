@@ -9,6 +9,7 @@ import { fetchDashboardCustomers } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CustomerCreateSheet } from './customer-create-sheet';
 import { CustomerEditSheet } from './customer-edit-sheet';
+import { CustomerAppointmentHistory } from './customer-appointment-history';
 import { formatIsraeliPhone } from '../_lib/calendar.utils';
 import { LAYOUT } from '../_lib/calendar.design';
 
@@ -131,10 +132,19 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 interface CustomerDetailSheetProps {
   customer: DashboardCustomerDto | null;
+  businessId: string | null;
+  getToken: () => Promise<string | null>;
+  timezone: string;
   onClosed: () => void;
 }
 
-function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
+function CustomerDetailSheet({
+  customer,
+  businessId,
+  getToken,
+  timezone,
+  onClosed,
+}: CustomerDetailSheetProps) {
   const [visible, setVisible] = useState(false);
   const isClosingRef = useRef(false);
 
@@ -170,15 +180,18 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
         className={[
           'absolute bottom-0 left-0 right-0',
           'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
+          'max-h-[85dvh] flex flex-col',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        <div className="flex justify-center pt-3 pb-1">
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
         </div>
 
-        <div className="bg-gray-50 dark:bg-gray-800 mx-4 mt-2 mb-4 rounded-2xl px-4 py-3 flex items-center justify-between">
+        {/* Header card */}
+        <div className="bg-gray-50 dark:bg-gray-800 mx-4 mt-2 mb-4 rounded-2xl px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
               <span className="text-[15px] font-bold text-gray-600 dark:text-gray-300">
@@ -205,25 +218,35 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
           </button>
         </div>
 
-        <div className="px-4 flex flex-col gap-4">
-          <DetailRow label="טלפון">
-            <span dir="ltr">{formatIsraeliPhone(customer.phone)}</span>
-          </DetailRow>
-          {customer.email && (
-            <DetailRow label="אימייל">
-              <span dir="ltr">{customer.email}</span>
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-4 pb-8">
+          <div className="flex flex-col gap-4">
+            <DetailRow label="טלפון">
+              <span dir="ltr">{formatIsraeliPhone(customer.phone)}</span>
             </DetailRow>
-          )}
-          {customer.notes && (
-            <DetailRow label="הערות">
-              <span className="text-gray-600 dark:text-gray-300 leading-snug whitespace-pre-wrap">
-                {customer.notes}
-              </span>
-            </DetailRow>
-          )}
-        </div>
+            {customer.email && (
+              <DetailRow label="אימייל">
+                <span dir="ltr">{customer.email}</span>
+              </DetailRow>
+            )}
+            {customer.notes && (
+              <DetailRow label="הערות">
+                <span className="text-gray-600 dark:text-gray-300 leading-snug whitespace-pre-wrap">
+                  {customer.notes}
+                </span>
+              </DetailRow>
+            )}
+          </div>
 
-        <div className="pb-8 pt-5" />
+          <div className="my-4 h-px bg-gray-100 dark:bg-gray-800" />
+
+          <CustomerAppointmentHistory
+            businessId={businessId}
+            businessCustomerId={customer.businessCustomerId}
+            getToken={getToken}
+            timezone={timezone}
+          />
+        </div>
       </div>
     </div>
   );
@@ -416,6 +439,9 @@ export function MobileCustomersShell() {
       {!canMutate && (
         <CustomerDetailSheet
           customer={selectedCustomer}
+          businessId={businessId}
+          getToken={() => getTokenRef.current()}
+          timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
           onClosed={() => setSelectedCustomer(null)}
         />
       )}
@@ -426,6 +452,7 @@ export function MobileCustomersShell() {
           customer={selectedCustomer}
           businessId={businessId}
           getToken={() => getTokenRef.current()}
+          timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
           onClosed={() => setSelectedCustomer(null)}
           onSaved={retry}
         />

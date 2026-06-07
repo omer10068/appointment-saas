@@ -362,12 +362,13 @@ export function deleteAvailabilityException(
 export function fetchDashboardAppointments(
   businessId: string,
   getToken: () => Promise<string | null>,
-  query?: { from?: string; to?: string; status?: string },
+  query?: { from?: string; to?: string; status?: string; businessCustomerId?: string },
 ): Promise<DashboardAppointmentDto[]> {
   const params = new URLSearchParams();
   if (query?.from) params.set('from', query.from);
   if (query?.to) params.set('to', query.to);
   if (query?.status) params.set('status', query.status);
+  if (query?.businessCustomerId) params.set('businessCustomerId', query.businessCustomerId);
   const qs = params.toString();
   return fetchWithAuth(
     `/dashboard/businesses/${businessId}/appointments${qs ? `?${qs}` : ''}`,

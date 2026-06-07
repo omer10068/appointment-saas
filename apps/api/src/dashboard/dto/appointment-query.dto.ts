@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsOptional } from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsUUID } from 'class-validator';
 
 const APPOINTMENT_STATUSES = [
   'SCHEDULED',
@@ -21,4 +21,8 @@ export class AppointmentQueryDto {
   @IsIn(APPOINTMENT_STATUSES)
   @IsOptional()
   status?: string;
+
+  @IsUUID()
+  @IsOptional()
+  businessCustomerId?: string;
 }

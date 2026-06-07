@@ -118,6 +118,9 @@ export class AppointmentsService {
     if (query.status) {
       where['status'] = query.status;
     }
+    if (query.businessCustomerId) {
+      where['businessCustomerId'] = query.businessCustomerId;
+    }
 
     const rows = await this.prisma.appointment.findMany({
       where,
