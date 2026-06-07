@@ -123,7 +123,7 @@ function AppointmentRow({ appointment, tz, onClick }: RowProps) {
       className={[
         'w-full flex items-center gap-3 py-3',
         'border-b border-gray-100 dark:border-gray-800',
-        'text-right transition-colors active:bg-black/[0.03] dark:active:bg-white/[0.03]',
+        'text-right transition-colors active:bg-black/3 dark:active:bg-white/3',
         isCancelled ? 'opacity-45' : '',
       ].join(' ')}
     >
@@ -197,7 +197,7 @@ function LoadingSkeleton() {
         <CardSkeleton />
         <CardSkeleton />
       </div>
-      <div className="h-[106px] rounded-2xl bg-gray-200 dark:bg-gray-800" />
+      <div className="h-26.5 rounded-2xl bg-gray-200 dark:bg-gray-800" />
       <div className="flex flex-col">
         {[0, 1, 2].map((i) => (
           <div
