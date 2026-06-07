@@ -2,22 +2,25 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Home, Calendar, Users, Scissors, MoreHorizontal } from 'lucide-react';
+import { Home, Calendar, Users, Scissors, UserCog } from 'lucide-react';
 import { LAYOUT } from '../_lib/calendar.design';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost.
 // `implemented` marks items that actually navigate; others show a "coming soon" hint.
 const NAV_ITEMS = [
   { icon: Home,           label: 'בית',     key: 'home',      implemented: true  },
-  { icon: Calendar,       label: 'לוח שנה', key: 'calendar',  implemented: true  },
-  { icon: Users,          label: 'לקוחות',  key: 'customers', implemented: false },
-  { icon: Scissors,       label: 'שירותים', key: 'services',  implemented: false },
-  { icon: MoreHorizontal, label: 'עוד',      key: 'more',      implemented: false },
+  { icon: Calendar,       label: 'יומן',    key: 'calendar',  implemented: true  },
+  { icon: Users,          label: 'לקוחות',  key: 'customers', implemented: true  },
+  { icon: Scissors,       label: 'שירותים', key: 'services',  implemented: true  },
+  { icon: UserCog,        label: 'צוות',     key: 'team',      implemented: true  },
 ] as const;
 
 const NAV_ROUTES: Partial<Record<string, string>> = {
-  home:     '/mobile/home',
-  calendar: '/mobile/calendar',
+  home:      '/mobile/home',
+  calendar:  '/mobile/calendar',
+  customers: '/mobile/customers',
+  services:  '/mobile/services',
+  team:      '/mobile/team',
 };
 
 interface Props {
