@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Home, Calendar, Users, Scissors, MoreHorizontal } from 'lucide-react';
+import { Home, Calendar, Users, Scissors, UserCog } from 'lucide-react';
 import { LAYOUT } from '../_lib/calendar.design';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost.
@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { icon: Calendar,       label: 'יומן',    key: 'calendar',  implemented: true  },
   { icon: Users,          label: 'לקוחות',  key: 'customers', implemented: true  },
   { icon: Scissors,       label: 'שירותים', key: 'services',  implemented: true  },
-  { icon: MoreHorizontal, label: 'עוד',      key: 'more',      implemented: false },
+  { icon: UserCog,        label: 'צוות',     key: 'team',      implemented: true  },
 ] as const;
 
 const NAV_ROUTES: Partial<Record<string, string>> = {
@@ -20,6 +20,7 @@ const NAV_ROUTES: Partial<Record<string, string>> = {
   calendar:  '/mobile/calendar',
   customers: '/mobile/customers',
   services:  '/mobile/services',
+  team:      '/mobile/team',
 };
 
 interface Props {
