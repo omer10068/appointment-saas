@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Search, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import type { DashboardServiceDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { fetchDashboardServices } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { ServiceCreateSheet } from './service-create-sheet';
+import { ServiceEditSheet } from './service-edit-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
@@ -44,7 +46,7 @@ function ServiceRow({ service, onClick }: ServiceRowProps) {
       ].join(' ')}
     >
       {/* Duration chip */}
-      <div className="min-w-[3.25rem] h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center shrink-0 px-1">
+      <div className="min-w-13 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center shrink-0 px-1">
         <span className="text-[12px] font-bold text-gray-600 dark:text-gray-300 tabular-nums leading-none">
           {formatDuration(service.durationMinutes)}
         </span>
@@ -85,7 +87,7 @@ function ServiceRow({ service, onClick }: ServiceRowProps) {
 function RowSkeleton() {
   return (
     <div className="flex items-center gap-3 py-3.5 border-b border-gray-100 dark:border-gray-800">
-      <div className="min-w-[3.25rem] h-10 rounded-xl bg-gray-200 dark:bg-gray-700 shrink-0" />
+      <div className="min-w-13 h-10 rounded-xl bg-gray-200 dark:bg-gray-700 shrink-0" />
       <div className="flex-1 flex flex-col gap-1.5">
         <div className="h-3.5 w-32 rounded bg-gray-200 dark:bg-gray-700" />
         <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800" />
@@ -238,6 +240,8 @@ export function MobileServicesShell() {
   const { currentBusiness } = useDashboardBusiness();
   const businessName = currentBusiness?.business.name;
   const businessId   = currentBusiness?.business.id ?? null;
+  const canMutate    =
+    currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
 
   // ── Services fetch ───────────────────────────────────────────────────────────
 
@@ -278,9 +282,10 @@ export function MobileServicesShell() {
       )
     : services;
 
-  // ── Selected service (for detail sheet) ──────────────────────────────────────
+  // ── Sheet state ───────────────────────────────────────────────────────────────
 
   const [selectedService, setSelectedService] = useState<DashboardServiceDto | null>(null);
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -376,12 +381,49 @@ export function MobileServicesShell() {
         )}
       </div>
 
+      {/* FAB — OWNER/MANAGER only */}
+      {canMutate && (
+        <button
+          onClick={() => setShowCreateSheet(true)}
+          aria-label="הוסף שירות"
+          className="absolute left-4 w-14 h-14 rounded-full bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white shadow-lg flex items-center justify-center active:opacity-75 transition-opacity z-10"
+          style={{ bottom: LAYOUT.fabBottomOffset }}
+        >
+          <Plus size={24} />
+        </button>
+      )}
+
       <CalendarBottomNav activeKey="services" />
 
-      <ServiceDetailSheet
-        service={selectedService}
-        onClosed={() => setSelectedService(null)}
-      />
+      {/* Detail sheet — MEMBER only */}
+      {!canMutate && (
+        <ServiceDetailSheet
+          service={selectedService}
+          onClosed={() => setSelectedService(null)}
+        />
+      )}
+
+      {/* Edit sheet — OWNER/MANAGER */}
+      {canMutate && (
+        <ServiceEditSheet
+          service={selectedService}
+          businessId={businessId}
+          getToken={() => getTokenRef.current()}
+          onClosed={() => setSelectedService(null)}
+          onSaved={retry}
+        />
+      )}
+
+      {/* Create sheet — OWNER/MANAGER */}
+      {canMutate && (
+        <ServiceCreateSheet
+          open={showCreateSheet}
+          businessId={businessId}
+          getToken={() => getTokenRef.current()}
+          onClosed={() => setShowCreateSheet(false)}
+          onCreated={retry}
+        />
+      )}
     </div>
   );
 }
