@@ -4,6 +4,8 @@ import { useAuth } from '@clerk/nextjs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppointmentStatus } from '@appointment/contracts';
 import { fetchDashboardAppointments } from '../../../../../lib/api';
+import { mapDtoToAppointment } from '../_lib/calendar.mappers';
+import type { Appointment, Service } from '../_lib/calendar.types';
 import { businessDayRange } from '../_lib/calendar.utils';
 
 export interface TodaySummary {
@@ -13,6 +15,7 @@ export interface TodaySummary {
 }
 
 export interface UseTodayAppointmentsResult {
+  appointments: Appointment[];
   summary: TodaySummary | null;
   loading: boolean;
   error: string | null;
@@ -29,11 +32,16 @@ const ACTIVE = new Set<string>([
   AppointmentStatus.CONFIRMED,
 ]);
 
+// Empty service map: mapDtoToAppointment falls back to dto.serviceName and
+// a deterministic color from serviceId, so no full service list is needed here.
+const EMPTY_SERVICE_MAP = new Map<string, Service>();
+
 export function useTodayAppointments(
   businessId: string | null,
   timezone: string | undefined,
 ): UseTodayAppointmentsResult {
   const { getToken } = useAuth();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [summary, setSummary] = useState<TodaySummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +69,12 @@ export function useTodayAppointments(
         (d) => d.status === AppointmentStatus.COMPLETED,
       ).length;
 
+      const mapped = dtos
+        .map((dto) => mapDtoToAppointment(dto, EMPTY_SERVICE_MAP))
+        .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
       setSummary({ totalToday, remainingToday, completedToday });
+      setAppointments(mapped);
     } catch {
       if (req !== reqRef.current) return;
       setError('שגיאה בטעינת הנתונים');
@@ -74,5 +87,5 @@ export function useTodayAppointments(
     void load();
   }, [load]);
 
-  return { summary, loading, error, retry: load };
+  return { appointments, summary, loading, error, retry: load };
 }

@@ -9,7 +9,7 @@ import { LAYOUT } from '../_lib/calendar.design';
 // `implemented` marks items that actually navigate; others show a "coming soon" hint.
 const NAV_ITEMS = [
   { icon: Home,           label: 'בית',     key: 'home',      implemented: true  },
-  { icon: Calendar,       label: 'לוח שנה', key: 'calendar',  implemented: true  },
+  { icon: Calendar,       label: 'יומן',    key: 'calendar',  implemented: true  },
   { icon: Users,          label: 'לקוחות',  key: 'customers', implemented: false },
   { icon: Scissors,       label: 'שירותים', key: 'services',  implemented: false },
   { icon: MoreHorizontal, label: 'עוד',      key: 'more',      implemented: false },
