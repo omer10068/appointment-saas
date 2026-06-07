@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { icon: Home,           label: 'בית',     key: 'home',      implemented: true  },
   { icon: Calendar,       label: 'יומן',    key: 'calendar',  implemented: true  },
   { icon: Users,          label: 'לקוחות',  key: 'customers', implemented: true  },
-  { icon: Scissors,       label: 'שירותים', key: 'services',  implemented: false },
+  { icon: Scissors,       label: 'שירותים', key: 'services',  implemented: true  },
   { icon: MoreHorizontal, label: 'עוד',      key: 'more',      implemented: false },
 ] as const;
 
@@ -19,6 +19,7 @@ const NAV_ROUTES: Partial<Record<string, string>> = {
   home:      '/mobile/home',
   calendar:  '/mobile/calendar',
   customers: '/mobile/customers',
+  services:  '/mobile/services',
 };
 
 interface Props {
