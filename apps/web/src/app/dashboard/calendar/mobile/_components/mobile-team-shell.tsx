@@ -2,11 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Search, X } from 'lucide-react';
-import type { DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
+import { Plus, Search, X } from 'lucide-react';
+import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
-import { fetchDashboardServiceProviders, fetchDashboardServices } from '../../../../../lib/api';
+import {
+  fetchDashboardBusinessUsers,
+  fetchDashboardServiceProviders,
+  fetchDashboardServices,
+} from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { ProviderCreateSheet } from './provider-create-sheet';
 import { ProviderEditSheet } from './provider-edit-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 
@@ -225,15 +230,17 @@ export function MobileTeamShell() {
   const businessId   = currentBusiness?.business.id ?? null;
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
+  const isOwner      = currentBusiness?.role === 'OWNER';
 
   // ── Data fetch ────────────────────────────────────────────────────────────────
 
-  const [providers, setProviders]   = useState<DashboardServiceProviderDto[]>([]);
-  const [services, setServices]     = useState<DashboardServiceDto[]>([]);
-  const [serviceMap, setServiceMap] = useState<Record<string, string>>({});
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [retryKey, setRetryKey]     = useState(0);
+  const [providers, setProviders]       = useState<DashboardServiceProviderDto[]>([]);
+  const [services, setServices]         = useState<DashboardServiceDto[]>([]);
+  const [serviceMap, setServiceMap]     = useState<Record<string, string>>({});
+  const [businessUsers, setBusinessUsers] = useState<DashboardBusinessUserDto[]>([]);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [retryKey, setRetryKey]         = useState(0);
 
   function retry() { setRetryKey((k) => k + 1); }
 
@@ -246,8 +253,11 @@ export function MobileTeamShell() {
     Promise.all([
       fetchDashboardServiceProviders(businessId, () => getTokenRef.current()),
       fetchDashboardServices(businessId, () => getTokenRef.current()),
+      isOwner
+        ? fetchDashboardBusinessUsers(businessId, () => getTokenRef.current())
+        : Promise.resolve<DashboardBusinessUserDto[]>([]),
     ])
-      .then(([providerDtos, serviceDtos]) => {
+      .then(([providerDtos, serviceDtos, userDtos]) => {
         if (cancelled) return;
         setProviders(providerDtos);
         const allServices = serviceDtos as DashboardServiceDto[];
@@ -257,6 +267,7 @@ export function MobileTeamShell() {
           map[s.id] = s.name;
         }
         setServiceMap(map);
+        setBusinessUsers(userDtos);
       })
       .catch(() => {
         if (!cancelled) setError('שגיאה בטעינת הצוות');
@@ -266,7 +277,7 @@ export function MobileTeamShell() {
       });
 
     return () => { cancelled = true; };
-  }, [businessId, retryKey]);
+  }, [businessId, retryKey, isOwner]);
 
   // ── Search ────────────────────────────────────────────────────────────────────
 
@@ -282,6 +293,14 @@ export function MobileTeamShell() {
 
   const [selectedProvider, setSelectedProvider] =
     useState<DashboardServiceProviderDto | null>(null);
+
+  // ── Create sheet ──────────────────────────────────────────────────────────────
+
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+
+  const eligibleUsers = businessUsers.filter(
+    (u) => u.status === 'ACTIVE' && !u.hasServiceProviderProfile,
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -380,6 +399,18 @@ export function MobileTeamShell() {
 
       <CalendarBottomNav activeKey="team" />
 
+      {/* FAB — OWNER only (MANAGER cannot access business users list) */}
+      {isOwner && (
+        <button
+          onClick={() => setShowCreateSheet(true)}
+          aria-label="הוסף חבר צוות"
+          className="absolute left-4 w-14 h-14 rounded-full bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white shadow-lg flex items-center justify-center active:opacity-75 transition-opacity z-10"
+          style={{ bottom: LAYOUT.fabBottomOffset }}
+        >
+          <Plus size={24} />
+        </button>
+      )}
+
       {/* Detail sheet — MEMBER only */}
       {!canMutate && (
         <ProviderDetailSheet
@@ -398,6 +429,19 @@ export function MobileTeamShell() {
           getToken={() => getTokenRef.current()}
           onClosed={() => setSelectedProvider(null)}
           onSaved={retry}
+        />
+      )}
+
+      {/* Create sheet — OWNER only */}
+      {isOwner && (
+        <ProviderCreateSheet
+          open={showCreateSheet}
+          eligibleUsers={eligibleUsers}
+          services={services}
+          businessId={businessId}
+          getToken={() => getTokenRef.current()}
+          onClosed={() => setShowCreateSheet(false)}
+          onCreated={retry}
         />
       )}
     </div>
