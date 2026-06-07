@@ -6,7 +6,6 @@ import type { DashboardServiceDto, DashboardServiceProviderDto } from '@appointm
 import {
   ApiError,
   updateDashboardServiceProvider,
-  updateDashboardServiceProviderStatus,
 } from '../../../../../lib/api';
 
 // ─── Shared form primitives ───────────────────────────────────────────────────
@@ -116,17 +115,12 @@ export function ProviderEditSheet({
     setError(null);
 
     try {
-      if (fieldsChanged) {
-        await updateDashboardServiceProvider(
-          businessId,
-          provider.id,
-          { displayName: displayName.trim(), serviceIds: [...selectedIds] },
-          getToken,
-        );
-      }
-      if (statusChanged) {
-        await updateDashboardServiceProviderStatus(businessId, provider.id, { isActive }, getToken);
-      }
+      await updateDashboardServiceProvider(
+        businessId,
+        provider.id,
+        { displayName: displayName.trim(), serviceIds: [...selectedIds], isActive },
+        getToken,
+      );
       onSaved();
       triggerClose();
     } catch (err) {

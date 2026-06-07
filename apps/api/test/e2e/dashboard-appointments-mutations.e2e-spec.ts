@@ -32,6 +32,8 @@ const E2E_APT_SP2_USER_ID = 'e2e10000-0000-4000-8000-000000000007'; // user back
 
 const E2E_APT_CP_ID = 'e2e10000-0000-4000-8000-000000000010';
 const E2E_APT_BC_ID = 'e2e10000-0000-4000-8000-000000000011';
+const E2E_APT_BLOCKED_CP_ID = 'e2e10000-0000-4000-8000-000000000012';
+const E2E_APT_BLOCKED_BC_ID = 'e2e10000-0000-4000-8000-000000000013';
 
 const E2E_APT_SVC_ID = 'e2e10000-0000-4000-8000-000000000020';
 const E2E_APT_INACTIVE_SVC_ID = 'e2e10000-0000-4000-8000-000000000021';
@@ -76,6 +78,7 @@ const OTHER_USER_PHONE = '+19990001010';
 const OTHER_SP_USER_PHONE = '+19990001011';
 const CP_PHONE = '+19990001020';
 const OTHER_CP_PHONE = '+19990001021';
+const BLOCKED_CP_PHONE = '+19990001022';
 
 // Service duration used to compute expected endsAt in assertions
 const SERVICE_DURATION_MINUTES = 60;
@@ -165,13 +168,25 @@ beforeAll(async () => {
   await prisma.serviceProviderService.deleteMany({
     where: {
       serviceProviderId: {
-        in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID],
+        in: [
+          E2E_APT_SP_ID,
+          E2E_APT_INACTIVE_SP_ID,
+          E2E_APT_OTHER_SP_ID,
+          E2E_APT_SP2_ID,
+        ],
       },
     },
   });
   await prisma.serviceProvider.deleteMany({
     where: {
-      id: { in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID] },
+      id: {
+        in: [
+          E2E_APT_SP_ID,
+          E2E_APT_INACTIVE_SP_ID,
+          E2E_APT_OTHER_SP_ID,
+          E2E_APT_SP2_ID,
+        ],
+      },
     },
   });
   await prisma.businessCustomer.deleteMany({
@@ -187,7 +202,9 @@ beforeAll(async () => {
     where: { id: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
   });
   await prisma.customerProfile.deleteMany({
-    where: { id: { in: [E2E_APT_CP_ID, E2E_APT_OTHER_CP_ID] } },
+    where: {
+      id: { in: [E2E_APT_CP_ID, E2E_APT_BLOCKED_CP_ID, E2E_APT_OTHER_CP_ID] },
+    },
   });
   await prisma.user.deleteMany({
     where: {
@@ -393,6 +410,23 @@ beforeAll(async () => {
       businessId: E2E_APT_BIZ_ID,
       customerProfileId: E2E_APT_CP_ID,
       status: 'ACTIVE',
+    },
+  });
+
+  // Blocked customer — used by customer-status guard tests
+  await prisma.customerProfile.create({
+    data: {
+      id: E2E_APT_BLOCKED_CP_ID,
+      fullName: 'Blocked Customer',
+      phoneNormalized: BLOCKED_CP_PHONE,
+    },
+  });
+  await prisma.businessCustomer.create({
+    data: {
+      id: E2E_APT_BLOCKED_BC_ID,
+      businessId: E2E_APT_BIZ_ID,
+      customerProfileId: E2E_APT_BLOCKED_CP_ID,
+      status: 'BLOCKED',
     },
   });
 
@@ -631,13 +665,25 @@ afterAll(async () => {
   await prisma.serviceProviderService.deleteMany({
     where: {
       serviceProviderId: {
-        in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID],
+        in: [
+          E2E_APT_SP_ID,
+          E2E_APT_INACTIVE_SP_ID,
+          E2E_APT_OTHER_SP_ID,
+          E2E_APT_SP2_ID,
+        ],
       },
     },
   });
   await prisma.serviceProvider.deleteMany({
     where: {
-      id: { in: [E2E_APT_SP_ID, E2E_APT_INACTIVE_SP_ID, E2E_APT_OTHER_SP_ID, E2E_APT_SP2_ID] },
+      id: {
+        in: [
+          E2E_APT_SP_ID,
+          E2E_APT_INACTIVE_SP_ID,
+          E2E_APT_OTHER_SP_ID,
+          E2E_APT_SP2_ID,
+        ],
+      },
     },
   });
   await prisma.businessCustomer.deleteMany({
@@ -653,7 +699,9 @@ afterAll(async () => {
     where: { id: { in: [E2E_APT_BIZ_ID, E2E_APT_OTHER_BIZ_ID] } },
   });
   await prisma.customerProfile.deleteMany({
-    where: { id: { in: [E2E_APT_CP_ID, E2E_APT_OTHER_CP_ID] } },
+    where: {
+      id: { in: [E2E_APT_CP_ID, E2E_APT_BLOCKED_CP_ID, E2E_APT_OTHER_CP_ID] },
+    },
   });
   await prisma.user.deleteMany({
     where: {
@@ -967,6 +1015,19 @@ describe('POST /dashboard/businesses/:businessId/appointments', () => {
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
       .send({})
+      .expect(400);
+  });
+
+  it('BLOCKED customer → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .send({
+        businessCustomerId: E2E_APT_BLOCKED_BC_ID,
+        serviceId: E2E_APT_SVC_ID,
+        serviceProviderId: E2E_APT_SP_ID,
+        startsAt: '2030-06-28T10:00:00.000Z',
+      })
       .expect(400);
   });
 });
