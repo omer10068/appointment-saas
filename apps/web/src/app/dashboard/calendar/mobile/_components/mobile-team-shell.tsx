@@ -7,6 +7,7 @@ import type { DashboardServiceDto, DashboardServiceProviderDto } from '@appointm
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { fetchDashboardServiceProviders, fetchDashboardServices } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { ProviderEditSheet } from './provider-edit-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -222,10 +223,13 @@ export function MobileTeamShell() {
   const { currentBusiness } = useDashboardBusiness();
   const businessName = currentBusiness?.business.name;
   const businessId   = currentBusiness?.business.id ?? null;
+  const canMutate    =
+    currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
 
   // ── Data fetch ────────────────────────────────────────────────────────────────
 
   const [providers, setProviders]   = useState<DashboardServiceProviderDto[]>([]);
+  const [services, setServices]     = useState<DashboardServiceDto[]>([]);
   const [serviceMap, setServiceMap] = useState<Record<string, string>>({});
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
@@ -246,8 +250,10 @@ export function MobileTeamShell() {
       .then(([providerDtos, serviceDtos]) => {
         if (cancelled) return;
         setProviders(providerDtos);
+        const allServices = serviceDtos as DashboardServiceDto[];
+        setServices(allServices);
         const map: Record<string, string> = {};
-        for (const s of serviceDtos as DashboardServiceDto[]) {
+        for (const s of allServices) {
           map[s.id] = s.name;
         }
         setServiceMap(map);
@@ -374,11 +380,26 @@ export function MobileTeamShell() {
 
       <CalendarBottomNav activeKey="team" />
 
-      <ProviderDetailSheet
-        provider={selectedProvider}
-        serviceMap={serviceMap}
-        onClosed={() => setSelectedProvider(null)}
-      />
+      {/* Detail sheet — MEMBER only */}
+      {!canMutate && (
+        <ProviderDetailSheet
+          provider={selectedProvider}
+          serviceMap={serviceMap}
+          onClosed={() => setSelectedProvider(null)}
+        />
+      )}
+
+      {/* Edit sheet — OWNER/MANAGER */}
+      {canMutate && (
+        <ProviderEditSheet
+          provider={selectedProvider}
+          services={services}
+          businessId={businessId}
+          getToken={() => getTokenRef.current()}
+          onClosed={() => setSelectedProvider(null)}
+          onSaved={retry}
+        />
+      )}
     </div>
   );
 }
