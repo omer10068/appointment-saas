@@ -12,8 +12,8 @@ export const LAYOUT = {
 } as const;
 
 export const GRID = {
-  hourLineColor: '#E3E8EB',      // slightly cool, matches --border token hue
-  halfHourLineColor: '#EEF1F3',  // even softer for half-hour dashes
+  hourLineColor: '#E8E8E8',
+  halfHourLineColor: '#EFEFEF',
 } as const;
 
 export const SERVICE_COLORS: Record<

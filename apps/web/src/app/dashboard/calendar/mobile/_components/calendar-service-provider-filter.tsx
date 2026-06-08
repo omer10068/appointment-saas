@@ -28,17 +28,17 @@ function FilterPill({ label, count, isActive, onClick }: FilterPillProps) {
       type="button"
       onClick={onClick}
       className={[
-        'flex flex-col items-center justify-center gap-0.5 min-w-13 py-2.5 rounded-[1.26rem] transition-all duration-150 border',
+        'flex flex-col items-center justify-center gap-0.5 min-w-13 py-2.5 rounded-xl transition-all duration-150 border',
         isActive
-          ? 'bg-foreground text-background border-foreground shadow-sm'
-          : 'bg-transparent text-foreground border-border',
+          ? 'bg-[#2d2d3a] text-white border-[#2d2d3a] shadow-sm'
+          : 'bg-transparent text-gray-700 border-gray-200',
       ].join(' ')}
     >
       <span className="text-[12px] font-normal leading-tight text-center">{label}</span>
       <span
         className={[
           'text-[10px] leading-none',
-          isActive ? 'text-background/70' : 'text-muted-foreground',
+          isActive ? 'text-white/70' : 'text-gray-400',
         ].join(' ')}
       >
         {count}
@@ -56,7 +56,7 @@ export function CalendarServiceProviderFilter({
 }: Props) {
   return (
     <div
-      className="bg-background px-3 py-2 border-b border-border"
+      className="bg-gray-50 dark:bg-gray-950 px-3 py-2 border-b border-gray-100 dark:border-gray-800"
       dir="rtl"
     >
       <div
