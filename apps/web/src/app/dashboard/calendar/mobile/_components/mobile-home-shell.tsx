@@ -145,51 +145,18 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
   );
 }
 
-// ─── Empty hero card (no upcoming appointment) ────────────────────────────────
-// Same dark navy visual as NextAppointmentCard — keeps the hero slot filled.
+// ─── No-next-appointment card ─────────────────────────────────────────────────
+// Calm, light card — reserved for when all today's appointments are past.
 
-interface EmptyHeroProps {
-  canMutate: boolean;
-  onNewAppointment: () => void;
-  onCalendar: () => void;
-}
-
-function EmptyHeroCard({ canMutate, onNewAppointment, onCalendar }: EmptyHeroProps) {
+function NoNextCard() {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-[#1a2035] p-6 shadow-xl shadow-[#1a2035]/20">
-      {/* Teal glow — matches v0 physical position (top-left) */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-12 -top-12 size-40 rounded-full bg-teal-500/25 blur-2xl"
-      />
-      <div className="relative text-right">
-        {/* Badge row — matches NextAppointmentCard */}
-        <div className="flex items-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
-            <Clock3 className="size-3.5" aria-hidden="true" />
-            התור הבא
-          </span>
-        </div>
-
-        {/* Empty-state body */}
-        <div className="mt-4">
-          <p className="text-xl font-bold leading-tight text-white">
-            אין עוד תורים להמשך היום
-          </p>
-          <p className="mt-1 text-sm text-white/70">
-            כל התורים הבאים הסתיימו
-          </p>
-        </div>
-
-        {/* CTA — role-aware */}
-        <button
-          onClick={canMutate ? onNewAppointment : onCalendar}
-          className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl bg-teal-600 py-3 text-sm font-bold text-white transition active:scale-[0.98] active:opacity-90"
-        >
-          {canMutate ? 'קביעת תור חדש' : 'פתח יומן'}
-          <ChevronLeft className="size-4" aria-hidden="true" />
-        </button>
-      </div>
+    <div className="rounded-3xl border border-gray-200 bg-white px-6 py-8 text-center shadow-sm shadow-[#1a2035]/5 dark:border-gray-700 dark:bg-gray-800">
+      <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
+        אין עוד תורים להמשך היום
+      </p>
+      <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">
+        כל התורים הבאים הסתיימו
+      </p>
     </div>
   );
 }
@@ -315,13 +282,10 @@ interface ContentProps {
   summary: TodaySummary;
   nextAppointment: Appointment | undefined;
   tz: string;
-  canMutate: boolean;
   onSelect: (a: Appointment) => void;
-  onNewAppointment: () => void;
-  onCalendar: () => void;
 }
 
-function HomeContent({ appointments, summary, nextAppointment, tz, canMutate, onSelect, onNewAppointment, onCalendar }: ContentProps) {
+function HomeContent({ appointments, summary, nextAppointment, tz, onSelect }: ContentProps) {
   return (
     <div className="space-y-5">
       {/* Stat cards — grid matches v0 */}
@@ -339,11 +303,7 @@ function HomeContent({ appointments, summary, nextAppointment, tz, canMutate, on
           onClick={() => onSelect(nextAppointment)}
         />
       ) : (
-        <EmptyHeroCard
-          canMutate={canMutate}
-          onNewAppointment={onNewAppointment}
-          onCalendar={onCalendar}
-        />
+        <NoNextCard />
       )}
 
       {/* Today's full list */}
@@ -537,10 +497,7 @@ export function MobileHomeShell() {
             summary={relevantSummary}
             nextAppointment={nextAppointment}
             tz={tz}
-            canMutate={canMutate}
             onSelect={setSelectedAppointment}
-            onNewAppointment={openCreate}
-            onCalendar={openCalendar}
           />
         )}
       </div>
