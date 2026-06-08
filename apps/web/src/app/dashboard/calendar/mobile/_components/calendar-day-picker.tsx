@@ -16,7 +16,7 @@ export function CalendarDayPicker({ selectedDate, today, onSelect }: Props) {
       <div className="flex items-end justify-around">
         {weekDays.map((day, i) => {
           const isSelected = isSameDay(day, selectedDate);
-          const isToday = isSameDay(day, today);
+          const isToday    = isSameDay(day, today);
 
           return (
             <button
@@ -27,7 +27,7 @@ export function CalendarDayPicker({ selectedDate, today, onSelect }: Props) {
               <span
                 className={[
                   'text-[12px] font-normal leading-none',
-                  isSelected ? 'text-[#2d2d3a]' : 'text-gray-400',
+                  isSelected ? 'text-foreground' : 'text-muted-foreground',
                 ].join(' ')}
               >
                 {HEBREW_DAY_ABBR[day.getDay()]}
@@ -37,10 +37,10 @@ export function CalendarDayPicker({ selectedDate, today, onSelect }: Props) {
                 className={[
                   'flex h-9 w-9 items-center justify-center rounded-full text-[12px] leading-none transition-all',
                   isSelected
-                    ? 'bg-[#2d2d3a] text-white shadow-sm'
+                    ? 'bg-foreground text-background shadow-sm'
                     : isToday
-                      ? 'text-[#2d2d3a] font-weight-semibold'
-                      : 'bg-white text-gray-800 pointer-cursor-default',
+                      ? 'text-primary font-semibold'
+                      : 'bg-transparent text-foreground',
                 ].join(' ')}
               >
                 {day.getDate()}

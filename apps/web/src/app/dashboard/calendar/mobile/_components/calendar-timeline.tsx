@@ -189,10 +189,10 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
             >
               <span
                 className={[
-                  'relative inline-flex h-5 translate-y-px items-center bg-gray-50 leading-5',
+                  'relative inline-flex h-5 translate-y-px items-center bg-background leading-5',
                   slot.isHour
-                    ? 'px-1 text-[11px] text-[#6b5b7a]'
-                    : 'px-0.5 text-[9px] text-[#9a93a3]',
+                    ? 'px-1 text-[11px] text-muted-foreground'
+                    : 'px-0.5 text-[9px] text-muted-foreground/60',
                 ].join(' ')}
               >
                 {slot.label}
@@ -206,7 +206,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-[#d8d5de] pointer-events-none" />
+          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-border pointer-events-none" />
 
           {laneProviders ? (
             <>
@@ -214,7 +214,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
               {laneProviders.slice(1).map((_, i) => (
                 <div
                   key={`lane-sep-${i}`}
-                  className="absolute top-0 bottom-0 z-1 w-px bg-[#d8d5de] pointer-events-none"
+                  className="absolute top-0 bottom-0 z-1 w-px bg-border pointer-events-none"
                   style={{ right: `${((i + 1) * 100) / laneProviders.length}%` }}
                 />
               ))}
@@ -232,7 +232,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                     transform: 'translateY(-50%)',
                   }}
                 >
-                  <span className="bg-gray-50 dark:bg-gray-950 px-1.5 text-[10px] text-gray-400 font-normal leading-none">
+                  <span className="bg-background px-1.5 text-[10px] text-muted-foreground font-normal leading-none">
                     {sp.name.split(' ')[0]}
                   </span>
                 </div>
@@ -262,7 +262,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                           }}
                         >
                           <div
-                            className="absolute overflow-hidden rounded-l-md rounded-r-none"
+                            className="absolute overflow-hidden rounded-l-[0.9rem] rounded-r-none"
                             style={{
                               top: APPT_VERTICAL_GAP_PX,
                               bottom: APPT_VERTICAL_GAP_PX,
@@ -312,7 +312,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                   }}
                 >
                   <div
-                    className="absolute inset-x-0 overflow-hidden rounded-l-md rounded-r-none"
+                    className="absolute inset-x-0 overflow-hidden rounded-l-[0.9rem] rounded-r-none"
                     style={{
                       top: APPT_VERTICAL_GAP_PX,
                       bottom: APPT_VERTICAL_GAP_PX,

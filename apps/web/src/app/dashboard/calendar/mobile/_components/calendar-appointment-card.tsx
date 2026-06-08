@@ -83,7 +83,7 @@ export function CalendarAppointmentCard({
         tabIndex={onClick ? 0 : undefined}
         onClick={onClick}
         onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
-        className={`${c.bg} ${opacityClass} rounded-e-xl w-full h-full relative overflow-hidden transition-all duration-200 ${interactiveClass}`}
+        className={`${c.bg} ${opacityClass} rounded-l-[0.9rem] rounded-r-none w-full h-full relative overflow-hidden transition-all duration-200 ${interactiveClass}`}
         dir="rtl"
       >
         <div className={`absolute top-0 bottom-0 right-0 w-1 ${c.bar}`} />
@@ -120,7 +120,7 @@ export function CalendarAppointmentCard({
         tabIndex={onClick ? 0 : undefined}
         onClick={onClick}
         onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
-        className={`${c.bg} ${opacityClass} rounded-e-xl w-full h-full relative overflow-hidden transition-all duration-200 ${interactiveClass}`}
+        className={`${c.bg} ${opacityClass} rounded-l-[0.9rem] rounded-r-none w-full h-full relative overflow-hidden transition-all duration-200 ${interactiveClass}`}
         dir="rtl"
       >
         <div className={`absolute top-0 bottom-0 right-0 w-1 ${c.bar}`} />
@@ -156,7 +156,7 @@ export function CalendarAppointmentCard({
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
-      className={`${c.bg} ${opacityClass} rounded-e-xl w-full h-full relative overflow-hidden transition-all duration-200 ${interactiveClass}`}
+      className={`${c.bg} ${opacityClass} rounded-l-[0.9rem] rounded-r-none w-full h-full relative overflow-hidden transition-all duration-200 ${interactiveClass}`}
       dir="rtl"
     >
       <div className={`absolute top-0 bottom-0 right-0 w-1 ${c.bar}`} />

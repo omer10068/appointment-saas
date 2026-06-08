@@ -161,7 +161,7 @@ export function MobileCalendarShell() {
     <div
       className={[
         'fixed inset-0 z-50 flex flex-col overflow-hidden',
-        'bg-gray-50 dark:bg-gray-950',
+        'bg-background',
         'md:inset-auto md:top-1/2 md:left-1/2',
         'md:-translate-x-1/2 md:-translate-y-1/2',
         'md:w-107.5 md:h-[90dvh]',
@@ -194,13 +194,13 @@ export function MobileCalendarShell() {
 
       {!currentBusinessId ? (
         <div className="flex-1 flex items-center justify-center px-6">
-          <p className="text-sm text-gray-400 text-center">לא נבחר עסק</p>
+          <p className="text-sm text-muted-foreground text-center">לא נבחר עסק</p>
         </div>
       ) : error ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
-          <p className="text-sm text-gray-500 text-center">{error}</p>
+          <p className="text-sm text-muted-foreground text-center">{error}</p>
           <button
-            className="text-xs text-blue-600 underline"
+            className="text-xs text-primary underline"
             onClick={() => window.location.reload()}
           >
             נסה שוב
@@ -208,7 +208,7 @@ export function MobileCalendarShell() {
         </div>
       ) : isLoading && appointments.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-gray-600 animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-border border-t-foreground animate-spin" />
         </div>
       ) : (
         <>
