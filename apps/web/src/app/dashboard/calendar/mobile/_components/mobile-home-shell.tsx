@@ -31,12 +31,12 @@ import type {
 interface BadgeCfg { bg: string; text: string; dot: string; label: string }
 
 const STATUS_BADGE: Record<AppointmentStatus, BadgeCfg> = {
-  scheduled:             { bg: 'bg-teal-50',   text: 'text-teal-700',   dot: 'bg-teal-500',   label: 'מתוכנן'  },
-  confirmed:             { bg: 'bg-indigo-50', text: 'text-indigo-700', dot: 'bg-indigo-500', label: 'מאושר'   },
-  completed:             { bg: 'bg-green-50',  text: 'text-green-700',  dot: 'bg-green-500',  label: 'הושלם'   },
-  cancelled_by_customer: { bg: 'bg-gray-100',  text: 'text-gray-500',   dot: 'bg-gray-400',   label: 'בוטל'    },
-  cancelled_by_business: { bg: 'bg-gray-100',  text: 'text-gray-500',   dot: 'bg-gray-400',   label: 'בוטל'    },
-  no_show:               { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', label: 'לא הגיע' },
+  scheduled:             { bg: 'bg-accent',    text: 'text-accent-foreground', dot: 'bg-primary',    label: 'מתוכנן'  },
+  confirmed:             { bg: 'bg-indigo-50', text: 'text-indigo-700',        dot: 'bg-indigo-500', label: 'מאושר'   },
+  completed:             { bg: 'bg-green-50',  text: 'text-green-700',         dot: 'bg-green-500',  label: 'הושלם'   },
+  cancelled_by_customer: { bg: 'bg-gray-100',  text: 'text-gray-500',          dot: 'bg-gray-400',   label: 'בוטל'    },
+  cancelled_by_business: { bg: 'bg-gray-100',  text: 'text-gray-500',          dot: 'bg-gray-400',   label: 'בוטל'    },
+  no_show:               { bg: 'bg-orange-50', text: 'text-orange-700',        dot: 'bg-orange-500', label: 'לא הגיע' },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,15 +74,15 @@ interface SummaryCardProps {
 
 function SummaryCard({ label, value, highlight }: SummaryCardProps) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white px-2 py-4 shadow-sm shadow-[#1a2035]/5 dark:border-gray-700 dark:bg-gray-800">
+    <div className="flex flex-col items-center rounded-2xl border border-border bg-card px-2 py-4 shadow-sm shadow-foreground/5">
       <span
         className={`text-2xl font-extrabold tabular-nums ${
-          highlight ? 'text-teal-600 dark:text-teal-400' : 'text-[#1a2035] dark:text-gray-100'
+          highlight ? 'text-primary' : 'text-foreground'
         }`}
       >
         {value}
       </span>
-      <span className="mt-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 text-center leading-tight">
+      <span className="mt-1 text-[11px] font-medium text-muted-foreground text-center leading-tight">
         {label}
       </span>
     </div>
@@ -106,7 +106,7 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
       {/* Teal glow — matches v0 physical position (top-left) */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-12 -top-12 size-40 rounded-full bg-teal-500/25 blur-2xl"
+        className="pointer-events-none absolute -left-12 -top-12 size-40 rounded-full bg-primary/25 blur-2xl"
       />
 
       <div className="relative">
@@ -137,7 +137,7 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
         </div>
 
         {/* CTA — styled as button but inside a <button>, so use <div> */}
-        <div className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl bg-teal-600 py-3 text-sm font-bold text-white">
+        <div className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl bg-primary py-3 text-sm font-bold text-primary-foreground">
           צפייה בפרטי התור
           <ChevronLeft className="size-4" aria-hidden="true" />
         </div>
@@ -151,11 +151,11 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
 
 function NoNextCard() {
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white px-6 py-8 text-center shadow-sm shadow-[#1a2035]/5 dark:border-gray-700 dark:bg-gray-800">
-      <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
+    <div className="rounded-3xl border border-border bg-card px-6 py-8 text-center shadow-sm shadow-foreground/5">
+      <p className="text-base font-semibold text-foreground">
         אין עוד תורים להמשך היום
       </p>
-      <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">
+      <p className="mt-1 text-sm text-muted-foreground">
         כל התורים הבאים הסתיימו
       </p>
     </div>
@@ -182,17 +182,16 @@ function AppointmentRow({ appointment, tz, onClick }: RowProps) {
       onClick={onClick}
       className={[
         'w-full flex items-center gap-4',
-        'rounded-2xl border border-gray-200 bg-white p-3.5',
-        'shadow-sm shadow-[#1a2035]/5',
+        'rounded-2xl border border-border bg-card p-3.5',
+        'shadow-sm shadow-foreground/5',
         'text-right transition active:scale-[0.98]',
-        'dark:border-gray-700 dark:bg-gray-800',
         isCancelled ? 'opacity-50' : '',
       ].join(' ')}
     >
-      {/* Time — rightmost in RTL, separated by left border */}
+      {/* Time — rightmost in RTL */}
       <div className="flex shrink-0 flex-col items-center">
         <span
-          className="text-base font-extrabold tabular-nums text-[#1a2035] dark:text-gray-100"
+          className="text-base font-extrabold tabular-nums text-foreground"
           dir="ltr"
         >
           {formatTime(appointment.startTime, tz)}
@@ -206,13 +205,13 @@ function AppointmentRow({ appointment, tz, onClick }: RowProps) {
       <div className="min-w-0 flex-1">
         <p
           className={[
-            'text-sm font-bold text-[#1a2035] truncate leading-tight dark:text-gray-100',
+            'text-sm font-bold text-foreground truncate leading-tight',
             isCancelled ? 'line-through decoration-gray-400/50' : '',
           ].join(' ')}
         >
           {appointment.service.name}
         </p>
-        <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
           {appointment.customer.name}
         </p>
       </div>
@@ -232,7 +231,7 @@ function AppointmentRow({ appointment, tz, onClick }: RowProps) {
 
 function CardSkeleton() {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white px-2 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="flex flex-col items-center rounded-2xl border border-border bg-card px-2 py-4 shadow-sm">
       <div className="h-7 w-8 rounded bg-gray-200 dark:bg-gray-700" />
       <div className="mt-1 h-3 w-14 rounded bg-gray-100 dark:bg-gray-700" />
     </div>
@@ -252,9 +251,9 @@ function LoadingSkeleton() {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-800"
+            className="flex items-center gap-4 rounded-2xl border border-border bg-card p-3.5"
           >
-            <div className="h-5 w-10 shrink-0 rounded border-l border-gray-200 pl-4 dark:border-gray-700">
+            <div className="h-5 w-10 shrink-0 rounded border-l border-border pl-4">
               <div className="h-5 w-10 rounded bg-gray-200 dark:bg-gray-700" />
             </div>
             <div className="h-8 w-1 rounded-full bg-gray-200 dark:bg-gray-700" />
@@ -310,10 +309,10 @@ function HomeContent({ appointments, summary, nextAppointment, tz, onSelect }: C
       {/* Today's full list */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-bold text-[#1a2035] dark:text-gray-100">
+          <h2 className="text-base font-bold text-foreground">
             כל התורים היום
           </h2>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          <span className="text-xs font-medium text-muted-foreground">
             {appointments.length} תורים
           </span>
         </div>
@@ -433,7 +432,7 @@ export function MobileHomeShell() {
     <div
       className={[
         'fixed inset-0 z-50 flex flex-col overflow-hidden',
-        'bg-gray-50 dark:bg-gray-950',
+        'bg-background',
         'md:inset-auto md:top-1/2 md:left-1/2',
         'md:-translate-x-1/2 md:-translate-y-1/2',
         'md:w-107.5 md:h-[90dvh]',
@@ -446,19 +445,19 @@ export function MobileHomeShell() {
         <div className="flex items-start justify-between">
           {/* Left side (RTL start = physical right): greeting + title + date */}
           <div>
-            <p className="text-sm font-semibold text-teal-600 dark:text-teal-400">
+            <p className="text-sm font-semibold text-primary">
               {greetingName ? `שלום, ${greetingName}` : 'שלום'}
             </p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1a2035] dark:text-gray-100">
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
               דף הבית
             </h1>
-            <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
               {todayLabel}
             </p>
           </div>
 
           {/* Right side (RTL end = physical left): initials avatar */}
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-700 ring-1 ring-teal-500/20 dark:bg-teal-900/30 dark:text-teal-300">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground ring-1 ring-primary/20">
             {initials}
           </div>
         </div>
@@ -470,17 +469,17 @@ export function MobileHomeShell() {
           <LoadingSkeleton />
         ) : error ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12">
-            <p className="text-sm text-gray-500 dark:text-gray-400">{error}</p>
+            <p className="text-sm text-muted-foreground">{error}</p>
             <button
               onClick={retry}
-              className="text-sm font-medium text-teal-600 dark:text-teal-400"
+              className="text-sm font-medium text-primary"
             >
               נסה שוב
             </button>
           </div>
         ) : relevantAppointments.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-12">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 text-center">
+            <p className="text-sm font-medium text-muted-foreground text-center">
               {memberWithNoProvider ? 'אין תורים מיוחסים אליך היום' : 'אין תורים היום'}
             </p>
             {!canMutate && (
