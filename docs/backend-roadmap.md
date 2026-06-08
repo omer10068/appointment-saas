@@ -62,7 +62,7 @@ Covered by:
 | `GET /dashboard/businesses/:businessId/working-hours` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/availability-exceptions` | assertAccess | |
-| `GET /dashboard/businesses/:businessId/appointments` | assertAccess | Supports `from`, `to`, `status` query params |
+| `GET /dashboard/businesses/:businessId/appointments` | assertAccess | Supports `from`, `to`, `status`, `businessCustomerId` query params |
 
 ### Key response shapes
 
@@ -463,6 +463,14 @@ E2E coverage added to `dashboard-service-providers.e2e-spec.ts` for: create with
 This prevents creating appointments for blocked or archived customers even if the caller knows their ID.
 
 E2E coverage added to `dashboard-appointments.e2e-spec.ts`: appointment create with BLOCKED customer → 400.
+
+### Customer appointment history filter
+
+`GET …/appointments` now accepts an optional `businessCustomerId` (`@IsUUID`, `@IsOptional`) query parameter. When provided, the Prisma `where` clause adds `businessCustomerId: query.businessCustomerId`. Existing `from`/`to`/`status` filters are unaffected.
+
+This supports the mobile customer history feature: the frontend fetches past appointments filtered by customer without a separate endpoint.
+
+E2E coverage added to `dashboard-appointments.e2e-spec.ts`: `businessCustomerId` filter returns only that customer's appointments (1 result); unknown `businessCustomerId` returns empty list. Suite: 11/11 passing.
 
 ## Later — Phase 3 and Beyond
 

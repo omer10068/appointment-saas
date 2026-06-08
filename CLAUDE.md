@@ -171,6 +171,22 @@ Mobile team specifics:
 - `GET /dashboard/businesses/:businessId/users` is OWNER-only. For non-OWNER roles the fetch is skipped entirely (`Promise.resolve([])`). No 403 is triggered for MANAGER.
 - `ProviderEditSheet` saves `displayName`/`serviceIds` first, then `isActive` in a second sequential call to avoid a race where the status validation (which checks service links in the DB) fires before the new `serviceIds` are committed.
 
+Mobile customer specifics:
+
+- Tapping a customer row always opens a read-only `CustomerDetailSheet` for all roles (OWNER, MANAGER, MEMBER).
+- `CustomerDetailSheet` shows: name, status badge, phone, email, notes, and customer appointment history.
+- OWNER/MANAGER see an "עריכת לקוח" button fixed at the bottom of the detail sheet. Tapping it opens `CustomerEditSheet` on top.
+- `CustomerEditSheet` contains only editable fields and the fixed save button. No history is shown there.
+- MEMBER sees details and history only — no edit action is mounted.
+
+Mobile customer appointment history:
+
+- `CustomerAppointmentHistory` component fetches past appointments for the selected customer using the backend `businessCustomerId` filter.
+- Lookback: 18 months. Cap: 10 rows. Sort: newest first (client-side reverse of backend ASC).
+- Each row shows: service name, status badge, date/time, provider name.
+- Hebrew empty/loading/error states included.
+- Calendar is not changed and remains future-only.
+
 ServiceProvider assignment policy (locked — do not change without explicit instruction):
 
 Removing a `serviceId` from a `ServiceProvider` does **not** block or cancel existing future appointments for that `(serviceProviderId, serviceId)` pair. Existing appointments remain valid and manageable. The change applies only to new bookings. Do not add blocking confirmation or cascade cancellation without an explicit product decision.
