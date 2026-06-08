@@ -16,6 +16,7 @@ import { CalendarNewButton } from './calendar-new-button';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
+import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -41,6 +42,7 @@ export function MobileCalendarShell() {
   const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
 
   // ── Success banner ────────────────────────────────────────────────────────────
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
@@ -143,6 +145,10 @@ export function MobileCalendarShell() {
     refreshWeek();
   }
 
+  function handleReschedule() {
+    setRescheduleTarget(selectedAppointment);
+  }
+
   return (
     // PHONE PREVIEW WRAPPER
     // Mobile  : fixed full-screen overlay (inset-0)
@@ -233,7 +239,26 @@ export function MobileCalendarShell() {
         timezone={timezone}
         canMutate={canMutate}
         onStatusUpdate={handleStatusUpdate}
+        onReschedule={canMutate ? handleReschedule : undefined}
         onClosed={() => setSelectedAppointment(null)}
+      />
+
+      <RescheduleAppointmentSheet
+        appointment={rescheduleTarget}
+        businessId={currentBusinessId}
+        getToken={() => getTokenRef.current()}
+        timezone={timezone}
+        onSuccess={(newStartsAt) => {
+          // Navigate to the week containing the rescheduled appointment.
+          // If the new date is in the same week, setSelectedDate is a no-op for navigation
+          // but useMobileCalendarData still refetches because refreshWeek() bumps its key.
+          const newDate = new Date(newStartsAt);
+          setSelectedDate(newDate);
+          setSelectedAppointment(null);
+          refreshWeek();
+          showSuccess('התור עודכן בהצלחה');
+        }}
+        onClosed={() => setRescheduleTarget(null)}
       />
 
       <CalendarCreateSheet

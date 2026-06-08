@@ -44,6 +44,8 @@ interface Props {
   timezone: string;
   canMutate: boolean;
   onStatusUpdate: (appointmentId: string, newStatus: ContractsStatus) => Promise<void>;
+  /** Called when the user taps the reschedule button; parent should open the reschedule sheet. */
+  onReschedule?: () => void;
   /** Called after the close animation completes — parent should clear selectedAppointment here. */
   onClosed: () => void;
 }
@@ -55,6 +57,7 @@ export function CalendarAppointmentSheet({
   timezone,
   canMutate,
   onStatusUpdate,
+  onReschedule,
   onClosed,
 }: Props) {
   const dict = useDashboardI18n();
@@ -250,17 +253,28 @@ export function CalendarAppointmentSheet({
                     />
                   </>
                 ) : (
-                  <ActionButton
-                    label={tForm.cancelAppointment}
-                    onClick={() => requestConfirmation({
-                      status: 'CANCELLED_BY_BUSINESS',
-                      title: 'לבטל את התור?',
-                      variant: 'danger',
-                    })}
-                    isPending={pendingStatus === 'CANCELLED_BY_BUSINESS'}
-                    disabled={!!pendingStatus}
-                    variant="danger"
-                  />
+                  <>
+                    {onReschedule && (
+                      <ActionButton
+                        label="שינוי מועד"
+                        onClick={onReschedule}
+                        isPending={false}
+                        disabled={!!pendingStatus}
+                        variant="neutral"
+                      />
+                    )}
+                    <ActionButton
+                      label={tForm.cancelAppointment}
+                      onClick={() => requestConfirmation({
+                        status: 'CANCELLED_BY_BUSINESS',
+                        title: 'לבטל את התור?',
+                        variant: 'danger',
+                      })}
+                      isPending={pendingStatus === 'CANCELLED_BY_BUSINESS'}
+                      disabled={!!pendingStatus}
+                      variant="danger"
+                    />
+                  </>
                 )}
 
                 {actionError && (
