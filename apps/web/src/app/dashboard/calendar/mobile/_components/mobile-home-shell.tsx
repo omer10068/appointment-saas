@@ -40,9 +40,23 @@ const STATUS_BADGE: Record<AppointmentStatus, BadgeCfg> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getInitials(name: string): string {
-  return name
-    .split(/[\s\-_]+/)
+/** "YUVAL-TURGEMAN" → "Yuval Turgeman", "my salon" → "My Salon" */
+function toFriendlyName(raw: string): string {
+  return raw
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+    .trim();
+}
+
+function getFirstWord(name: string): string {
+  return name.split(/\s+/)[0] ?? name;
+}
+
+function getInitials(friendly: string): string {
+  return friendly
+    .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map(w => w.charAt(0).toUpperCase())
@@ -88,10 +102,10 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
       onClick={onClick}
       className="relative w-full overflow-hidden rounded-3xl bg-[#1a2035] p-6 text-right shadow-xl shadow-[#1a2035]/20 transition active:scale-[0.98]"
     >
-      {/* Teal glow — top-right in RTL (reading-start corner) */}
+      {/* Teal glow — matches v0 physical position (top-left) */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-teal-500/25 blur-2xl"
+        className="pointer-events-none absolute -left-12 -top-12 size-40 rounded-full bg-teal-500/25 blur-2xl"
       />
 
       <div className="relative">
@@ -121,31 +135,61 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
           </span>
         </div>
 
-        {/* CTA */}
-        <button
-          className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl bg-teal-600 py-3 text-sm font-bold text-white transition active:opacity-90"
-          tabIndex={-1}
-          aria-hidden="true"
-        >
+        {/* CTA — styled as button but inside a <button>, so use <div> */}
+        <div className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl bg-teal-600 py-3 text-sm font-bold text-white">
           צפייה בפרטי התור
           <ChevronLeft className="size-4" aria-hidden="true" />
-        </button>
+        </div>
       </div>
     </button>
   );
 }
 
-// ─── No next appointment placeholder ─────────────────────────────────────────
+// ─── Empty hero card (no upcoming appointment) ────────────────────────────────
+// Same dark navy visual as NextAppointmentCard — keeps the hero slot filled.
 
-function NoNextAppointmentCard() {
+interface EmptyHeroProps {
+  canMutate: boolean;
+  onNewAppointment: () => void;
+  onCalendar: () => void;
+}
+
+function EmptyHeroCard({ canMutate, onNewAppointment, onCalendar }: EmptyHeroProps) {
   return (
-    <div className="rounded-3xl border border-dashed border-gray-200 bg-white px-6 py-8 text-center shadow-sm shadow-[#1a2035]/5 dark:border-gray-700 dark:bg-gray-800">
-      <p className="text-sm font-semibold text-gray-400 dark:text-gray-500">
-        אין עוד תורים להמשך היום
-      </p>
-      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-        כל התורים הבאים הסתיימו
-      </p>
+    <div className="relative overflow-hidden rounded-3xl bg-[#1a2035] p-6 shadow-xl shadow-[#1a2035]/20">
+      {/* Teal glow — matches v0 physical position (top-left) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-12 -top-12 size-40 rounded-full bg-teal-500/25 blur-2xl"
+      />
+      <div className="relative text-right">
+        {/* Badge row — matches NextAppointmentCard */}
+        <div className="flex items-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
+            <Clock3 className="size-3.5" aria-hidden="true" />
+            התור הבא
+          </span>
+        </div>
+
+        {/* Empty-state body */}
+        <div className="mt-4">
+          <p className="text-xl font-bold leading-tight text-white">
+            אין עוד תורים להמשך היום
+          </p>
+          <p className="mt-1 text-sm text-white/70">
+            כל התורים הבאים הסתיימו
+          </p>
+        </div>
+
+        {/* CTA — role-aware */}
+        <button
+          onClick={canMutate ? onNewAppointment : onCalendar}
+          className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl bg-teal-600 py-3 text-sm font-bold text-white transition active:scale-[0.98] active:opacity-90"
+        >
+          {canMutate ? 'קביעת תור חדש' : 'פתח יומן'}
+          <ChevronLeft className="size-4" aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -178,7 +222,7 @@ function AppointmentRow({ appointment, tz, onClick }: RowProps) {
       ].join(' ')}
     >
       {/* Time — rightmost in RTL, separated by left border */}
-      <div className="flex shrink-0 flex-col items-center gap-1 border-l border-gray-200 pl-4 dark:border-gray-700">
+      <div className="flex shrink-0 flex-col items-center">
         <span
           className="text-base font-extrabold tabular-nums text-[#1a2035] dark:text-gray-100"
           dir="ltr"
@@ -271,10 +315,13 @@ interface ContentProps {
   summary: TodaySummary;
   nextAppointment: Appointment | undefined;
   tz: string;
+  canMutate: boolean;
   onSelect: (a: Appointment) => void;
+  onNewAppointment: () => void;
+  onCalendar: () => void;
 }
 
-function HomeContent({ appointments, summary, nextAppointment, tz, onSelect }: ContentProps) {
+function HomeContent({ appointments, summary, nextAppointment, tz, canMutate, onSelect, onNewAppointment, onCalendar }: ContentProps) {
   return (
     <div className="space-y-5">
       {/* Stat cards — grid matches v0 */}
@@ -284,7 +331,7 @@ function HomeContent({ appointments, summary, nextAppointment, tz, onSelect }: C
         <SummaryCard label='סה״כ תורים'  value={summary.totalToday} />
       </div>
 
-      {/* Next appointment card or styled placeholder */}
+      {/* Next appointment hero or empty-state hero — always a dark card */}
       {nextAppointment ? (
         <NextAppointmentCard
           appointment={nextAppointment}
@@ -292,7 +339,11 @@ function HomeContent({ appointments, summary, nextAppointment, tz, onSelect }: C
           onClick={() => onSelect(nextAppointment)}
         />
       ) : (
-        <NoNextAppointmentCard />
+        <EmptyHeroCard
+          canMutate={canMutate}
+          onNewAppointment={onNewAppointment}
+          onCalendar={onCalendar}
+        />
       )}
 
       {/* Today's full list */}
@@ -396,10 +447,12 @@ export function MobileHomeShell() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet]         = useState(false);
 
-  const tz         = timezone ?? 'UTC';
-  const todayLabel = formatDate(new Date(), tz);
-  const initials   = businessName ? getInitials(businessName) : '?';
-  const isLoading  = loading || providersLoading;
+  const tz           = timezone ?? 'UTC';
+  const todayLabel   = formatDate(new Date(), tz);
+  const friendlyName = businessName ? toFriendlyName(businessName) : '';
+  const greetingName = friendlyName ? getFirstWord(friendlyName) : '';
+  const initials     = friendlyName ? getInitials(friendlyName) : '?';
+  const isLoading    = loading || providersLoading;
   const memberWithNoProvider = !canMutate && !myProvider;
 
   function openCreate()   { setShowCreateSheet(true); }
@@ -432,11 +485,9 @@ export function MobileHomeShell() {
         <div className="flex items-start justify-between">
           {/* Left side (RTL start = physical right): greeting + title + date */}
           <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-teal-600 dark:text-teal-400">
-                {businessName}
-              </p>
-            )}
+            <p className="text-sm font-semibold text-teal-600 dark:text-teal-400">
+              {greetingName ? `שלום, ${greetingName}` : 'שלום'}
+            </p>
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1a2035] dark:text-gray-100">
               דף הבית
             </h1>
@@ -486,7 +537,10 @@ export function MobileHomeShell() {
             summary={relevantSummary}
             nextAppointment={nextAppointment}
             tz={tz}
+            canMutate={canMutate}
             onSelect={setSelectedAppointment}
+            onNewAppointment={openCreate}
+            onCalendar={openCalendar}
           />
         )}
       </div>
