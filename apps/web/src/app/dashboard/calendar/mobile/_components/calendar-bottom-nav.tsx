@@ -44,7 +44,7 @@ export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
               aria-current={active ? 'page' : undefined}
               onClick={() => handleNavTap(key)}
               className={[
-                'flex flex-col items-center gap-0.5 rounded-xl py-1.5 transition-colors',
+                'flex flex-col items-center gap-0.5 rounded-[1.26rem] py-1.5 transition-colors',
                 active
                   ? 'bg-foreground px-4 text-background'
                   : 'px-2.5 text-muted-foreground',

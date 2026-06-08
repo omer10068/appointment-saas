@@ -18,7 +18,6 @@ import { CalendarCreateSheet } from './calendar-create-sheet';
 import { useTodayAppointments } from '../_hooks/use-today-appointments';
 import { mapDtoToService, mapDtoToServiceProvider } from '../_lib/calendar.mappers';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
-import { SERVICE_COLORS } from '../_lib/calendar.design';
 import type {
   Appointment,
   AppointmentStatus,
@@ -171,7 +170,6 @@ interface RowProps {
 }
 
 function AppointmentRow({ appointment, tz, onClick }: RowProps) {
-  const c    = SERVICE_COLORS[appointment.service.color];
   const b    = STATUS_BADGE[appointment.status];
   const isCancelled =
     appointment.status === 'cancelled_by_customer' ||
@@ -188,8 +186,8 @@ function AppointmentRow({ appointment, tz, onClick }: RowProps) {
         isCancelled ? 'opacity-50' : '',
       ].join(' ')}
     >
-      {/* Time — rightmost in RTL */}
-      <div className="flex shrink-0 flex-col items-center">
+      {/* Time — rightmost in RTL, separated by left border (v0 style) */}
+      <div className="flex shrink-0 flex-col items-center border-l border-border pl-4">
         <span
           className="text-base font-extrabold tabular-nums text-foreground"
           dir="ltr"
@@ -197,9 +195,6 @@ function AppointmentRow({ appointment, tz, onClick }: RowProps) {
           {formatTime(appointment.startTime, tz)}
         </span>
       </div>
-
-      {/* Colored service bar */}
-      <div className={`w-1 self-stretch rounded-full ${c.bar} shrink-0`} />
 
       {/* Service + customer */}
       <div className="min-w-0 flex-1">
