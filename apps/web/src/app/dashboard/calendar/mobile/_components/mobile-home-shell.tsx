@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { Clock3, ChevronLeft, Plus } from 'lucide-react';
+import { Clock3, ChevronLeft } from 'lucide-react';
+import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import {
@@ -503,15 +504,7 @@ export function MobileHomeShell() {
       </div>
 
       {/* ── Floating + button (OWNER / MANAGER only) ────────────────────── */}
-      {canMutate && (
-        <button
-          onClick={openCreate}
-          aria-label="קביעת תור חדש"
-          className="fixed bottom-28 left-5 z-30 flex size-14 items-center justify-center rounded-full bg-teal-600 text-white shadow-lg shadow-teal-600/40 transition active:scale-[0.98]"
-        >
-          <Plus className="size-7" strokeWidth={2.5} aria-hidden="true" />
-        </button>
-      )}
+      {canMutate && <MobileFab onClick={openCreate} ariaLabel="קביעת תור חדש" />}
 
       <CalendarBottomNav activeKey="home" />
 

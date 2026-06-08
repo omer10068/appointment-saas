@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Plus, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { MobileFab } from './mobile-fab';
 import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import {
@@ -400,16 +401,7 @@ export function MobileTeamShell() {
       <CalendarBottomNav activeKey="team" />
 
       {/* FAB — OWNER only (MANAGER cannot access business users list) */}
-      {isOwner && (
-        <button
-          onClick={() => setShowCreateSheet(true)}
-          aria-label="הוסף חבר צוות"
-          className="absolute left-4 w-14 h-14 rounded-full bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white shadow-lg flex items-center justify-center active:opacity-75 transition-opacity z-10"
-          style={{ bottom: LAYOUT.fabBottomOffset }}
-        >
-          <Plus size={24} />
-        </button>
-      )}
+      {isOwner && <MobileFab onClick={() => setShowCreateSheet(true)} ariaLabel="הוסף חבר צוות" />}
 
       {/* Detail sheet — MEMBER only */}
       {!canMutate && (

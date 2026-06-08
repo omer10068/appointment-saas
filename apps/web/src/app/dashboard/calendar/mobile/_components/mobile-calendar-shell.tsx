@@ -12,7 +12,7 @@ import { CalendarHeader } from './calendar-header';
 import { CalendarDayPicker } from './calendar-day-picker';
 import { CalendarServiceProviderFilter } from './calendar-service-provider-filter';
 import { CalendarTimeline } from './calendar-timeline';
-import { CalendarNewButton } from './calendar-new-button';
+import { MobileFab } from './mobile-fab';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
@@ -231,7 +231,7 @@ export function MobileCalendarShell() {
         </>
       )}
 
-      {canMutate && <CalendarNewButton onClick={handleNewAppointment} />}
+      {canMutate && <MobileFab onClick={handleNewAppointment} />}
       <CalendarBottomNav activeKey="calendar" />
 
       <CalendarAppointmentSheet

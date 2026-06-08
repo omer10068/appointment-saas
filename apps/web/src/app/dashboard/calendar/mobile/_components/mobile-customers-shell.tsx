@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Plus, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { MobileFab } from './mobile-fab';
 import type { CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { fetchDashboardCustomers } from '../../../../../lib/api';
@@ -441,16 +442,7 @@ export function MobileCustomersShell() {
       </div>
 
       {/* FAB — OWNER/MANAGER only */}
-      {canMutate && (
-        <button
-          onClick={() => setShowCreateSheet(true)}
-          aria-label="הוסף לקוח"
-          className="absolute left-4 w-14 h-14 rounded-full bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white shadow-lg flex items-center justify-center active:opacity-75 transition-opacity z-10"
-          style={{ bottom: LAYOUT.fabBottomOffset }}
-        >
-          <Plus size={24} />
-        </button>
-      )}
+      {canMutate && <MobileFab onClick={() => setShowCreateSheet(true)} ariaLabel="הוסף לקוח" />}
 
       <CalendarBottomNav activeKey="customers" />
 
