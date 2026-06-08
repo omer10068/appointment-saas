@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { Home, Calendar, Users, Scissors, UserCog } from 'lucide-react';
-import { LAYOUT } from '../_lib/calendar.design';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost.
 const NAV_ITEMS = [
@@ -34,26 +33,27 @@ export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
   }
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800"
-      style={{ height: LAYOUT.bottomNavHeightPx }}
-    >
-      <div className="flex items-center justify-around h-full px-1">
+    <nav className="fixed inset-x-4 bottom-5 z-40">
+      <div className="flex items-center justify-between rounded-full border border-gray-200 bg-white/85 px-2 py-1.5 shadow-xl shadow-[#1a2035]/10 backdrop-blur-md dark:border-gray-700 dark:bg-gray-900/85">
         {NAV_ITEMS.map(({ icon: Icon, label, key }) => {
           const active = key === activeKey;
           return (
             <button
               key={key}
               aria-label={label}
+              aria-current={active ? 'page' : undefined}
               onClick={() => handleNavTap(key)}
               className={[
-                'flex flex-col items-center justify-center gap-0.5',
-                'min-w-13 h-full px-1 rounded-xl transition-colors',
-                active ? 'text-[#2d2d3a]' : 'text-gray-400 hover:text-gray-600',
+                'flex flex-col items-center gap-0.5 rounded-xl py-1.5 transition-colors',
+                active
+                  ? 'bg-[#1a2035] px-4 text-white'
+                  : 'px-2.5 text-gray-400 dark:text-gray-500',
               ].join(' ')}
             >
-              <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
-              <span className="text-[10px] font-medium leading-none">{label}</span>
+              <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+              <span className={`text-[10px] leading-none ${active ? 'font-bold' : 'font-medium'}`}>
+                {label}
+              </span>
             </button>
           );
         })}
