@@ -234,6 +234,15 @@ export function businessDayRange(timezone: string): { from: string; to: string }
 }
 
 /**
+ * Returns true when a slot's UTC start time is strictly in the future.
+ * Use this to hide already-passed slots when the selected date is today.
+ * Comparison uses UTC timestamps — no timezone math needed.
+ */
+export function isFutureSlot(slot: { startsAt: string }): boolean {
+  return new Date(slot.startsAt).getTime() > Date.now();
+}
+
+/**
  * Formats an Israeli phone number for display.
  * +972-5X-XXX-XXXX → 05X-XXX-XXXX (mobile)
  * +972-X-XXXXXXX  → 0X-XXXXXXX   (landline)

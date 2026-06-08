@@ -7,7 +7,7 @@ import {
   updateDashboardAppointment,
 } from '../../../../../lib/api';
 import type { AvailableSlotItem } from '../../../../../lib/api';
-import { toLocalDateString } from './calendar.utils';
+import { isFutureSlot, toLocalDateString } from './calendar.utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ export function useRescheduleAppointmentForm({
       { serviceId, serviceProviderId, date: dateStr },
       () => getTokenRef.current(),
     )
-      .then((res) => { if (!cancelled) setSlots(res.slots); })
+      .then((res) => { if (!cancelled) setSlots(res.slots.filter(isFutureSlot)); })
       .catch(() => {
         if (!cancelled) { setSlots([]); setSlotsError('שגיאה בטעינת זמנים פנויים'); }
       })
