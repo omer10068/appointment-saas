@@ -75,6 +75,17 @@ export function MobileCalendarShell() {
     autoFilterApplied.current = true;
   }, [serviceProviders, currentBusiness]);
 
+  // Current user's provider first, then the rest in original API order.
+  // RTL renders the first item rightmost, so this also pins the user's lane to the right.
+  const sortedServiceProviders = useMemo(() => {
+    if (!currentBusiness) return serviceProviders;
+    return [...serviceProviders].sort((a, b) => {
+      if (a.businessUserId === currentBusiness.id) return -1;
+      if (b.businessUserId === currentBusiness.id) return 1;
+      return 0;
+    });
+  }, [serviceProviders, currentBusiness]);
+
   // All appointments for the selected day (used by the timeline)
   const allDayAppointments = useMemo(
     () => appointments.filter((a) => isSameDay(a.startTime, selectedDate)),
@@ -213,7 +224,7 @@ export function MobileCalendarShell() {
       ) : (
         <>
           <CalendarServiceProviderFilter
-            serviceProviders={serviceProviders}
+            serviceProviders={sortedServiceProviders}
             selectedServiceProviderId={selectedServiceProviderId}
             onSelectServiceProvider={setSelectedServiceProviderId}
             appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
@@ -226,7 +237,7 @@ export function MobileCalendarShell() {
             appointments={timelineAppointments}
             timezone={timezone}
             onSelectAppointment={setSelectedAppointment}
-            serviceProviders={selectedServiceProviderId === 'all' ? serviceProviders : undefined}
+            serviceProviders={selectedServiceProviderId === 'all' ? sortedServiceProviders : undefined}
           />
         </>
       )}

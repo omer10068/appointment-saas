@@ -124,10 +124,39 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
   const laneProviders = serviceProviders && serviceProviders.length > 1 ? serviceProviders : null;
 
+  // Tracks whether we've already scrolled for the current date.
+  // Prevents re-scrolling on status refreshes after the user has scrolled manually.
+  const scrolledDateRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = 0;
-  }, [selectedDate]);
+
+    const dateKey = selectedDate.toDateString();
+
+    // New date selected — reset to top and clear the guard so we scroll once appointments load.
+    if (scrolledDateRef.current !== dateKey) {
+      scrollRef.current.scrollTop = 0;
+    }
+
+    const dayAppts = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
+    if (dayAppts.length === 0) {
+      scrolledDateRef.current = null;
+      return;
+    }
+
+    // Already scrolled for this date — don't jump again.
+    if (scrolledDateRef.current === dateKey) return;
+    scrolledDateRef.current = dateKey;
+
+    const earliest = dayAppts.reduce((prev, curr) =>
+      curr.startTime < prev.startTime ? curr : prev,
+    );
+    const layout = appointmentLayout(earliest, timezone);
+    if (!layout) return;
+
+    // Scroll so the first appointment has ~32 px of breathing room above it.
+    scrollRef.current.scrollTop = Math.max(0, layout.top - 32);
+  }, [selectedDate, appointments, timezone]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
