@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Loader2, Check, Search, AlertCircle } from 'lucide-react';
+import { X, Loader2, Check, Search, AlertCircle, CalendarDays } from 'lucide-react';
 import { useDashboardI18n } from '../../../_i18n/useDashboardI18n';
 import { formatDate, formatIsraeliPhone } from '../_lib/calendar.utils';
 import { CalendarDatePicker } from './calendar-date-picker';
@@ -86,7 +86,6 @@ export function CalendarCreateSheet({
     if (!q) return form.customers;
 
     // Only parse query as phone digits when it looks like a phone number.
-    // A mixed query like "054גגג" must not strip letters and match wrong phones.
     const looksLikePhone = /^[\d+\-\s]+$/.test(q);
     const qDigits = looksLikePhone ? q.replace(/\D/g, '') : '';
     let qPhone = qDigits;
@@ -121,7 +120,6 @@ export function CalendarCreateSheet({
   const hasMore = allMatches.length > MAX_VISIBLE;
 
   // On every open: reset all selections and clamp date to business-today if needed.
-  // Also bump openKey so CalendarDatePicker mounts fresh with the reset date.
   useEffect(() => {
     if (!open) return;
     isClosingRef.current = false;
@@ -155,7 +153,7 @@ export function CalendarCreateSheet({
       {/* Backdrop */}
       <div
         className={[
-          'absolute inset-0 bg-black/40 transition-opacity duration-300',
+          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
           visible ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
         onClick={triggerClose}
@@ -168,45 +166,46 @@ export function CalendarCreateSheet({
           'absolute bottom-0 left-0 right-0',
           'flex flex-col',
           'max-h-[92dvh]',
-          'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
+          'bg-card rounded-t-[2rem] border-t border-border shadow-2xl shadow-foreground/30',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
         {/* Drag handle — flex-none */}
         <div className="flex-none flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
+          <div className="mx-auto w-12 h-1.5 rounded-full bg-border" />
         </div>
 
         {/* Header — flex-none, always visible */}
-        <div className="flex-none flex items-center justify-between px-6 pt-4 pb-4 border-b border-gray-100 dark:border-gray-800">
-          <span className="text-[17px] font-semibold text-gray-800 dark:text-gray-100">
+        <div className="flex-none flex items-center justify-between px-5 pt-2 pb-4 border-b border-border">
+          {/* Title on the right (RTL start = physical right, first child) */}
+          <span className="text-lg font-extrabold text-foreground">
             {tForm.addAppointment}
           </span>
           <button
             onClick={triggerClose}
             aria-label="סגור"
-            className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors"
+            className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 hover:bg-muted"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
         {/* Scrollable form body — flex-1, scrolls independently */}
         <div className="flex-1 overflow-y-auto">
-          <div className="px-6 py-5 flex flex-col gap-6 pb-8">
+          <div className="px-5 py-5 flex flex-col gap-5 pb-8">
 
             {/* ── Service ─────────────────────────────────────────────────── */}
             <FormSection label={tForm.service}>
               {services.length === 0 ? (
-                <p className="text-[13px] text-gray-400">{tForm.noServices}</p>
+                <p className="text-sm text-muted-foreground">{tForm.noServices}</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {services.map((s) => (
-                    <SelectionPill
+                    <ChoiceChip
                       key={s.id}
                       label={s.name}
-                      active={form.selectedServiceId === s.id}
+                      selected={form.selectedServiceId === s.id}
                       onClick={() =>
                         form.selectedServiceId === s.id
                           ? form.selectService(null)
@@ -222,14 +221,14 @@ export function CalendarCreateSheet({
             {form.selectedServiceId && (
               <FormSection label={tForm.staff}>
                 {form.bookableProviders.length === 0 ? (
-                  <p className="text-[13px] text-gray-400">אין נותני שירות זמינים לשירות זה</p>
+                  <p className="text-sm text-muted-foreground">אין נותני שירות זמינים לשירות זה</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {form.bookableProviders.map((sp) => (
-                      <SelectionPill
+                      <ChoiceChip
                         key={sp.id}
                         label={sp.name}
-                        active={form.selectedProviderId === sp.id}
+                        selected={form.selectedProviderId === sp.id}
                         onClick={() =>
                           form.selectedProviderId === sp.id
                             ? form.selectProvider(null)
@@ -244,21 +243,21 @@ export function CalendarCreateSheet({
 
             {/* ── Date picker ──────────────────────────────────────────────── */}
             <FormSection label="תאריך">
-              {/* Toggle button: emoji + formatted selected date */}
+              {/* Trigger: icon + formatted date in a muted pill */}
               <button
                 type="button"
                 onClick={() => setShowCalendar((s) => !s)}
-                className="flex items-center gap-2.5 w-full text-right active:opacity-60 transition-opacity"
+                className="flex items-center gap-2 w-full rounded-2xl border border-border bg-muted px-4 py-3 text-right transition active:opacity-70"
               >
-                <span className="text-[20px] leading-none select-none">📅</span>
-                <span className="text-[14px] font-medium text-gray-700 dark:text-gray-200">
+                <CalendarDays size={16} className="text-primary shrink-0" aria-hidden="true" />
+                <span className="text-sm font-medium text-foreground">
                   {formatDate(form.selectedDate, timezone)}
                 </span>
               </button>
 
               {/* Calendar panel — conditionally rendered; remounts fresh each open */}
               {showCalendar && (
-                <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-4 mt-1">
+                <div className="rounded-2xl border border-border bg-muted p-4 mt-2">
                   <CalendarDatePicker
                     selectedDate={form.selectedDate}
                     timezone={timezone}
@@ -275,22 +274,22 @@ export function CalendarCreateSheet({
             {form.selectedServiceId && form.selectedProviderId && (
               <FormSection label="שעה">
                 {form.isPastDate ? (
-                  <p className="text-[13px] text-amber-500">לא ניתן לקבוע תור לתאריך שעבר</p>
+                  <p className="text-sm text-amber-500">לא ניתן לקבוע תור לתאריך שעבר</p>
                 ) : form.isLoadingSlots ? (
                   <div className="flex justify-center py-3">
-                    <Loader2 size={20} className="animate-spin text-gray-400" />
+                    <Loader2 size={20} className="animate-spin text-muted-foreground" />
                   </div>
                 ) : form.slotsError ? (
-                  <p className="text-[13px] text-red-500">{form.slotsError}</p>
+                  <p className="text-sm text-red-500">{form.slotsError}</p>
                 ) : form.slots.length === 0 ? (
-                  <p className="text-[13px] text-gray-400">אין שעות פנויות ביום זה</p>
+                  <p className="text-sm text-muted-foreground">אין שעות פנויות ביום זה</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {form.slots.map((slot) => (
-                      <SelectionPill
+                      <TimeChip
                         key={slot.startsAt}
                         label={slot.localStartTime}
-                        active={form.selectedSlot?.startsAt === slot.startsAt}
+                        selected={form.selectedSlot?.startsAt === slot.startsAt}
                         onClick={() =>
                           form.selectedSlot?.startsAt === slot.startsAt
                             ? form.selectSlot(null)
@@ -307,10 +306,10 @@ export function CalendarCreateSheet({
             <FormSection label={tForm.customer}>
               {form.isLoadingCustomers ? (
                 <div className="flex justify-center py-3">
-                  <Loader2 size={20} className="animate-spin text-gray-400" />
+                  <Loader2 size={20} className="animate-spin text-muted-foreground" />
                 </div>
               ) : form.customers.length === 0 ? (
-                <p className="text-[13px] text-gray-400">אין לקוחות פעילים</p>
+                <p className="text-sm text-muted-foreground">אין לקוחות פעילים</p>
               ) : (
                 <div className="flex flex-col gap-2">
 
@@ -318,7 +317,7 @@ export function CalendarCreateSheet({
                   <div className="relative">
                     <Search
                       size={15}
-                      className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-400 pointer-events-none"
+                      className="absolute top-1/2 -translate-y-1/2 right-3 text-muted-foreground pointer-events-none"
                     />
                     <input
                       type="text"
@@ -326,25 +325,17 @@ export function CalendarCreateSheet({
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       placeholder="חיפוש לפי שם או טלפון"
-                      className={[
-                        'w-full pl-3 pr-9 py-2.5 rounded-xl text-[14px]',
-                        'bg-gray-50 dark:bg-gray-800',
-                        'border border-gray-200 dark:border-gray-700',
-                        'text-gray-700 dark:text-gray-200',
-                        'placeholder:text-gray-400 dark:placeholder:text-gray-500',
-                        'outline-none focus:border-[#2d2d3a] dark:focus:border-indigo-500',
-                        'transition-colors',
-                      ].join(' ')}
+                      className="w-full pl-3 pr-9 py-3 rounded-2xl text-sm bg-muted border border-border text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors"
                     />
                   </div>
 
                   {/* Results */}
                   {visibleCustomers.length === 0 ? (
-                    <p className="text-[13px] text-gray-400 text-center py-2">
+                    <p className="text-sm text-muted-foreground text-center py-2">
                       לא נמצאו לקוחות מתאימים
                     </p>
                   ) : (
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-col gap-1">
                       {visibleCustomers.map((c) => {
                         const selected = form.selectedCustomerId === c.businessCustomerId;
                         return (
@@ -356,46 +347,36 @@ export function CalendarCreateSheet({
                                 : form.selectCustomer(c.businessCustomerId)
                             }
                             className={[
-                              'flex items-center gap-3 py-3 px-2 rounded-xl w-full transition-colors',
+                              'flex items-center gap-3 rounded-2xl border p-2.5 w-full text-right transition',
                               selected
-                                ? 'bg-[#f0f0f8] dark:bg-indigo-950/30'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-800/40',
+                                ? 'border-primary bg-accent'
+                                : 'border-transparent bg-card hover:bg-muted',
                             ].join(' ')}
                           >
-                            {/* Avatar / check — right side (RTL start) */}
+                            {/* Avatar — right side in RTL */}
                             <div
                               className={[
-                                'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
-                                'text-[12px] font-semibold transition-colors',
+                                'size-9 rounded-full flex items-center justify-center shrink-0',
+                                'text-xs font-semibold transition',
                                 selected
-                                  ? 'bg-[#2d2d3a] text-white dark:bg-indigo-600'
-                                  : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-accent text-accent-foreground',
                               ].join(' ')}
                             >
                               {selected ? (
-                                <Check size={16} strokeWidth={2.5} />
+                                <Check size={15} strokeWidth={2.5} />
                               ) : (
                                 getInitials(c.fullName)
                               )}
                             </div>
 
-                            {/* Name + phone — items-start = right in RTL flex-col */}
+                            {/* Name + phone */}
                             <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
-                              <span
-                                className={[
-                                  'text-[14px] font-medium leading-tight truncate max-w-full',
-                                  selected
-                                    ? 'text-[#2d2d3a] dark:text-indigo-200'
-                                    : 'text-gray-700 dark:text-gray-300',
-                                ].join(' ')}
-                              >
+                              <span className="text-sm font-bold text-foreground truncate max-w-full leading-tight">
                                 {c.fullName}
                               </span>
                               {c.phone && (
-                                <span
-                                  className="text-[12px] text-gray-400 leading-none"
-                                  dir="ltr"
-                                >
+                                <span className="text-xs text-muted-foreground leading-none" dir="ltr">
                                   {formatIsraeliPhone(c.phone)}
                                 </span>
                               )}
@@ -408,7 +389,7 @@ export function CalendarCreateSheet({
 
                   {/* "More results" hint */}
                   {hasMore && (
-                    <p className="text-[12px] text-gray-400 text-center pt-0.5">
+                    <p className="text-xs text-muted-foreground text-center pt-0.5">
                       יש עוד תוצאות — חפש לפי שם או טלפון לצמצום
                     </p>
                   )}
@@ -421,9 +402,9 @@ export function CalendarCreateSheet({
         </div>
 
         {/* Footer — flex-none, always visible */}
-        <div className="flex-none px-6 py-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="flex-none px-5 py-4 border-t border-border bg-card">
           {form.submitError && (
-            <div className="mb-3 flex items-start gap-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900 px-3.5 py-2.5">
+            <div className="mb-3 flex items-start gap-2.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900 px-3.5 py-2.5">
               <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
               <p className="text-[13px] text-red-600 dark:text-red-400 leading-snug text-right flex-1">
                 {form.submitError}
@@ -434,11 +415,11 @@ export function CalendarCreateSheet({
             onClick={handleSubmit}
             disabled={!form.isFormValid || form.isSubmitting}
             className={[
-              'w-full h-12 rounded-2xl text-white text-[15px] font-semibold transition-all',
+              'w-full rounded-2xl py-3.5 text-sm font-bold',
               'flex items-center justify-center gap-2',
-              form.isFormValid && !form.isSubmitting
-                ? 'bg-[#2d2d3a] hover:bg-[#3d3d4a] active:bg-[#1d1d2a]'
-                : 'bg-[#2d2d3a] opacity-40 cursor-not-allowed',
+              'bg-primary text-primary-foreground shadow-sm shadow-primary/30',
+              'transition active:scale-[0.98]',
+              (!form.isFormValid || form.isSubmitting) ? 'opacity-60 cursor-not-allowed' : '',
             ].join(' ')}
           >
             {form.isSubmitting ? (
@@ -458,21 +439,20 @@ export function CalendarCreateSheet({
 function FormSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[12px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
-        {label}
-      </span>
+      <span className="text-sm font-semibold text-foreground">{label}</span>
       {children}
     </div>
   );
 }
 
-function SelectionPill({
+/** Pill-shaped chip — for services and providers. */
+function ChoiceChip({
   label,
-  active,
+  selected,
   onClick,
 }: {
   label: string;
-  active: boolean;
+  selected: boolean;
   onClick: () => void;
 }) {
   return (
@@ -480,10 +460,36 @@ function SelectionPill({
       type="button"
       onClick={onClick}
       className={[
-        'px-3 py-2 rounded-xl border text-[13px] font-medium transition-all duration-150',
-        active
-          ? 'bg-[#2d2d3a] text-white border-[#2d2d3a] shadow-sm'
-          : 'bg-transparent text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700',
+        'rounded-full border px-4 py-2 text-xs font-semibold transition active:scale-95',
+        selected
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-card text-foreground',
+      ].join(' ')}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Square-ish chip — for time slots (tabular numbers, slightly more padding). */
+function TimeChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'rounded-2xl border px-3 py-2 text-sm font-bold tabular-nums transition active:scale-95',
+        selected
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-card text-foreground',
       ].join(' ')}
     >
       {label}

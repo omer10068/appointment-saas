@@ -16,6 +16,8 @@ import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
+import { MobileToast } from './mobile-toast';
+import { useMobileToast } from '../_lib/useMobileToast';
 import { useTodayAppointments } from '../_hooks/use-today-appointments';
 import { mapDtoToService, mapDtoToServiceProvider } from '../_lib/calendar.mappers';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
@@ -398,6 +400,10 @@ export function MobileHomeShell() {
     a => ACTIVE_STATUS.has(a.status) && a.startTime > now,
   );
 
+  // ── Toast ─────────────────────────────────────────────────────────────────────
+
+  const { message: toastMessage, showToast } = useMobileToast();
+
   // ── Sheet state ───────────────────────────────────────────────────────────────
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -489,6 +495,8 @@ export function MobileHomeShell() {
       </div>
 
       {/* ── Floating + button (OWNER / MANAGER only) ────────────────────── */}
+      <MobileToast message={toastMessage} />
+
       {canMutate && <MobileFab onClick={openCreate} ariaLabel="קביעת תור חדש" />}
 
       <CalendarBottomNav activeKey="home" />
@@ -505,7 +513,7 @@ export function MobileHomeShell() {
         <CalendarCreateSheet
           open={showCreateSheet}
           onClosed={() => setShowCreateSheet(false)}
-          onCreated={() => { retry(); }}
+          onCreated={() => { retry(); showToast('התור נוסף בהצלחה'); }}
           businessId={businessId}
           timezone={tz}
           initialDate={new Date()}

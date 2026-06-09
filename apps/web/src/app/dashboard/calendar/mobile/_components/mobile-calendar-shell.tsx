@@ -16,6 +16,8 @@ import { MobileFab } from './mobile-fab';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
+import { MobileToast } from './mobile-toast';
+import { useMobileToast } from '../_lib/useMobileToast';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
 
@@ -45,21 +47,8 @@ export function MobileCalendarShell() {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
 
-  // ── Success banner ────────────────────────────────────────────────────────────
-  const [successBanner, setSuccessBanner] = useState<string | null>(null);
-  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (successTimerRef.current) clearTimeout(successTimerRef.current);
-    };
-  }, []);
-
-  function showSuccess(message: string) {
-    if (successTimerRef.current) clearTimeout(successTimerRef.current);
-    setSuccessBanner(message);
-    successTimerRef.current = setTimeout(() => setSuccessBanner(null), 3500);
-  }
+  // ── Toast ─────────────────────────────────────────────────────────────────────
+  const { message: toastMessage, showToast } = useMobileToast();
 
   const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
     useMobileCalendarData(currentBusinessId, selectedDate);
@@ -184,13 +173,7 @@ export function MobileCalendarShell() {
         onSelect={setSelectedDate}
       />
 
-      {/* ── Success banner (auto-dismisses after 3.5 s) ─────────────────── */}
-      {successBanner && (
-        <div className="flex-none flex items-center justify-center gap-2 bg-emerald-500 dark:bg-emerald-600 text-white text-[13px] font-semibold px-4 py-2.5">
-          <span aria-hidden="true">✓</span>
-          <span>{successBanner}</span>
-        </div>
-      )}
+      <MobileToast message={toastMessage} />
 
       {/* ── Content area ───────────────────────────────────────────────── */}
 
@@ -258,7 +241,7 @@ export function MobileCalendarShell() {
           setSelectedDate(newDate);
           setSelectedAppointment(null);
           refreshWeek();
-          showSuccess('התור עודכן בהצלחה');
+          showToast('התור עודכן בהצלחה');
         }}
         onClosed={() => setRescheduleTarget(null)}
       />
@@ -271,7 +254,7 @@ export function MobileCalendarShell() {
           // then refresh so it appears in the timeline immediately.
           setSelectedDate(appointmentDate);
           refreshWeek();
-          showSuccess('התור נוסף בהצלחה');
+          showToast('התור נוסף בהצלחה');
         }}
         businessId={currentBusinessId}
         timezone={timezone}
