@@ -11,10 +11,12 @@ interface Props {
 
 /**
  * On mobile (< md): full-screen fixed shell — no visible frame.
- * On desktop (md+): centered iPhone-style phone frame matching the v0 reference.
+ * On desktop (md+): a natural-size phone frame (v0 dimensions) rendered as a
+ * normal in-flow element inside the scrollable desktop stage (in layout.tsx).
  *
- * The md: transform creates a containing block for fixed descendants
- * (FAB, bottom nav, sheets), so those components need no changes.
+ * `md:[transform:translateZ(0)]` is visually a no-op but creates a CSS
+ * containing block, so all fixed descendants (FAB, bottom nav, sheets) are
+ * scoped to the phone frame on desktop — no changes needed in those components.
  */
 export function MobilePhoneFrame({ children, dir, className }: Props) {
   return (
@@ -23,10 +25,12 @@ export function MobilePhoneFrame({ children, dir, className }: Props) {
       className={[
         // Mobile: full-screen app shell
         'fixed inset-0 z-50 flex flex-col overflow-hidden bg-background',
-        // Desktop: phone frame — dimensions, border, radius, shadow, centering
-        'md:inset-auto md:top-1/2 md:left-1/2',
-        'md:-translate-x-1/2 md:-translate-y-1/2',
+        // Desktop: natural-size phone frame inside the scrollable stage.
+        // `relative inset-auto z-auto` removes the fixed/viewport behavior.
+        // `[transform:translateZ(0)]` creates a containing block for fixed children.
+        'md:relative md:inset-auto md:z-auto',
         'md:h-[860px] md:w-[400px]',
+        'md:transform-[translateZ(0)]',
         'md:rounded-[2.75rem]',
         'md:border-[10px] md:border-foreground/90',
         'md:shadow-2xl md:shadow-foreground/30',

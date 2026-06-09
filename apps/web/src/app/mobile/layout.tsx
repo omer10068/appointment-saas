@@ -49,9 +49,17 @@ export default async function MobileLayout({
         initialBusinesses={businesses}
         initialSelectedId={rawBusinessId}
       >
-        {/* Desktop-only muted backdrop behind the phone frame */}
-        <div className="hidden md:flex fixed inset-0 z-49 items-center justify-center bg-muted" aria-hidden="true" />
-        {children}
+        {/*
+          Mobile:  transparent wrapper — the fixed inset-0 shell inside still
+                   covers the full viewport, wrapper has no visible effect.
+          Desktop: scrollable centered stage. min-h-dvh fills the viewport with
+                   bg-muted; overflow-y-auto lets the page scroll when the 860px
+                   phone frame is taller than the viewport; flex+items-center
+                   centers the frame when there is extra room.
+        */}
+        <div className="md:min-h-dvh md:overflow-y-auto md:flex md:items-center md:justify-center md:py-8 md:bg-muted">
+          {children}
+        </div>
       </DashboardBusinessProvider>
     </DashboardI18nProvider>
   );
