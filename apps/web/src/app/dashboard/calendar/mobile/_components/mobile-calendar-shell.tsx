@@ -15,6 +15,7 @@ import { CalendarTimeline } from './calendar-timeline';
 import { MobileFab } from './mobile-fab';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
+import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
 
@@ -169,17 +170,7 @@ export function MobileCalendarShell() {
     // relative to this container on desktop, not the viewport — no extra work needed.
     //
     // Remove the md: classes when a proper desktop layout is designed.
-    <div
-      className={[
-        'fixed inset-0 z-50 flex flex-col overflow-hidden',
-        'bg-gray-50 dark:bg-gray-950',
-        'md:inset-auto md:top-1/2 md:left-1/2',
-        'md:-translate-x-1/2 md:-translate-y-1/2',
-        'md:w-107.5 md:h-[90dvh]',
-        'md:rounded-4xl md:shadow-2xl md:overflow-hidden',
-      ].join(' ')}
-      dir="rtl"
-    >
+    <MobilePhoneFrame dir="rtl">
       <CalendarHeader
         selectedDate={selectedDate}
         onPrevWeek={handlePrevWeek}
@@ -289,6 +280,6 @@ export function MobileCalendarShell() {
         serviceProviders={serviceProviders}
         currentBusinessUserId={currentBusiness?.id}
       />
-    </div>
+    </MobilePhoneFrame>
   );
 }

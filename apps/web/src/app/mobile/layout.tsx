@@ -49,6 +49,8 @@ export default async function MobileLayout({
         initialBusinesses={businesses}
         initialSelectedId={rawBusinessId}
       >
+        {/* Desktop-only muted backdrop behind the phone frame */}
+        <div className="hidden md:flex fixed inset-0 z-49 items-center justify-center bg-muted" aria-hidden="true" />
         {children}
       </DashboardBusinessProvider>
     </DashboardI18nProvider>

@@ -15,6 +15,7 @@ import {
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
+import { MobilePhoneFrame } from './mobile-phone-frame';
 import { useTodayAppointments } from '../_hooks/use-today-appointments';
 import { mapDtoToService, mapDtoToServiceProvider } from '../_lib/calendar.mappers';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
@@ -424,17 +425,7 @@ export function MobileHomeShell() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className={[
-        'fixed inset-0 z-50 flex flex-col overflow-hidden',
-        'bg-background',
-        'md:inset-auto md:top-1/2 md:left-1/2',
-        'md:-translate-x-1/2 md:-translate-y-1/2',
-        'md:w-107.5 md:h-[90dvh]',
-        'md:rounded-4xl md:shadow-2xl md:overflow-hidden',
-      ].join(' ')}
-      dir="rtl"
-    >
+    <MobilePhoneFrame dir="rtl">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="flex-none px-5 pt-9 pb-5">
         <div className="flex items-start justify-between">
@@ -523,6 +514,6 @@ export function MobileHomeShell() {
           currentBusinessUserId={currentUserId}
         />
       )}
-    </div>
+    </MobilePhoneFrame>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ProviderCreateSheet } from './provider-create-sheet';
+import { MobilePhoneFrame } from './mobile-phone-frame';
 import { ProviderEditSheet } from './provider-edit-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 
@@ -306,17 +307,7 @@ export function MobileTeamShell() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className={[
-        'fixed inset-0 z-50 flex flex-col overflow-hidden',
-        'bg-gray-50 dark:bg-gray-950',
-        'md:inset-auto md:top-1/2 md:left-1/2',
-        'md:-translate-x-1/2 md:-translate-y-1/2',
-        'md:w-107.5 md:h-[90dvh]',
-        'md:rounded-4xl md:shadow-2xl md:overflow-hidden',
-      ].join(' ')}
-      dir="rtl"
-    >
+    <MobilePhoneFrame dir="rtl">
       {/* Header */}
       <div className="flex-none px-6 pt-5 pb-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
         {businessName && (
@@ -436,6 +427,6 @@ export function MobileTeamShell() {
           onCreated={retry}
         />
       )}
-    </div>
+    </MobilePhoneFrame>
   );
 }
