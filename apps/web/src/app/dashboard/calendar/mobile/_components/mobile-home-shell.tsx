@@ -139,7 +139,7 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
         </div>
 
         {/* CTA — styled as button but inside a <button>, so use <div> */}
-        <div className="mt-5 flex w-full items-center justify-center gap-1 rounded-2xl bg-primary py-3 text-sm font-bold text-primary-foreground">
+        <div className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground">
           צפייה בפרטי התור
           <ChevronLeft className="size-4" aria-hidden="true" />
         </div>
