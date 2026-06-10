@@ -142,12 +142,15 @@ export function RescheduleAppointmentSheet({
                 {appointment.service.name}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {appointment.customer.name} · מועד נוכחי{' '}
-                <span dir="ltr" className="tabular-nums">
+                {appointment.customer.name}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground/70">
+                <span className="tabular-nums" dir="ltr">
                   {formatTime(appointment.startTime, timezone)}
                 </span>
                 {' '}
-                {formatDate(appointment.startTime, timezone)}
+                {formatDate(appointment.startTime, timezone)}{' '}
+                (מועד נוכחי)
               </p>
             </div>
 
