@@ -176,15 +176,11 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
   }
 
   return (
-    <div
-      ref={scrollRef}
-      className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
-      style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 104 }}
-    >
-      {/* Provider column headers — only in "כל הצוות" multi-lane mode, sticky */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Provider column headers — outside scroll container to avoid sticky jitter */}
       {laneProviders && (
         <div
-          className="sticky top-0 z-10 flex bg-card/90 backdrop-blur-sm"
+          className="flex-none flex bg-card"
           style={{ paddingRight: TIME_LABEL_WIDTH }}
         >
           {laneProviders.map((sp, i) => (
@@ -203,6 +199,11 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
         </div>
       )}
 
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
+      style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 104 }}
+    >
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
 
         {/* ── Layer 0: grid lines ───────────────────────────────────────── */}
@@ -364,6 +365,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
