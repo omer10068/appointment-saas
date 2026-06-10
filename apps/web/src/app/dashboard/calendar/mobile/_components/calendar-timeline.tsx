@@ -179,23 +179,23 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
     <div
       ref={scrollRef}
       className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
-      style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
+      style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 104 }}
     >
-      {/* Provider column headers — only in "כל הצוות" multi-lane mode */}
+      {/* Provider column headers — only in "כל הצוות" multi-lane mode, sticky */}
       {laneProviders && (
         <div
-          className="flex border-b border-border/20"
+          className="sticky top-0 z-10 flex border-b border-border/30 bg-card/90 backdrop-blur-sm"
           style={{ paddingRight: TIME_LABEL_WIDTH }}
         >
           {laneProviders.map((sp, i) => (
             <div
               key={sp.id}
               className={[
-                'flex flex-1 items-center justify-center py-1.5',
+                'flex flex-1 items-center justify-center py-2',
                 i > 0 ? 'border-r border-border/20' : '',
               ].join(' ')}
             >
-              <span className="truncate px-1 text-[10px] font-medium leading-none text-muted-foreground/70">
+              <span className="truncate px-1 text-[11px] font-semibold leading-none text-muted-foreground/80">
                 {sp.name.split(' ')[0]}
               </span>
             </div>
@@ -247,8 +247,6 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-border/20 pointer-events-none" />
-
           {laneProviders ? (
             <>
               {/* Vertical lane separators */}
