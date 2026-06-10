@@ -113,10 +113,12 @@ function CustomerDetailSheet({
 }: CustomerDetailSheetProps) {
   const [visible, setVisible] = useState(false);
   const isClosingRef = useRef(false);
+  const [historyCount, setHistoryCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!customer) return;
     isClosingRef.current = false;
+    setHistoryCount(null);
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,59 +170,68 @@ function CustomerDetailSheet({
           </div>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-2">
-          <div className="space-y-5 pb-2">
-
-            {/* Avatar + name + status */}
-            <div className="flex flex-col items-center text-center">
-              <div className="flex size-20 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                <span className="text-2xl font-bold">{getInitial(customer.fullName)}</span>
-              </div>
-              <p className="mt-3 text-lg font-extrabold text-foreground">{customer.fullName}</p>
-              <div className="mt-1.5">
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.bg} ${badge.text}`}
-                >
-                  <span className={`size-1.5 rounded-full ${badge.dot}`} />
-                  {STATUS_LABEL[customer.status]}
-                </span>
-              </div>
+        {/* Fixed: avatar + contact panel */}
+        <div className="shrink-0 space-y-5 px-5 pb-4 pt-2">
+          {/* Avatar + name + status */}
+          <div className="flex flex-col items-center text-center">
+            <div className="flex size-20 items-center justify-center rounded-full bg-accent text-accent-foreground">
+              <span className="text-2xl font-bold">{getInitial(customer.fullName)}</span>
             </div>
-
-            {/* Contact panel */}
-            <div className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4">
-              <ContactRow
-                icon={<Phone className="size-4" />}
-                value={formatIsraeliPhone(customer.phone)}
-                ltr
-              />
-              {customer.email && (
-                <ContactRow icon={<Mail className="size-4" />} value={customer.email} ltr />
-              )}
-              {customer.notes && (
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 shrink-0 text-primary">
-                    <AlignLeft className="size-4" />
-                  </span>
-                  <span className="flex-1 whitespace-pre-wrap text-sm leading-snug text-muted-foreground">
-                    {customer.notes}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Appointment history */}
-            <div>
-              <p className="mb-2 text-sm font-bold text-foreground">היסטוריית תורים</p>
-              <CustomerAppointmentHistory
-                businessId={businessId}
-                businessCustomerId={customer.businessCustomerId}
-                getToken={getToken}
-                timezone={timezone}
-              />
+            <p className="mt-3 text-lg font-extrabold text-foreground">{customer.fullName}</p>
+            <div className="mt-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.bg} ${badge.text}`}
+              >
+                <span className={`size-1.5 rounded-full ${badge.dot}`} />
+                {STATUS_LABEL[customer.status]}
+              </span>
             </div>
           </div>
+
+          {/* Contact panel */}
+          <div className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4">
+            <ContactRow
+              icon={<Phone className="size-4" />}
+              value={formatIsraeliPhone(customer.phone)}
+              ltr
+            />
+            {customer.email && (
+              <ContactRow icon={<Mail className="size-4" />} value={customer.email} ltr />
+            )}
+            {customer.notes && (
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 shrink-0 text-primary">
+                  <AlignLeft className="size-4" />
+                </span>
+                <span className="flex-1 whitespace-pre-wrap text-sm leading-snug text-muted-foreground">
+                  {customer.notes}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Fixed: history heading */}
+        <div className="shrink-0 border-t border-border px-5 pb-2 pt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-foreground">היסטוריית תורים</p>
+            {historyCount !== null && (
+              <span className="text-xs font-medium text-muted-foreground">
+                {historyCount} תורים
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Scrollable: history list only */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 pt-2">
+          <CustomerAppointmentHistory
+            businessId={businessId}
+            businessCustomerId={customer.businessCustomerId}
+            getToken={getToken}
+            timezone={timezone}
+            onCountReady={setHistoryCount}
+          />
         </div>
 
         {/* Footer */}
@@ -351,7 +362,7 @@ export function MobileCustomersShell() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="חיפוש לפי שם או טלפון"
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {searchQuery && (
             <button

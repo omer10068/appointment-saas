@@ -409,7 +409,7 @@ export function CalendarCreateSheet({
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       placeholder="חיפוש לפי שם או טלפון"
-                      className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                      className="w-full bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
                     />
                   </div>
 

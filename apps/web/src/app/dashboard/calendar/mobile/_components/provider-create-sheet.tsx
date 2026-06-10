@@ -17,7 +17,7 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 const INPUT_CLASS =
-  'w-full h-10 px-3 rounded-xl text-[14px] bg-gray-100 dark:bg-gray-800 outline-none ' +
+  'w-full h-10 px-3 rounded-xl text-[16px] bg-gray-100 dark:bg-gray-800 outline-none ' +
   'text-gray-800 dark:text-gray-200 placeholder:text-gray-400';
 
 function roleLabel(role: string): string {

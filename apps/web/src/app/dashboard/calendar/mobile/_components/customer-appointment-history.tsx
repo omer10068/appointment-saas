@@ -38,6 +38,7 @@ interface Props {
   businessCustomerId: string;
   getToken: () => Promise<string | null>;
   timezone: string;
+  onCountReady?: (count: number) => void;
 }
 
 export function CustomerAppointmentHistory({
@@ -45,7 +46,10 @@ export function CustomerAppointmentHistory({
   businessCustomerId,
   getToken,
   timezone,
+  onCountReady,
 }: Props) {
+  const onCountReadyRef = useRef(onCountReady);
+  onCountReadyRef.current = onCountReady;
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
@@ -71,7 +75,9 @@ export function CustomerAppointmentHistory({
     })
       .then((data) => {
         if (!cancelled) {
-          setItems([...data].reverse().slice(0, DISPLAY_LIMIT));
+          const sliced = [...data].reverse().slice(0, DISPLAY_LIMIT);
+          setItems(sliced);
+          onCountReadyRef.current?.(sliced.length);
         }
       })
       .catch(() => {
