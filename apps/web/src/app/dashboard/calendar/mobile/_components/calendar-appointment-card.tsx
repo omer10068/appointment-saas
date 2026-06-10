@@ -86,18 +86,21 @@ export function CalendarAppointmentCard({
         dir="rtl"
       >
         <div className={`absolute top-0 bottom-0 right-0 w-1.5 ${c.bar}`} />
-        <div className="h-full w-full min-w-0 pr-3.5 pl-2 flex items-center justify-between gap-1">
-          <span className={`flex-1 min-w-0 truncate text-[10.5px] font-bold leading-none text-foreground ${isExtraTiny ? '' : strikeClass}`}>
+        <div className="h-full w-full min-w-0 pr-3.5 pl-2.5 flex flex-col justify-center gap-0.5 py-0.5">
+          <span className={`text-[12px] font-bold leading-tight truncate text-foreground ${strikeClass}`}>
             {serviceName}
           </span>
-          {!isExtraTiny && (
+          <div className="flex items-center justify-between gap-1.5 min-w-0">
+            <span className={`min-w-0 truncate text-[10.5px] font-medium leading-none text-foreground/70 ${strikeClass}`}>
+              {customerName}
+            </span>
             <span
               className={`shrink-0 whitespace-nowrap tabular-nums text-[9.5px] font-bold leading-none text-foreground/75`}
               dir="ltr"
             >
-              {startTime}
+              {startTime} - {endTime}
             </span>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -127,7 +130,7 @@ export function CalendarAppointmentCard({
               className={`shrink-0 whitespace-nowrap tabular-nums text-[9.5px] font-bold leading-none text-foreground/75`}
               dir="ltr"
             >
-              {startTime}–{endTime}
+              {startTime} - {endTime}
             </span>
           </div>
         </div>
@@ -167,7 +170,7 @@ export function CalendarAppointmentCard({
             className="shrink-0 whitespace-nowrap tabular-nums text-[10.5px] font-bold leading-none text-foreground/75"
             dir="ltr"
           >
-            {startTime} – {endTime}
+            {startTime} - {endTime}
           </span>
           {serviceProviderName && (
             <span className="min-w-0 truncate text-[10px] font-normal leading-none text-foreground/40">
