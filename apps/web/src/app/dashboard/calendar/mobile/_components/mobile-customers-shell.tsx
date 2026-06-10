@@ -248,7 +248,7 @@ function CustomerDetailSheet({
           <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
             <button
               onClick={onEdit}
-              className="flex w-full items-center justify-center rounded-2xl border border-border bg-card py-3.5 text-sm font-bold text-foreground transition active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98]"
             >
               עריכת לקוח
             </button>

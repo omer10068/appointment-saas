@@ -194,7 +194,7 @@ export function CustomerCreateSheet({
           <button
             onClick={handleSubmit}
             disabled={!isValid || submitting}
-            className="w-full h-12 rounded-2xl bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white text-[15px] font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98] disabled:opacity-60"
           >
             {submitting ? <Loader2 size={18} className="animate-spin" /> : 'שמור לקוח'}
           </button>
