@@ -181,6 +181,28 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
       className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
       style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
     >
+      {/* Provider column headers — only in "כל הצוות" multi-lane mode */}
+      {laneProviders && (
+        <div
+          className="flex border-b border-border/20"
+          style={{ paddingRight: TIME_LABEL_WIDTH }}
+        >
+          {laneProviders.map((sp, i) => (
+            <div
+              key={sp.id}
+              className={[
+                'flex flex-1 items-center justify-center py-1.5',
+                i > 0 ? 'border-r border-border/20' : '',
+              ].join(' ')}
+            >
+              <span className="truncate px-1 text-[10px] font-medium leading-none text-muted-foreground/70">
+                {sp.name.split(' ')[0]}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
 
         {/* ── Layer 0: grid lines ───────────────────────────────────────── */}
@@ -202,25 +224,18 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           )}
         </div>
 
-        {/* ── Layer A: time labels (right column) ───────────────────────── */}
+        {/* ── Layer A: time labels (right column, hour marks only) ────────── */}
         <div
           className="absolute top-0 right-0 z-4 pointer-events-none"
           style={{ width: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          {GRID_SLOTS.map((slot) => (
+          {GRID_SLOTS.filter((slot) => slot.isHour).map((slot) => (
             <div
               key={slot.topPx}
               className="absolute inset-x-0 h-5 flex items-center justify-center"
               style={{ top: slot.topPx, transform: 'translateY(-50%)' }}
             >
-              <span
-                className={[
-                  'relative inline-flex h-5 translate-y-px items-center leading-5 tabular-nums',
-                  slot.isHour
-                    ? 'px-1 text-[11px] font-semibold text-muted-foreground/80'
-                    : 'px-0.5 text-[9px] text-muted-foreground/40',
-                ].join(' ')}
-              >
+              <span className="relative inline-flex h-5 translate-y-px items-center px-1 text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground/80">
                 {slot.label}
               </span>
             </div>
@@ -232,7 +247,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-border pointer-events-none" />
+          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-border/20 pointer-events-none" />
 
           {laneProviders ? (
             <>
@@ -240,28 +255,9 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
               {laneProviders.slice(1).map((_, i) => (
                 <div
                   key={`lane-sep-${i}`}
-                  className="absolute top-0 bottom-0 z-1 w-px bg-border pointer-events-none"
+                  className="absolute top-0 bottom-0 z-1 w-px bg-border/20 pointer-events-none"
                   style={{ right: `${((i + 1) * 100) / laneProviders.length}%` }}
                 />
-              ))}
-
-              {/* Lane name labels */}
-              {laneProviders.map((sp, i) => (
-                <div
-                  key={`lane-label-${sp.id}`}
-                  className="absolute z-5 flex items-center justify-center pointer-events-none"
-                  style={{
-                    top: 0,
-                    right: `${(i * 100) / laneProviders.length}%`,
-                    width: `${100 / laneProviders.length}%`,
-                    height: 16,
-                    transform: 'translateY(-50%)',
-                  }}
-                >
-                  <span className="bg-muted/30 px-1.5 text-[10px] text-muted-foreground/60 font-normal leading-none">
-                    {sp.name.split(' ')[0]}
-                  </span>
-                </div>
               ))}
 
               {/* Appointments grouped by lane */}
