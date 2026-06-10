@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, Fragment } from 'react';
 import type { Appointment, AppointmentStatus, ServiceProvider } from '../_lib/calendar.types';
-import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar.design';
+import { TIMELINE, LAYOUT } from '../_lib/calendar.design';
 import { isSameDay, formatTime, minutesFromMidnightInTimeZone } from '../_lib/calendar.utils';
 import { CalendarAppointmentCard } from './calendar-appointment-card';
 import { CalendarEmptyState } from './calendar-empty-state';
@@ -169,7 +169,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
 
   if (dayAppointments.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto flex flex-col">
+      <div className="flex-1 overflow-y-auto flex flex-col bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden">
         <CalendarEmptyState />
       </div>
     );
@@ -178,7 +178,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto bg-transparent"
+      className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
       style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
     >
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
@@ -189,17 +189,14 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
             slot.isHour ? (
               <div
                 key={slot.topPx}
-                className="absolute inset-x-0 border-t"
-                style={{ top: slot.topPx, borderColor: GRID.hourLineColor }}
+                className="absolute h-px bg-border/60"
+                style={{ top: slot.topPx, left: 0, right: TIME_LABEL_WIDTH }}
               />
             ) : (
               <div
                 key={slot.topPx}
-                className="absolute inset-x-0 h-px"
-                style={{
-                  top: slot.topPx,
-                  backgroundImage: `repeating-linear-gradient(to left, ${GRID.halfHourLineColor} 0 3px, transparent 3px 6px)`,
-                }}
+                className="absolute border-t border-dashed border-border/30"
+                style={{ top: slot.topPx, left: 0, right: TIME_LABEL_WIDTH }}
               />
             ),
           )}
@@ -218,10 +215,10 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
             >
               <span
                 className={[
-                  'relative inline-flex h-5 translate-y-px items-center bg-gray-50 leading-5',
+                  'relative inline-flex h-5 translate-y-px items-center leading-5 tabular-nums',
                   slot.isHour
-                    ? 'px-1 text-[11px] text-[#6b5b7a]'
-                    : 'px-0.5 text-[9px] text-[#9a93a3]',
+                    ? 'px-1 text-[11px] font-semibold text-muted-foreground/80'
+                    : 'px-0.5 text-[9px] text-muted-foreground/40',
                 ].join(' ')}
               >
                 {slot.label}
@@ -235,7 +232,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-[#d8d5de] pointer-events-none" />
+          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-border pointer-events-none" />
 
           {laneProviders ? (
             <>
@@ -243,7 +240,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
               {laneProviders.slice(1).map((_, i) => (
                 <div
                   key={`lane-sep-${i}`}
-                  className="absolute top-0 bottom-0 z-1 w-px bg-[#d8d5de] pointer-events-none"
+                  className="absolute top-0 bottom-0 z-1 w-px bg-border pointer-events-none"
                   style={{ right: `${((i + 1) * 100) / laneProviders.length}%` }}
                 />
               ))}
@@ -261,7 +258,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                     transform: 'translateY(-50%)',
                   }}
                 >
-                  <span className="bg-gray-50 dark:bg-gray-950 px-1.5 text-[10px] text-gray-400 font-normal leading-none">
+                  <span className="bg-muted/30 px-1.5 text-[10px] text-muted-foreground/60 font-normal leading-none">
                     {sp.name.split(' ')[0]}
                   </span>
                 </div>
