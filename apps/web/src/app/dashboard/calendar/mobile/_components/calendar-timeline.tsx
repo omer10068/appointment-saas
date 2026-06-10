@@ -283,7 +283,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                           }}
                         >
                           <div
-                            className="absolute overflow-hidden rounded-l-md rounded-r-none"
+                            className="absolute overflow-hidden rounded-2xl"
                             style={{
                               top: APPT_VERTICAL_GAP_PX,
                               bottom: APPT_VERTICAL_GAP_PX,
@@ -333,7 +333,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                   }}
                 >
                   <div
-                    className="absolute inset-x-0 overflow-hidden rounded-l-md rounded-r-none"
+                    className="absolute inset-x-0 overflow-hidden rounded-2xl"
                     style={{
                       top: APPT_VERTICAL_GAP_PX,
                       bottom: APPT_VERTICAL_GAP_PX,

@@ -11,11 +11,6 @@ export const LAYOUT = {
   fabBottomOffset: 80,
 } as const;
 
-export const GRID = {
-  hourLineColor: '#E8E8E8',
-  halfHourLineColor: '#EFEFEF',
-} as const;
-
 export const SERVICE_COLORS: Record<
   ServiceColor,
   {
@@ -29,52 +24,52 @@ export const SERVICE_COLORS: Record<
   }
 > = {
   rose: {
-    bg: 'bg-[#FCE4EC]',
-    bar: 'bg-[#EC407A]/36',
-    border: 'border-[#f8bbd0]',
-    customerText: 'text-[#4A1F2C]',
-    serviceText: 'text-[#7A3D50]',
-    metaText: 'text-[#9B5B6F]',
-    editIcon: 'text-[#B6788C]',
+    bg: 'bg-rose-50',
+    bar: 'bg-rose-400',
+    border: 'border-rose-200',
+    customerText: 'text-rose-950',
+    serviceText: 'text-rose-700',
+    metaText: 'text-rose-500',
+    editIcon: 'text-rose-400',
   },
 
   mint: {
-    bg: 'bg-[#E8F5E9]',
-    bar: 'bg-[#4CAF50]/36',
-    border: 'border-[#c8e6c9]',
-    customerText: 'text-[#1F3D2A]',
-    serviceText: 'text-[#3D6B4C]',
-    metaText: 'text-[#5F8A69]',
-    editIcon: 'text-[#7CAA84]',
+    bg: 'bg-emerald-50',
+    bar: 'bg-emerald-400',
+    border: 'border-emerald-200',
+    customerText: 'text-emerald-950',
+    serviceText: 'text-emerald-700',
+    metaText: 'text-emerald-500',
+    editIcon: 'text-emerald-400',
   },
 
   cream: {
-    bg: 'bg-[#FFF8E1]',
-    bar: 'bg-[#C49020]/36',
-    border: 'border-[#ffecb3]',
-    customerText: 'text-[#4A3715]',
-    serviceText: 'text-[#7A5A1F]',
-    metaText: 'text-[#9A7730]',
-    editIcon: 'text-[#B89342]',
+    bg: 'bg-amber-50',
+    bar: 'bg-amber-400',
+    border: 'border-amber-200',
+    customerText: 'text-amber-950',
+    serviceText: 'text-amber-700',
+    metaText: 'text-amber-500',
+    editIcon: 'text-amber-400',
   },
 
   lavender: {
-    bg: 'bg-[#F6ECF8]',
-    bar: 'bg-[#AB47BC]/28',
-    border: 'border-[#e7d3ec]',
-    customerText: 'text-[#3B2345]',
-    serviceText: 'text-[#5E3D69]',
-    metaText: 'text-[#7B5A85]',
-    editIcon: 'text-[#9B7CA3]',
+    bg: 'bg-purple-50',
+    bar: 'bg-purple-400',
+    border: 'border-purple-200',
+    customerText: 'text-purple-950',
+    serviceText: 'text-purple-700',
+    metaText: 'text-purple-500',
+    editIcon: 'text-purple-400',
   },
 
   sky: {
-    bg: 'bg-[#E3F2FD]',
-    bar: 'bg-[#42A5F5]/36',
-    border: 'border-[#bbdefb]',
-    customerText: 'text-[#16384F]',
-    serviceText: 'text-[#2C5C7A]',
-    metaText: 'text-[#4C7E9E]',
-    editIcon: 'text-[#6FA3C7]',
+    bg: 'bg-sky-50',
+    bar: 'bg-sky-400',
+    border: 'border-sky-200',
+    customerText: 'text-sky-950',
+    serviceText: 'text-sky-700',
+    metaText: 'text-sky-500',
+    editIcon: 'text-sky-400',
   },
 };
