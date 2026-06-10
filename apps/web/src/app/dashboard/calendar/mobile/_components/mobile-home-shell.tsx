@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { Clock3, ChevronLeft } from 'lucide-react';
+import { Clock3, ChevronLeft, Home } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
@@ -55,15 +55,6 @@ function toFriendlyName(raw: string): string {
 
 function getFirstWord(name: string): string {
   return name.split(/\s+/)[0] ?? name;
-}
-
-function getInitials(friendly: string): string {
-  return friendly
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w.charAt(0).toUpperCase())
-    .join('');
 }
 
 // ─── Summary card ─────────────────────────────────────────────────────────────
@@ -413,7 +404,6 @@ export function MobileHomeShell() {
   const todayLabel   = formatDate(new Date(), tz);
   const friendlyName = businessName ? toFriendlyName(businessName) : '';
   const greetingName = friendlyName ? getFirstWord(friendlyName) : '';
-  const initials     = friendlyName ? getInitials(friendlyName) : '?';
   const isLoading    = loading || providersLoading;
   const memberWithNoProvider = !canMutate && !myProvider;
 
@@ -448,9 +438,9 @@ export function MobileHomeShell() {
             </p>
           </div>
 
-          {/* Right side (RTL end = physical left): initials avatar */}
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground ring-1 ring-primary/20">
-            {initials}
+          {/* Right side (RTL end = physical left): home icon avatar */}
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <Home className="size-5" />
           </div>
         </div>
       </header>
