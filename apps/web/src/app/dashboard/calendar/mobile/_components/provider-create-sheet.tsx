@@ -1,24 +1,38 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { AlertCircle, Loader2, X } from 'lucide-react';
 import type { DashboardBusinessUserDto, DashboardServiceDto } from '@appointment/contracts';
 import { ApiError, createDashboardServiceProvider } from '../../../../../lib/api';
 
-// ─── Shared form primitives ───────────────────────────────────────────────────
+// ─── Form primitives ──────────────────────────────────────────────────────────
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{label}</span>
+    <div>
+      <label className="mb-1.5 flex items-center gap-1 text-sm font-semibold text-foreground">
+        {label}
+        {required && <span className="text-primary">*</span>}
+      </label>
+      {hint && <p className="mb-2 text-[11px] font-medium text-muted-foreground">{hint}</p>}
       {children}
     </div>
   );
 }
 
 const INPUT_CLASS =
-  'w-full h-10 px-3 rounded-xl text-[16px] bg-gray-100 dark:bg-gray-800 outline-none ' +
-  'text-gray-800 dark:text-gray-200 placeholder:text-gray-400';
+  'w-full rounded-2xl border border-border bg-muted px-4 py-3 text-[16px] ' +
+  'text-foreground placeholder:text-muted-foreground outline-none';
 
 function roleLabel(role: string): string {
   if (role === 'OWNER') return 'בעלים';
@@ -31,12 +45,10 @@ function roleLabel(role: string): string {
 interface Props {
   open: boolean;
   eligibleUsers: DashboardBusinessUserDto[];
-  /** All services (active only used for new provider). */
   services: DashboardServiceDto[];
   businessId: string | null;
   getToken: () => Promise<string | null>;
   onClosed: () => void;
-  /** Called immediately on successful creation, before the close animation. */
   onCreated: () => void;
 }
 
@@ -51,16 +63,15 @@ export function ProviderCreateSheet({
   onClosed,
   onCreated,
 }: Props) {
-  const [visible, setVisible]           = useState(false);
-  const isClosingRef                    = useRef(false);
+  const [visible, setVisible]               = useState(false);
+  const isClosingRef                        = useRef(false);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [displayName, setDisplayName]   = useState('');
-  const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set());
-  const [error, setError]               = useState<string | null>(null);
-  const [submitting, setSubmitting]     = useState(false);
+  const [displayName, setDisplayName]       = useState('');
+  const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set());
+  const [error, setError]                   = useState<string | null>(null);
+  const [submitting, setSubmitting]         = useState(false);
 
-  // Reset + animate in when sheet opens.
   useEffect(() => {
     if (!open) return;
     setSelectedUserId(null);
@@ -139,9 +150,9 @@ export function ProviderCreateSheet({
       {/* Sheet */}
       <div
         className={[
-          'absolute bottom-0 left-0 right-0',
+          'absolute bottom-0 left-0 right-0 flex flex-col',
+          'max-h-[88%]',
           'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
-          'max-h-[88%] flex flex-col',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
@@ -150,7 +161,7 @@ export function ProviderCreateSheet({
         <div className="flex shrink-0 flex-col px-5 pt-3">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
           <div className="flex items-center justify-between pb-2">
-            <h2 className="text-lg font-extrabold text-foreground">חבר צוות חדש</h2>
+            <h2 className="text-lg font-extrabold text-foreground">איש צוות חדש</h2>
             <button
               onClick={submitting ? undefined : triggerClose}
               aria-label="סגור"
@@ -163,107 +174,107 @@ export function ProviderCreateSheet({
         </div>
 
         {/* Scrollable form */}
-        <div className="flex-1 overflow-y-auto px-4 flex flex-col gap-5 pb-2">
+        <div className="flex-1 overflow-y-auto px-5 py-2">
+          <div className="space-y-5 pb-2">
 
-          {/* User picker */}
-          <FormField label="קישור למשתמש *">
-            {eligibleUsers.length === 0 ? (
-              <p className="text-[13px] text-gray-400 dark:text-gray-500">
-                כל המשתמשים כבר מקושרים כנותני שירות
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {eligibleUsers.map((user) => {
-                  const selected = selectedUserId === user.id;
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => setSelectedUserId(user.id)}
-                      className={[
-                        'w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-right transition-colors',
-                        selected
-                          ? 'bg-[#2d2d3a] dark:bg-[#3d3d4a] border-transparent text-white'
-                          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300',
-                      ].join(' ')}
-                    >
-                      <span className="text-[13px] font-medium">{roleLabel(user.role)}</span>
-                      <span
+            {/* User picker */}
+            <FormField label="קישור למשתמש" required>
+              {eligibleUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  כל המשתמשים כבר מקושרים כנותני שירות
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {eligibleUsers.map((user) => {
+                    const selected = selectedUserId === user.id;
+                    return (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => setSelectedUserId(user.id)}
                         className={[
-                          'text-[11px] font-mono',
-                          selected ? 'text-gray-300' : 'text-gray-400',
+                          'flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-right transition active:scale-[0.99]',
+                          selected
+                            ? 'border-primary bg-accent text-accent-foreground'
+                            : 'border-border bg-card text-foreground',
                         ].join(' ')}
                       >
-                        …{user.id.slice(-6)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        <span className="text-sm font-semibold">{roleLabel(user.role)}</span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          …{user.id.slice(-6)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </FormField>
+
+            {/* Display name */}
+            <FormField label="שם תצוגה" required>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="לדוגמה: רחלי כהן"
+                autoComplete="off"
+                className={INPUT_CLASS}
+              />
+            </FormField>
+
+            {/* Services */}
+            <FormField
+              label="שירותים"
+              required
+              hint="בחרו אילו שירותים איש הצוות מבצע"
+            >
+              {activeServices.length === 0 ? (
+                <p className="text-sm text-muted-foreground">אין שירותים פעילים בעסק</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {activeServices.map((s) => {
+                    const selected = selectedIds.has(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleService(s.id)}
+                        className={[
+                          'rounded-full border px-4 py-2 text-xs font-semibold transition active:scale-95',
+                          selected
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border bg-card text-foreground',
+                        ].join(' ')}
+                      >
+                        {s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </FormField>
+
+            {selectedIds.size === 0 && activeServices.length > 0 && (
+              <p className="text-xs text-amber-600">יש לבחור לפחות שירות אחד</p>
             )}
-          </FormField>
 
-          {/* Display name */}
-          <FormField label="שם תצוגה *">
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="לדוגמה: רחלי כהן"
-              autoComplete="off"
-              className={INPUT_CLASS}
-            />
-          </FormField>
-
-          {/* Services */}
-          <FormField label="שירותים *">
-            {activeServices.length === 0 ? (
-              <p className="text-[13px] text-gray-400 dark:text-gray-500">
-                אין שירותים פעילים בעסק
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {activeServices.map((s) => {
-                  const selected = selectedIds.has(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleService(s.id)}
-                      className={[
-                        'text-[13px] font-medium px-3 py-2 rounded-full border transition-colors',
-                        selected
-                          ? 'bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white border-transparent'
-                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700',
-                      ].join(' ')}
-                    >
-                      {s.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </FormField>
-
-          {/* Inline validation hint */}
-          {selectedIds.size === 0 && activeServices.length > 0 && (
-            <p className="text-[12px] text-orange-500 -mt-2">
-              יש לבחור לפחות שירות אחד
-            </p>
-          )}
+          </div>
         </div>
 
-        {/* Error + submit */}
-        <div className="px-4 pt-4 pb-8 shrink-0 flex flex-col gap-3">
+        {/* Footer */}
+        <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
           {error && (
-            <p className="text-[13px] text-red-500 text-center">{error}</p>
+            <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-red-100 bg-red-50 px-3.5 py-2.5">
+              <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-500" />
+              <p className="flex-1 text-right text-[13px] leading-snug text-red-600">{error}</p>
+            </div>
           )}
           <button
             onClick={handleSubmit}
             disabled={!isValid || submitting}
-            className="w-full h-12 rounded-2xl bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white text-[15px] font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98] disabled:opacity-60"
           >
-            {submitting ? <Loader2 size={18} className="animate-spin" /> : 'הוסף חבר צוות'}
+            {submitting ? <Loader2 size={18} className="animate-spin" /> : 'שמירה'}
           </button>
         </div>
       </div>
