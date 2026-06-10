@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Search, X } from 'lucide-react';
+import { Search, Users, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
@@ -282,10 +282,6 @@ export function MobileCustomersShell() {
   const businessId   = currentBusiness?.business.id ?? null;
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
-  const initials = businessName
-    ? businessName.split(/[-_\s]+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
-    : '?';
-
   // ── Customers fetch ──────────────────────────────────────────────────────────
 
   const [customers, setCustomers] = useState<DashboardCustomerDto[]>([]);
@@ -369,8 +365,8 @@ export function MobileCustomersShell() {
               {customers.length} לקוחות
             </p>
           </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground ring-1 ring-primary/10">
-            {initials}
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <Users className="size-5" />
           </div>
         </div>
 

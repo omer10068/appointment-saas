@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { CalendarDays } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
@@ -179,7 +179,7 @@ export function MobileCalendarShell() {
             </p>
           </div>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <CalendarDays className="size-5" />
+            <Calendar className="size-5" />
           </div>
         </div>
       </div>

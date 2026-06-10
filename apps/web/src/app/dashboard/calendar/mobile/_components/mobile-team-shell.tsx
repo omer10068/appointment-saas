@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Search, X } from 'lucide-react';
+import { Search, UserCog, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
@@ -231,10 +231,6 @@ export function MobileTeamShell() {
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
   const isOwner      = currentBusiness?.role === 'OWNER';
-  const initials = businessName
-    ? businessName.split(/[-_\s]+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
-    : '?';
-
   // ── Data fetch ────────────────────────────────────────────────────────────────
 
   const [providers, setProviders]       = useState<DashboardServiceProviderDto[]>([]);
@@ -325,8 +321,8 @@ export function MobileTeamShell() {
               {providers.length} נותני שירות
             </p>
           </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground ring-1 ring-primary/10">
-            {initials}
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <UserCog className="size-5" />
           </div>
         </div>
 
