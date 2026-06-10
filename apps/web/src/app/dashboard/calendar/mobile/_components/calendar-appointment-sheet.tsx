@@ -1,22 +1,33 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { X, Loader2, ChevronRight } from 'lucide-react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  X,
+  Loader2,
+  ChevronRight,
+  Clock3,
+  CalendarDays,
+  UserRound,
+  Scissors,
+  AlignLeft,
+} from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardI18n } from '../../../_i18n/useDashboardI18n';
-import { SERVICE_COLORS } from '../_lib/calendar.design';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
 import type { Appointment, AppointmentStatus } from '../_lib/calendar.types';
 
-// ─── Status display ───────────────────────────────────────────────────────────
+// ─── Status badge config ──────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<AppointmentStatus, string> = {
-  scheduled:             'bg-blue-50 text-blue-700',
-  confirmed:             'bg-indigo-50 text-indigo-700',
-  completed:             'bg-green-50 text-green-700',
-  cancelled_by_customer: 'bg-gray-100 text-gray-500',
-  cancelled_by_business: 'bg-gray-100 text-gray-500',
-  no_show:               'bg-orange-50 text-orange-700',
+const STATUS_BADGE_STYLE: Record<
+  AppointmentStatus,
+  { bg: string; text: string; dot: string }
+> = {
+  scheduled:             { bg: 'bg-accent',     text: 'text-accent-foreground', dot: 'bg-primary' },
+  confirmed:             { bg: 'bg-accent',     text: 'text-accent-foreground', dot: 'bg-primary' },
+  completed:             { bg: 'bg-emerald-50', text: 'text-emerald-700',       dot: 'bg-emerald-500' },
+  cancelled_by_customer: { bg: 'bg-muted',      text: 'text-muted-foreground',  dot: 'bg-muted-foreground/60' },
+  cancelled_by_business: { bg: 'bg-muted',      text: 'text-muted-foreground',  dot: 'bg-muted-foreground/60' },
+  no_show:               { bg: 'bg-amber-50',   text: 'text-amber-700',         dot: 'bg-amber-500' },
 };
 
 // Terminal statuses receive no action buttons.
@@ -27,7 +38,7 @@ const TERMINAL: ReadonlySet<AppointmentStatus> = new Set([
   'cancelled_by_business',
 ]);
 
-// ─── Confirmation config ──────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type ActionVariant = 'success' | 'neutral' | 'danger';
 
@@ -111,7 +122,7 @@ export function CalendarAppointmentSheet({
     if (!confirmation || pendingStatus || !appointment) return;
     const { status } = confirmation;
     // Keep confirmation panel visible while the request is in flight.
-    // It only disappears on: success (sheet closes) or explicit "חזור" tap.
+    // It disappears on: success (sheet closes) or explicit "חזור" tap.
     setPendingStatus(status);
     setActionError(null);
     try {
@@ -120,18 +131,18 @@ export function CalendarAppointmentSheet({
     } catch {
       setActionError(tForm.saveError);
       setPendingStatus(null);
-      // confirmation panel stays open — user can retry or tap "חזור"
     }
   }
 
   if (!appointment) return null;
 
-  const c = SERVICE_COLORS[appointment.service.color];
   const showActions = canMutate && !TERMINAL.has(appointment.status);
 
   // Time-based availability (UTC comparison — timezone-safe)
   const now = new Date();
   const hasStarted = appointment.startTime <= now;
+
+  const badge = STATUS_BADGE_STYLE[appointment.status];
 
   return (
     <div className="fixed inset-0 z-60" dir="rtl">
@@ -148,7 +159,8 @@ export function CalendarAppointmentSheet({
       {/* Sheet */}
       <div
         className={[
-          'absolute bottom-0 left-0 right-0',
+          'absolute bottom-0 left-0 right-0 flex flex-col',
+          'max-h-[88%]',
           'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
@@ -157,10 +169,9 @@ export function CalendarAppointmentSheet({
         {/* Handle + header */}
         <div className="flex shrink-0 flex-col px-5 pt-3">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          {/* Title first in DOM → visual right in RTL; close last → visual left */}
           <div className="flex items-center justify-between pb-2">
-            <h2 className="text-lg font-extrabold text-foreground truncate">
-              {appointment.service.name}
-            </h2>
+            <h2 className="text-lg font-extrabold text-foreground">פרטי תור</h2>
             <button
               onClick={triggerClose}
               aria-label="סגור"
@@ -171,49 +182,62 @@ export function CalendarAppointmentSheet({
           </div>
         </div>
 
-        {/* Info strip — service color accent */}
-        <div className={`${c.bg} mx-4 mb-4 rounded-2xl px-4 py-3`}>
-          <span className={`text-[13px] font-normal leading-tight ${c.serviceText}`}>
-            {appointment.customer.name}
-          </span>
-        </div>
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 py-2">
+          <div className="space-y-4 pb-2">
 
-        {/* Detail rows */}
-        <div className="px-4 flex flex-col gap-4">
-          {/* Date */}
-          <DetailRow label="תאריך">
-            {formatDate(appointment.startTime, timezone)}
-          </DetailRow>
-
-          {/* Time */}
-          <DetailRow label="שעה">
-            <span className="tabular-nums" dir="ltr">
-              {formatTime(appointment.startTime, timezone)} - {formatTime(appointment.endTime, timezone)}
-            </span>
-          </DetailRow>
-
-          <DetailRow label="נותן שירות">
-            {appointment.provider.name}
-          </DetailRow>
-
-          <DetailRow label="סטטוס">
-            <span className={`text-[12px] font-medium px-2.5 py-0.5 rounded-full ${STATUS_BADGE[appointment.status]}`}>
-              {STATUS_LABELS[appointment.status]}
-            </span>
-          </DetailRow>
-
-          {appointment.notes && (
-            <DetailRow label="הערות">
-              <span className="text-gray-600 dark:text-gray-300 leading-snug whitespace-pre-wrap">
-                {appointment.notes}
+            {/* Service name + customer name + status badge */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-extrabold leading-tight text-foreground">
+                  {appointment.service.name}
+                </p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {appointment.customer.name}
+                </p>
+              </div>
+              <span
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.bg} ${badge.text}`}
+              >
+                <span className={`size-1.5 rounded-full ${badge.dot}`} />
+                {STATUS_LABELS[appointment.status]}
               </span>
-            </DetailRow>
-          )}
+            </div>
+
+            {/* Details panel */}
+            <div className="space-y-2.5 rounded-2xl border border-border bg-muted/50 p-4">
+              <DetailRow icon={<Clock3 className="size-4" />} label="שעה">
+                <span className="tabular-nums" dir="ltr">
+                  {formatTime(appointment.startTime, timezone)} – {formatTime(appointment.endTime, timezone)}
+                </span>
+              </DetailRow>
+
+              <DetailRow icon={<CalendarDays className="size-4" />} label="תאריך">
+                {formatDate(appointment.startTime, timezone)}
+              </DetailRow>
+
+              <DetailRow icon={<UserRound className="size-4" />} label="נותן שירות">
+                {appointment.provider.name}
+              </DetailRow>
+
+              <DetailRow icon={<Scissors className="size-4" />} label="שירות">
+                {appointment.service.name}
+              </DetailRow>
+
+              {appointment.notes && (
+                <DetailRow icon={<AlignLeft className="size-4" />} label="הערות">
+                  <span className="whitespace-pre-wrap text-right leading-snug">
+                    {appointment.notes}
+                  </span>
+                </DetailRow>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* ── Action area ─────────────────────────────────────────────────── */}
-        {showActions && (
-          <div className="px-4 pt-5 pb-8">
+        {/* Footer — actions or safe-area pad */}
+        {showActions ? (
+          <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
             {confirmation ? (
               <ConfirmationPanel
                 title={confirmation.title}
@@ -224,11 +248,9 @@ export function CalendarAppointmentSheet({
                 onBack={() => { setConfirmation(null); setActionError(null); }}
               />
             ) : (
-              // Show only the actions that are eligible — no disabled phantom buttons.
-              // hasStarted → can complete / mark no-show; !hasStarted → can cancel.
-              <div className="flex flex-col gap-2">
+              <>
                 {hasStarted ? (
-                  <>
+                  <div className="grid grid-cols-2 gap-2.5">
                     <ActionButton
                       label={tForm.complete}
                       onClick={() => requestConfirmation({
@@ -251,9 +273,14 @@ export function CalendarAppointmentSheet({
                       disabled={!!pendingStatus}
                       variant="neutral"
                     />
-                  </>
+                  </div>
                 ) : (
-                  <>
+                  <div
+                    className={[
+                      'grid gap-2.5',
+                      onReschedule ? 'grid-cols-2' : 'grid-cols-1',
+                    ].join(' ')}
+                  >
                     {onReschedule && (
                       <ActionButton
                         label="שינוי מועד"
@@ -274,18 +301,18 @@ export function CalendarAppointmentSheet({
                       disabled={!!pendingStatus}
                       variant="danger"
                     />
-                  </>
+                  </div>
                 )}
 
                 {actionError && (
-                  <p className="text-[12px] text-red-500 text-center pt-1">{actionError}</p>
+                  <p className="mt-2 text-center text-[12px] text-red-500">{actionError}</p>
                 )}
-              </div>
+              </>
             )}
           </div>
+        ) : (
+          <div className="pb-8" />
         )}
-
-        {!showActions && <div className="pb-8" />}
       </div>
     </div>
   );
@@ -293,11 +320,24 @@ export function CalendarAppointmentSheet({
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+function DetailRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: ReactNode;
+  label: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="text-[13px] text-gray-400 dark:text-gray-500 shrink-0 pt-0.5">{label}</span>
-      <span className="text-[11px] text-gray-800 font-medium dark:text-gray-200 text-right min-w-0">{children}</span>
+    <div className="flex items-center justify-between gap-3">
+      <span className="flex shrink-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+        <span className="text-primary">{icon}</span>
+        {label}
+      </span>
+      <span className="min-w-0 text-right text-[13px] font-medium text-foreground">
+        {children}
+      </span>
     </div>
   );
 }
@@ -315,9 +355,9 @@ interface ActionButtonProps {
 }
 
 const VARIANT_STYLES: Record<ActionVariantLocal, string> = {
-  success: 'bg-green-50 text-green-700 border-green-100 active:bg-green-100',
-  neutral: 'bg-gray-50 text-gray-600 border-gray-100 active:bg-gray-100',
-  danger:  'bg-red-50 text-red-600 border-red-100 active:bg-red-100',
+  success: 'bg-primary text-primary-foreground shadow-sm shadow-primary/30',
+  neutral: 'border border-border bg-card text-foreground',
+  danger:  'border border-red-200 bg-red-50 text-red-600',
 };
 
 function ActionButton({ label, onClick, isPending, disabled, variant }: ActionButtonProps) {
@@ -326,10 +366,10 @@ function ActionButton({ label, onClick, isPending, disabled, variant }: ActionBu
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={[
-        'w-full flex items-center justify-center gap-2',
-        'h-11 rounded-xl border text-[14px] font-medium transition-colors',
+        'flex w-full items-center justify-center',
+        'rounded-2xl py-3.5 text-sm font-bold transition active:scale-[0.98]',
         VARIANT_STYLES[variant],
-        disabled && !isPending ? 'opacity-40 cursor-not-allowed' : '',
+        disabled && !isPending ? 'cursor-not-allowed opacity-40' : '',
       ].join(' ')}
     >
       {isPending ? <Loader2 size={16} className="animate-spin" /> : label}
@@ -349,9 +389,9 @@ interface ConfirmationPanelProps {
 }
 
 const CONFIRM_VARIANT_STYLES: Record<ActionVariantLocal, string> = {
-  success: 'bg-green-600 text-white active:bg-green-700',
-  neutral: 'bg-gray-600 text-white active:bg-gray-700',
-  danger:  'bg-red-600 text-white active:bg-red-700',
+  success: 'bg-primary text-primary-foreground shadow-sm shadow-primary/30',
+  neutral: 'bg-foreground/80 text-card',
+  danger:  'bg-red-600 text-white',
 };
 
 function ConfirmationPanel({
@@ -364,18 +404,16 @@ function ConfirmationPanel({
 }: ConfirmationPanelProps) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[15px] font-semibold text-gray-800 dark:text-gray-100 text-center">
-        {title}
-      </p>
-      <p className="text-[12px] text-gray-400 text-center">
+      <p className="text-center text-[15px] font-semibold text-foreground">{title}</p>
+      <p className="text-center text-[12px] text-muted-foreground">
         לא ניתן לבטל פעולה זו כרגע
       </p>
 
-      <div className="flex gap-2 pt-1">
+      <div className="grid grid-cols-2 gap-2.5">
         <button
           onClick={onBack}
           disabled={isPending}
-          className="flex-1 flex items-center justify-center gap-1 h-11 rounded-xl border border-gray-100 bg-gray-50 text-gray-600 text-[14px] font-medium active:bg-gray-100 transition-colors disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-border bg-card py-3.5 text-sm font-bold text-foreground transition active:scale-[0.98] disabled:opacity-60"
         >
           <ChevronRight size={15} />
           חזור
@@ -385,10 +423,9 @@ function ConfirmationPanel({
           onClick={onConfirm}
           disabled={isPending}
           className={[
-            'flex-1 flex items-center justify-center h-11 rounded-xl',
-            'text-[14px] font-medium transition-colors',
+            'flex w-full items-center justify-center',
+            'rounded-2xl py-3.5 text-sm font-bold transition active:scale-[0.98] disabled:opacity-70',
             CONFIRM_VARIANT_STYLES[confirmVariant],
-            isPending ? 'opacity-70' : '',
           ].join(' ')}
         >
           {isPending ? <Loader2 size={16} className="animate-spin" /> : 'אשר'}
@@ -396,7 +433,7 @@ function ConfirmationPanel({
       </div>
 
       {error && (
-        <p className="text-[12px] text-red-500 text-center">{error}</p>
+        <p className="text-center text-[12px] text-red-500">{error}</p>
       )}
     </div>
   );
