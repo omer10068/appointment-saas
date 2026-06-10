@@ -291,7 +291,13 @@ export function MobileCustomersShell() {
 
     fetchDashboardCustomers(businessId, () => getTokenRef.current())
       .then((data) => {
-        if (!cancelled) setCustomers(data);
+        if (!cancelled) {
+          setCustomers(data);
+          // Sync the open detail sheet with fresh data after any refresh.
+          setSelectedCustomer((prev) =>
+            prev ? (data.find((c) => c.businessCustomerId === prev.businessCustomerId) ?? prev) : null,
+          );
+        }
       })
       .catch(() => {
         if (!cancelled) setError('שגיאה בטעינת לקוחות');
@@ -483,7 +489,7 @@ export function MobileCustomersShell() {
           customer={selectedCustomer}
           businessId={businessId}
           getToken={() => getTokenRef.current()}
-          onClosed={() => { setIsEditing(false); setSelectedCustomer(null); }}
+          onClosed={() => setIsEditing(false)}
           onSaved={retry}
         />
       )}
