@@ -175,7 +175,7 @@ function CustomerDetailSheet({
     <div className="fixed inset-0 z-60" dir="rtl">
       <div
         className={[
-          'absolute inset-0 bg-black/40 transition-opacity duration-300',
+          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
           visible ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
         onClick={triggerClose}
@@ -185,43 +185,41 @@ function CustomerDetailSheet({
       <div
         className={[
           'absolute bottom-0 left-0 right-0',
-          'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
-          'max-h-[85dvh] flex flex-col',
+          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
+          'max-h-[88%] flex flex-col',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
-        </div>
-
-        {/* Header card */}
-        <div className="bg-gray-50 dark:bg-gray-800 mx-4 mt-2 mb-4 rounded-2xl px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
-              <span className="text-[15px] font-bold text-gray-600 dark:text-gray-300">
-                {customer.fullName.charAt(0).toUpperCase()}
-              </span>
+        {/* Handle + header */}
+        <div className="flex shrink-0 flex-col px-5 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          <div className="flex items-center justify-between pb-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                <span className="text-[15px] font-bold">
+                  {customer.fullName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-extrabold text-foreground truncate">
+                  {customer.fullName}
+                </p>
+                <span
+                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[customer.status]}`}
+                >
+                  {STATUS_LABEL[customer.status]}
+                </span>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 leading-tight truncate">
-                {customer.fullName}
-              </p>
-              <span
-                className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[customer.status]}`}
-              >
-                {STATUS_LABEL[customer.status]}
-              </span>
-            </div>
+            <button
+              onClick={triggerClose}
+              aria-label="סגור"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+            >
+              <X className="size-5" />
+            </button>
           </div>
-          <button
-            onClick={triggerClose}
-            aria-label="סגור"
-            className="mr-3 p-1.5 rounded-full text-gray-400 hover:bg-black/5 active:bg-black/10 transition-colors shrink-0"
-          >
-            <X size={18} />
-          </button>
         </div>
 
         {/* Scrollable content */}
@@ -284,6 +282,9 @@ export function MobileCustomersShell() {
   const businessId   = currentBusiness?.business.id ?? null;
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
+  const initials = businessName
+    ? businessName.split(/[-_\s]+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+    : '?';
 
   // ── Customers fetch ──────────────────────────────────────────────────────────
 
@@ -353,34 +354,44 @@ export function MobileCustomersShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header */}
-      <div className="flex-none px-6 pt-5 pb-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-        {businessName && (
-          <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">
-            {businessName}
-          </p>
-        )}
-        <h1 className="text-[22px] font-bold text-gray-900 dark:text-gray-100 leading-tight">
-          לקוחות
-        </h1>
+      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+        <div className="flex items-start justify-between">
+          <div>
+            {businessName && (
+              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                {businessName}
+              </p>
+            )}
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
+              לקוחות
+            </h1>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
+              {customers.length} לקוחות
+            </p>
+          </div>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground ring-1 ring-primary/10">
+            {initials}
+          </div>
+        </div>
 
         {/* Search bar */}
-        <div className="mt-3 relative">
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-border bg-muted px-4 py-3">
           <Search
-            size={15}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            size={16}
+            className="shrink-0 text-muted-foreground pointer-events-none"
           />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="חיפוש לפי שם או טלפון"
-            className="w-full h-9 pr-9 pl-9 rounded-xl text-[13px] bg-gray-100 dark:bg-gray-800 outline-none text-gray-800 dark:text-gray-200 placeholder:text-gray-400"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
               aria-label="נקה חיפוש"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-gray-400 hover:text-gray-600 active:text-gray-800"
+              className="shrink-0 p-0.5 text-muted-foreground transition active:opacity-60"
             >
               <X size={14} />
             </button>

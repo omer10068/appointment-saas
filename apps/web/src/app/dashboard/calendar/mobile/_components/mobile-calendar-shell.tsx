@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { CalendarDays } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '../../../../../lib/api';
-import { addDays, isSameDay } from '../_lib/calendar.utils';
+import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
 import { CalendarDayPicker } from './calendar-day-picker';
@@ -27,6 +28,7 @@ export function MobileCalendarShell() {
   getTokenRef.current = getToken;
 
   const { currentBusinessId, currentBusiness } = useDashboardBusiness();
+  const businessName = currentBusiness?.business.name;
 
   // Use the business's IANA timezone for all time display and timeline positioning.
   // Falls back to the browser's own timezone so behaviour is unchanged when the field is absent.
@@ -160,6 +162,28 @@ export function MobileCalendarShell() {
     //
     // Remove the md: classes when a proper desktop layout is designed.
     <MobilePhoneFrame dir="rtl">
+      {/* Page header */}
+      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+        <div className="flex items-start justify-between">
+          <div>
+            {businessName && (
+              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                {businessName}
+              </p>
+            )}
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
+              יומן
+            </h1>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
+              {formatMonthYear(selectedDate)}
+            </p>
+          </div>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <CalendarDays className="size-5" />
+          </div>
+        </div>
+      </div>
+
       <CalendarHeader
         selectedDate={selectedDate}
         onPrevWeek={handlePrevWeek}

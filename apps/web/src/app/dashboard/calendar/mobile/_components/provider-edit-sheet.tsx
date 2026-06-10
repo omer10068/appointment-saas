@@ -142,7 +142,7 @@ export function ProviderEditSheet({
       {/* Backdrop */}
       <div
         className={[
-          'absolute inset-0 bg-black/40 transition-opacity duration-300',
+          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
           visible ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
         onClick={submitting ? undefined : triggerClose}
@@ -153,35 +153,29 @@ export function ProviderEditSheet({
       <div
         className={[
           'absolute bottom-0 left-0 right-0',
-          'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
-          'max-h-[90dvh] flex flex-col',
+          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
+          'max-h-[88%] flex flex-col',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-2 pb-4 shrink-0">
-          <div>
-            <h2 className="text-[17px] font-bold text-gray-900 dark:text-gray-100">
-              עריכת חבר צוות
-            </h2>
-            <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-none mt-0.5">
-              {provider.displayName}
-            </p>
+        {/* Handle + header */}
+        <div className="flex shrink-0 flex-col px-5 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          <div className="flex items-center justify-between pb-2">
+            <div>
+              <h2 className="text-lg font-extrabold text-foreground">עריכת חבר צוות</h2>
+              <p className="mt-0.5 text-xs font-medium text-muted-foreground">{provider.displayName}</p>
+            </div>
+            <button
+              onClick={submitting ? undefined : triggerClose}
+              aria-label="סגור"
+              disabled={submitting}
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 disabled:opacity-40"
+            >
+              <X className="size-5" />
+            </button>
           </div>
-          <button
-            onClick={submitting ? undefined : triggerClose}
-            aria-label="סגור"
-            disabled={submitting}
-            className="p-1.5 rounded-full text-gray-400 hover:bg-black/5 active:bg-black/10 transition-colors disabled:opacity-40"
-          >
-            <X size={18} />
-          </button>
         </div>
 
         {/* Scrollable form */}

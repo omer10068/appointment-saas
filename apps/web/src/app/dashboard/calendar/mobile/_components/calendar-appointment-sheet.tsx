@@ -138,7 +138,7 @@ export function CalendarAppointmentSheet({
       {/* Backdrop */}
       <div
         className={[
-          'absolute inset-0 bg-black/40 transition-opacity duration-300',
+          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
           visible ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
         onClick={triggerClose}
@@ -149,33 +149,33 @@ export function CalendarAppointmentSheet({
       <div
         className={[
           'absolute bottom-0 left-0 right-0',
-          'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
+          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
+        {/* Handle + header */}
+        <div className="flex shrink-0 flex-col px-5 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          <div className="flex items-center justify-between pb-2">
+            <h2 className="text-lg font-extrabold text-foreground truncate">
+              {appointment.service.name}
+            </h2>
+            <button
+              onClick={triggerClose}
+              aria-label="סגור"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Header strip — service color accent */}
-        <div className={`${c.bg} mx-4 mt-2 mb-4 rounded-2xl px-4 py-3 flex items-center justify-between`}>
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className={`text-[15px] font-semibold leading-tight truncate ${c.customerText}`}>
-              {appointment.service.name}
-            </span>
-            <span className={`text-[13px] font-normal leading-tight truncate ${c.serviceText}`}>
-              {appointment.customer.name}
-            </span>
-          </div>
-          <button
-            onClick={triggerClose}
-            aria-label="סגור"
-            className="mr-3 p-1.5 rounded-full text-gray-400 hover:bg-black/5 active:bg-black/10 transition-colors shrink-0"
-          >
-            <X size={18} />
-          </button>
+        {/* Info strip — service color accent */}
+        <div className={`${c.bg} mx-4 mb-4 rounded-2xl px-4 py-3`}>
+          <span className={`text-[13px] font-normal leading-tight ${c.serviceText}`}>
+            {appointment.customer.name}
+          </span>
         </div>
 
         {/* Detail rows */}

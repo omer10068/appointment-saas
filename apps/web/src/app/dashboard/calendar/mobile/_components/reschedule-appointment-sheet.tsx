@@ -79,7 +79,7 @@ export function RescheduleAppointmentSheet({
       {/* Backdrop */}
       <div
         className={[
-          'absolute inset-0 bg-black/40 transition-opacity duration-300',
+          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
           visible ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
         onClick={form.isSubmitting ? undefined : triggerClose}
@@ -91,30 +91,26 @@ export function RescheduleAppointmentSheet({
         className={[
           'absolute bottom-0 left-0 right-0',
           'flex flex-col',
-          'max-h-[92dvh]',
-          'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
+          'max-h-[88%]',
+          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        {/* Drag handle */}
-        <div className="flex-none flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
-        </div>
-
-        {/* Header */}
-        <div className="flex-none flex items-center justify-between px-6 pt-4 pb-4 border-b border-gray-100 dark:border-gray-800">
-          <span className="text-[17px] font-semibold text-gray-800 dark:text-gray-100">
-            שינוי מועד
-          </span>
-          <button
-            onClick={form.isSubmitting ? undefined : triggerClose}
-            aria-label="סגור"
-            disabled={form.isSubmitting}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors disabled:opacity-40"
-          >
-            <X size={18} />
-          </button>
+        {/* Handle + header */}
+        <div className="flex shrink-0 flex-col px-5 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-lg font-extrabold text-foreground">שינוי מועד</span>
+            <button
+              onClick={form.isSubmitting ? undefined : triggerClose}
+              aria-label="סגור"
+              disabled={form.isSubmitting}
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 disabled:opacity-40"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable body */}
