@@ -78,7 +78,7 @@ export function useMobileCalendarData(
         // Active services exposed for the create-appointment form.
         // The full map (including inactive) is kept for mapping historical appointments.
         setServices(serviceDtos.filter((dto) => dto.isActive).map(mapDtoToService));
-        setServiceProviders(providerDtos.map(mapDtoToServiceProvider));
+        setServiceProviders(providerDtos.filter((dto) => dto.isActive).map(mapDtoToServiceProvider));
         setServiceMap(buildServiceMap(allServices));
       })
       .catch(() => {

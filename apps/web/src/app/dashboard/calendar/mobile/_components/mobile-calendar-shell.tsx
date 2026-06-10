@@ -223,13 +223,15 @@ export function MobileCalendarShell() {
         </div>
       ) : (
         <>
-          <CalendarServiceProviderFilter
-            serviceProviders={sortedServiceProviders}
-            selectedServiceProviderId={selectedServiceProviderId}
-            onSelectServiceProvider={setSelectedServiceProviderId}
-            appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
-            totalAppointmentsCount={countableDayAppointments.length}
-          />
+          {sortedServiceProviders.length >= 2 && (
+            <CalendarServiceProviderFilter
+              serviceProviders={sortedServiceProviders}
+              selectedServiceProviderId={selectedServiceProviderId}
+              onSelectServiceProvider={setSelectedServiceProviderId}
+              appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
+              totalAppointmentsCount={countableDayAppointments.length}
+            />
+          )}
 
           <CalendarTimeline
             key={todayResetKey}
