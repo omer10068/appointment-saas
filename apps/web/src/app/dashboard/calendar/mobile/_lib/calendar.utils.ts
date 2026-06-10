@@ -120,6 +120,21 @@ export function isCurrentWeek(date: Date): boolean {
   return isSameDay(startOfWeek(date), startOfWeek(new Date()));
 }
 
+export function formatWeekRange(date: Date): string {
+  const days = getWeekDays(date);
+  const first = days[0];
+  const last  = days[6];
+  const sy = first.getFullYear(), ey = last.getFullYear();
+  const sm = first.getMonth(),    em = last.getMonth();
+  if (sy !== ey) {
+    return `${first.getDate()} ${HEBREW_MONTHS[sm]} ${sy} - ${last.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
+  }
+  if (sm !== em) {
+    return `${first.getDate()} ${HEBREW_MONTHS[sm]} - ${last.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
+  }
+  return `${last.getDate()}-${first.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
+}
+
 // ─── Calendar date utilities ─────────────────────────────────────────────────
 
 /**
