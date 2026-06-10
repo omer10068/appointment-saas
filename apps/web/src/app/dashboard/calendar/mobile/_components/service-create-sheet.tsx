@@ -29,7 +29,7 @@ function FormField({
 
 const INPUT_CLASS =
   'w-full rounded-2xl border border-border bg-muted px-4 py-3 text-[16px] ' +
-  'text-foreground placeholder:text-muted-foreground outline-none';
+  'text-foreground placeholder:text-sm placeholder:text-muted-foreground outline-none';
 
 const STATUS_ACTIVE_SELECTED   = 'bg-emerald-50 text-emerald-700 border-emerald-200';
 const STATUS_INACTIVE_SELECTED = 'bg-muted text-muted-foreground border-border';

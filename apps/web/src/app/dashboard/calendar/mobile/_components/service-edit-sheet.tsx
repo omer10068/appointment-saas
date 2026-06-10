@@ -32,7 +32,7 @@ function FormField({
 
 const INPUT_CLASS =
   'w-full rounded-2xl border border-border bg-muted px-4 py-3 text-[16px] ' +
-  'text-foreground placeholder:text-muted-foreground outline-none';
+  'text-foreground placeholder:text-sm placeholder:text-muted-foreground outline-none';
 
 // ─── Status segment config ────────────────────────────────────────────────────
 
