@@ -184,18 +184,20 @@ export function MobileCalendarShell() {
         </div>
       </div>
 
-      <CalendarHeader
-        selectedDate={selectedDate}
-        onPrevWeek={handlePrevWeek}
-        onNextWeek={handleNextWeek}
-        onToday={handleToday}
-      />
-
-      <CalendarDayPicker
-        selectedDate={selectedDate}
-        today={today}
-        onSelect={setSelectedDate}
-      />
+      {/* Week strip: nav row + day picker share one card section */}
+      <div className="flex-none border-b border-border bg-card px-3 pb-3 pt-2">
+        <CalendarHeader
+          selectedDate={selectedDate}
+          onPrevWeek={handlePrevWeek}
+          onNextWeek={handleNextWeek}
+          onToday={handleToday}
+        />
+        <CalendarDayPicker
+          selectedDate={selectedDate}
+          today={today}
+          onSelect={setSelectedDate}
+        />
+      </div>
 
       <MobileToast message={toastMessage} />
 

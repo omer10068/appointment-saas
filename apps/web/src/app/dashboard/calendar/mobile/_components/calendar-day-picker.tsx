@@ -12,43 +12,45 @@ export function CalendarDayPicker({ selectedDate, today, onSelect }: Props) {
   const weekDays = getWeekDays(selectedDate);
 
   return (
-    <div className="bg-transparent px-3 py-3">
-      <div className="flex items-end justify-around">
-        {weekDays.map((day, i) => {
-          const isSelected = isSameDay(day, selectedDate);
-          const isToday = isSameDay(day, today);
+    <div className="flex gap-1">
+      {weekDays.map((day, i) => {
+        const isSelected = isSameDay(day, selectedDate);
+        const isToday = isSameDay(day, today);
 
-          return (
-            <button
-              key={i}
-              onClick={() => onSelect(day)}
-              className="flex w-10 flex-col items-center gap-2 transition-colors"
+        return (
+          <button
+            key={i}
+            onClick={() => onSelect(day)}
+            aria-pressed={isSelected}
+            className={[
+              'flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-2 transition',
+              isSelected ? 'bg-primary/10' : 'active:bg-muted/60',
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'text-[10px] font-semibold leading-none',
+                isSelected ? 'text-primary' : 'text-muted-foreground',
+              ].join(' ')}
             >
-              <span
-                className={[
-                  'text-[12px] font-normal leading-none',
-                  isSelected ? 'text-[#2d2d3a]' : 'text-gray-400',
-                ].join(' ')}
-              >
-                {HEBREW_DAY_ABBR[day.getDay()]}
-              </span>
+              {HEBREW_DAY_ABBR[day.getDay()]}
+            </span>
 
-              <span
-                className={[
-                  'flex h-9 w-9 items-center justify-center rounded-full text-[12px] leading-none transition-all',
-                  isSelected
-                    ? 'bg-[#2d2d3a] text-white shadow-sm'
-                    : isToday
-                      ? 'text-[#2d2d3a] font-weight-semibold'
-                      : 'bg-white text-gray-800 pointer-cursor-default',
-                ].join(' ')}
-              >
-                {day.getDate()}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+            <span
+              className={[
+                'flex size-8 items-center justify-center rounded-full text-sm font-bold tabular-nums transition',
+                isSelected
+                  ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/30'
+                  : isToday
+                    ? 'text-primary'
+                    : 'text-foreground',
+              ].join(' ')}
+            >
+              {day.getDate()}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

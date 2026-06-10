@@ -15,21 +15,21 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday }
 
   return (
     // dir="rtl" is inherited from the shell — ChevronRight (→) is on the right = prev week
-    <div className="flex items-center justify-between py-2">
+    <div className="flex items-center justify-between px-1 pb-2.5">
       {/* First child → rightmost in RTL = previous week */}
       <button
         onClick={onPrevWeek}
         aria-label="שבוע קודם"
-        className="p-2 rounded-xl text-muted-foreground transition active:scale-90"
+        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
       >
-        <ChevronRight size={20} />
+        <ChevronRight className="size-4" />
       </button>
 
       {/* Center: month/year + today pill */}
       <div className="flex flex-col items-center gap-0.5">
-        <h1 className="text-[15px] font-semibold text-foreground leading-tight">
+        <span className="text-xs font-bold text-foreground">
           {formatMonthYear(selectedDate)}
-        </h1>
+        </span>
         {showToday && (
           <button
             onClick={onToday}
@@ -44,9 +44,9 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday }
       <button
         onClick={onNextWeek}
         aria-label="שבוע הבא"
-        className="p-2 rounded-xl text-muted-foreground transition active:scale-90"
+        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
       >
-        <ChevronLeft size={20} />
+        <ChevronLeft className="size-4" />
       </button>
     </div>
   );
