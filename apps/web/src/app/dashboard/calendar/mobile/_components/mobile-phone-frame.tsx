@@ -29,10 +29,10 @@ export function MobilePhoneFrame({ children, dir, className }: Props) {
         // `relative inset-auto z-auto` removes the fixed/viewport behavior.
         // `[transform:translateZ(0)]` creates a containing block for fixed children.
         'md:relative md:inset-auto md:z-auto',
-        'md:h-[860px] md:w-[400px]',
+        'md:h-215 md:w-100',
         'md:transform-[translateZ(0)]',
         'md:rounded-[2.75rem]',
-        'md:border-[10px] md:border-foreground/90',
+        'md:border-10 md:border-foreground/90',
         'md:shadow-2xl md:shadow-foreground/30',
         className,
       ]
