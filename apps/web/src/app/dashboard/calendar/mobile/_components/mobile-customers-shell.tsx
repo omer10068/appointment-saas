@@ -4,16 +4,19 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Search, Users, X, Phone, Mail, AlignLeft, Ban } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
-import type { CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
+import type { AppointmentStatus as ContractsStatus, CustomerStatus, DashboardAppointmentDto, DashboardCustomerDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
-import { fetchDashboardCustomers } from '../../../../../lib/api';
+import { fetchDashboardCustomers, updateDashboardAppointmentStatus } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CustomerCreateSheet } from './customer-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CustomerEditSheet } from './customer-edit-sheet';
 import { CustomerAppointmentHistory } from './customer-appointment-history';
+import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { formatIsraeliPhone } from '../_lib/calendar.utils';
 import { LAYOUT } from '../_lib/calendar.design';
+import { mapDtoToAppointment } from '../_lib/calendar.mappers';
+import type { Appointment } from '../_lib/calendar.types';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -98,6 +101,8 @@ interface CustomerDetailSheetProps {
   getToken: () => Promise<string | null>;
   timezone: string;
   canEdit: boolean;
+  historyRefreshKey: number;
+  onSelectHistoryAppointment: (apt: Appointment) => void;
   onEdit: () => void;
   onClosed: () => void;
 }
@@ -108,6 +113,8 @@ function CustomerDetailSheet({
   getToken,
   timezone,
   canEdit,
+  historyRefreshKey,
+  onSelectHistoryAppointment,
   onEdit,
   onClosed,
 }: CustomerDetailSheetProps) {
@@ -231,6 +238,8 @@ function CustomerDetailSheet({
             getToken={getToken}
             timezone={timezone}
             onCountReady={setHistoryCount}
+            refreshKey={historyRefreshKey}
+            onSelect={(dto) => onSelectHistoryAppointment(mapDtoToAppointment(dto, new Map()))}
           />
         </div>
 
@@ -325,9 +334,25 @@ export function MobileCustomersShell() {
 
   // ── Sheet state ───────────────────────────────────────────────────────────────
 
-  const [selectedCustomer, setSelectedCustomer] = useState<DashboardCustomerDto | null>(null);
-  const [isEditing, setIsEditing]               = useState(false);
-  const [showCreateSheet, setShowCreateSheet]   = useState(false);
+  const [selectedCustomer, setSelectedCustomer]           = useState<DashboardCustomerDto | null>(null);
+  const [isEditing, setIsEditing]                         = useState(false);
+  const [showCreateSheet, setShowCreateSheet]             = useState(false);
+  const [selectedHistoryApt, setSelectedHistoryApt]       = useState<Appointment | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey]         = useState(0);
+
+  async function handleHistoryStatusUpdate(
+    appointmentId: string,
+    newStatus: ContractsStatus,
+  ): Promise<void> {
+    if (!businessId) return;
+    await updateDashboardAppointmentStatus(
+      businessId,
+      appointmentId,
+      { status: newStatus },
+      () => getTokenRef.current(),
+    );
+    setHistoryRefreshKey((k) => k + 1);
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -437,8 +462,19 @@ export function MobileCustomersShell() {
         getToken={() => getTokenRef.current()}
         timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
         canEdit={canMutate}
+        historyRefreshKey={historyRefreshKey}
+        onSelectHistoryAppointment={setSelectedHistoryApt}
         onEdit={() => setIsEditing(true)}
         onClosed={() => { setSelectedCustomer(null); setIsEditing(false); }}
+      />
+
+      {/* Appointment detail sheet — opens when tapping a history item */}
+      <CalendarAppointmentSheet
+        appointment={selectedHistoryApt}
+        timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
+        canMutate={canMutate}
+        onStatusUpdate={handleHistoryStatusUpdate}
+        onClosed={() => setSelectedHistoryApt(null)}
       />
 
       {/* Edit sheet — OWNER/MANAGER; layers on top of detail sheet */}

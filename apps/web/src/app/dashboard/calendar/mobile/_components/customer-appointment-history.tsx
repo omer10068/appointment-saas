@@ -39,6 +39,8 @@ interface Props {
   getToken: () => Promise<string | null>;
   timezone: string;
   onCountReady?: (count: number) => void;
+  onSelect?: (apt: DashboardAppointmentDto) => void;
+  refreshKey?: number;
 }
 
 export function CustomerAppointmentHistory({
@@ -47,6 +49,8 @@ export function CustomerAppointmentHistory({
   getToken,
   timezone,
   onCountReady,
+  onSelect,
+  refreshKey,
 }: Props) {
   const onCountReadyRef = useRef(onCountReady);
   onCountReadyRef.current = onCountReady;
@@ -89,7 +93,7 @@ export function CustomerAppointmentHistory({
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId, businessCustomerId, retryKey]);
+  }, [businessId, businessCustomerId, retryKey, refreshKey]);
 
   if (loading) {
     return (
@@ -124,22 +128,24 @@ export function CustomerAppointmentHistory({
         const style = STATUS_BADGE_STYLE[apt.status] ?? FALLBACK_STYLE;
         const label = STATUS_LABEL[apt.status] ?? apt.status;
         return (
-          <li
-            key={apt.id}
-            className="flex items-start justify-between gap-2 rounded-2xl border border-border bg-card p-3"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-foreground">{apt.serviceName}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-                {formatShortDate(start, timezone)}
-              </p>
-            </div>
-            <span
-              className={`mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.bg} ${style.text}`}
+          <li key={apt.id}>
+            <button
+              onClick={() => onSelect?.(apt)}
+              className="flex w-full items-start justify-between gap-2 rounded-2xl border border-border bg-card p-3 text-right transition active:scale-[0.99]"
             >
-              <span className={`size-1.5 rounded-full ${style.dot}`} />
-              {label}
-            </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-foreground">{apt.serviceName}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                  {formatShortDate(start, timezone)}
+                </p>
+              </div>
+              <span
+                className={`mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.bg} ${style.text}`}
+              >
+                <span className={`size-1.5 rounded-full ${style.dot}`} />
+                {label}
+              </span>
+            </button>
           </li>
         );
       })}
