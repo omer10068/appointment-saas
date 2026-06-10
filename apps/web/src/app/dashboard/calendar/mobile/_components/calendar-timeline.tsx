@@ -184,7 +184,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
       {/* Provider column headers — only in "כל הצוות" multi-lane mode, sticky */}
       {laneProviders && (
         <div
-          className="sticky top-0 z-10 flex border-b border-border/30 bg-card/90 backdrop-blur-sm"
+          className="sticky top-0 z-10 flex bg-card/90 backdrop-blur-sm"
           style={{ paddingRight: TIME_LABEL_WIDTH }}
         >
           {laneProviders.map((sp, i) => (
@@ -192,7 +192,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
               key={sp.id}
               className={[
                 'flex flex-1 items-center justify-center py-2',
-                i > 0 ? 'border-r border-border/20' : '',
+                i > 0 ? 'border-r border-border/10' : '',
               ].join(' ')}
             >
               <span className="truncate px-1 text-[11px] font-semibold leading-none text-muted-foreground/80">
@@ -211,7 +211,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
             slot.isHour ? (
               <div
                 key={slot.topPx}
-                className="absolute h-px bg-border/60"
+                className="absolute h-px bg-border/40"
                 style={{ top: slot.topPx, left: 0, right: TIME_LABEL_WIDTH }}
               />
             ) : (

@@ -56,7 +56,7 @@ export function CalendarServiceProviderFilter({
 }: Props) {
   return (
     <div
-      className="flex gap-2 overflow-x-auto border-b border-border bg-card px-5 py-3 scrollbar-none [&::-webkit-scrollbar]:hidden"
+      className="flex gap-2 overflow-x-auto border-b border-border/30 bg-card px-5 py-3 scrollbar-none [&::-webkit-scrollbar]:hidden"
       dir="rtl"
       style={{ msOverflowStyle: 'none' } as React.CSSProperties}
     >
