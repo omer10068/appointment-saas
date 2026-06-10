@@ -4,30 +4,31 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { DashboardAppointmentDto } from '@appointment/contracts';
 import { fetchDashboardAppointments } from '../../../../../lib/api';
-import { formatDate, formatTime } from '../_lib/calendar.utils';
+import { formatShortDate } from '../_lib/calendar.utils';
 
-// ─── Status display ───────────────────────────────────────────────────────────
+// ─── Status config ────────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<string, string> = {
-  SCHEDULED:             'bg-blue-50 text-blue-700',
-  CONFIRMED:             'bg-indigo-50 text-indigo-700',
-  COMPLETED:             'bg-green-50 text-green-700',
-  CANCELLED_BY_CUSTOMER: 'bg-gray-100 text-gray-500',
-  CANCELLED_BY_BUSINESS: 'bg-gray-100 text-gray-500',
-  NO_SHOW:               'bg-orange-50 text-orange-700',
+const STATUS_BADGE_STYLE: Record<string, { bg: string; text: string; dot: string }> = {
+  SCHEDULED:             { bg: 'bg-accent',     text: 'text-accent-foreground', dot: 'bg-primary' },
+  CONFIRMED:             { bg: 'bg-accent',     text: 'text-accent-foreground', dot: 'bg-primary' },
+  COMPLETED:             { bg: 'bg-emerald-50', text: 'text-emerald-700',       dot: 'bg-emerald-500' },
+  CANCELLED_BY_CUSTOMER: { bg: 'bg-muted',      text: 'text-muted-foreground',  dot: 'bg-muted-foreground/60' },
+  CANCELLED_BY_BUSINESS: { bg: 'bg-muted',      text: 'text-muted-foreground',  dot: 'bg-muted-foreground/60' },
+  NO_SHOW:               { bg: 'bg-amber-50',   text: 'text-amber-700',         dot: 'bg-amber-500' },
 };
 
 const STATUS_LABEL: Record<string, string> = {
   SCHEDULED:             'מתוכנן',
   CONFIRMED:             'מאושר',
-  COMPLETED:             'הסתיים',
+  COMPLETED:             'הושלם',
   CANCELLED_BY_CUSTOMER: 'בוטל ע"י לקוח',
   CANCELLED_BY_BUSINESS: 'בוטל ע"י עסק',
   NO_SHOW:               'לא הגיע',
 };
 
+const FALLBACK_STYLE = { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground/60' };
+
 const DISPLAY_LIMIT = 10;
-// Lookback window: 18 months of history
 const LOOKBACK_MONTHS = 18;
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -70,7 +71,6 @@ export function CustomerAppointmentHistory({
     })
       .then((data) => {
         if (!cancelled) {
-          // Backend sorts ASC; reverse for newest-first display
           setItems([...data].reverse().slice(0, DISPLAY_LIMIT));
         }
       })
@@ -85,62 +85,58 @@ export function CustomerAppointmentHistory({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId, businessCustomerId, retryKey]);
 
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="text-[12px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
-        תורים קודמים
-      </span>
+  if (loading) {
+    return (
+      <div className="flex justify-center py-3">
+        <Loader2 size={18} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
-      {loading ? (
-        <div className="flex justify-center py-3">
-          <Loader2 size={18} className="animate-spin text-gray-300 dark:text-gray-600" />
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center gap-1.5 py-2">
-          <p className="text-[12px] text-gray-400 dark:text-gray-500">שגיאה בטעינה</p>
-          <button
-            onClick={() => setRetryKey((k) => k + 1)}
-            className="text-[12px] font-medium text-blue-600 dark:text-blue-400"
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-1.5 py-2">
+        <p className="text-sm text-muted-foreground">שגיאה בטעינה</p>
+        <button
+          onClick={() => setRetryKey((k) => k + 1)}
+          className="text-sm font-medium text-primary"
+        >
+          נסה שוב
+        </button>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return <p className="py-1 text-sm text-muted-foreground">אין היסטוריית תורים</p>;
+  }
+
+  return (
+    <ul className="space-y-2">
+      {items.map((apt) => {
+        const start = new Date(apt.startsAt);
+        const style = STATUS_BADGE_STYLE[apt.status] ?? FALLBACK_STYLE;
+        const label = STATUS_LABEL[apt.status] ?? apt.status;
+        return (
+          <li
+            key={apt.id}
+            className="flex items-start justify-between gap-2 rounded-2xl border border-border bg-card p-3"
           >
-            נסה שוב
-          </button>
-        </div>
-      ) : items.length === 0 ? (
-        <p className="text-[12px] text-gray-400 dark:text-gray-500 py-1">
-          אין תורים קודמים ללקוח הזה
-        </p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {items.map((apt) => {
-            const start = new Date(apt.startsAt);
-            const badge = STATUS_BADGE[apt.status] ?? 'bg-gray-100 text-gray-500';
-            const label = STATUS_LABEL[apt.status] ?? apt.status;
-            return (
-              <div
-                key={apt.id}
-                className="bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2.5 flex flex-col gap-0.5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200 leading-tight truncate">
-                    {apt.serviceName}
-                  </span>
-                  <span
-                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${badge}`}
-                  >
-                    {label}
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                  {formatDate(start, timezone)} · {formatTime(start, timezone)}
-                </p>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                  {apt.serviceProviderName}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-foreground">{apt.serviceName}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                {formatShortDate(start, timezone)}
+              </p>
+            </div>
+            <span
+              className={`mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.bg} ${style.text}`}
+            >
+              <span className={`size-1.5 rounded-full ${style.dot}`} />
+              {label}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

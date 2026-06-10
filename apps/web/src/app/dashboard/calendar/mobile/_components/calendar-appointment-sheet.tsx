@@ -208,7 +208,7 @@ export function CalendarAppointmentSheet({
             <div className="space-y-2.5 rounded-2xl border border-border bg-muted/50 p-4">
               <DetailRow icon={<Clock3 className="size-4" />} label="שעה">
                 <span className="tabular-nums" dir="ltr">
-                  {formatTime(appointment.startTime, timezone)} – {formatTime(appointment.endTime, timezone)}
+                  {formatTime(appointment.startTime, timezone)} - {formatTime(appointment.endTime, timezone)}
                 </span>
               </DetailRow>
 

@@ -60,6 +60,20 @@ export function formatDate(date: Date, timezone: string): string {
   return `${weekday}, ${day}/${month}/${year}`;
 }
 
+/** Returns a compact date string: DD/MM/YY (e.g. 18/06/26) */
+export function formatShortDate(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('he-IL', {
+    timeZone: timezone,
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  }).formatToParts(date);
+  const day   = parts.find((p) => p.type === 'day')?.value   ?? '';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '';
+  const year  = parts.find((p) => p.type === 'year')?.value  ?? '';
+  return `${day}/${month}/${year}`;
+}
+
 /**
  * Returns the time-of-day in the given IANA timezone as "HH:MM".
  * Uses Intl — no external library needed.
