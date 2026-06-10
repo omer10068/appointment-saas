@@ -46,7 +46,7 @@ const TERMINAL_OPACITY: Partial<Record<AppointmentStatus, string>> = {
 
 // ─── Shared class fragments ───────────────────────────────────────────────────
 
-const CARD_BASE = 'rounded-2xl w-full h-full relative overflow-hidden shadow-sm shadow-black/[0.07] ring-1 ring-inset ring-black/[0.07] transition-all duration-150';
+const CARD_BASE = 'rounded-l-xl rounded-r-sm w-full h-full relative overflow-hidden shadow-sm shadow-black/[0.07] ring-1 ring-inset ring-black/[0.07] transition-all duration-150';
 const CARD_INTERACTIVE = 'cursor-pointer active:scale-[0.98] active:brightness-95';
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export function CalendarAppointmentCard({
           </span>
           {!isExtraTiny && (
             <span
-              className={`shrink-0 whitespace-nowrap tabular-nums text-[9.5px] font-semibold leading-none text-foreground/50`}
+              className={`shrink-0 whitespace-nowrap tabular-nums text-[9.5px] font-bold leading-none text-foreground/75`}
               dir="ltr"
             >
               {startTime}
@@ -120,11 +120,11 @@ export function CalendarAppointmentCard({
             {serviceName}
           </span>
           <div className="flex items-center justify-between gap-1.5 min-w-0">
-            <span className={`min-w-0 truncate text-[10.5px] font-medium leading-none text-foreground/55 ${strikeClass}`}>
+            <span className={`min-w-0 truncate text-[10.5px] font-medium leading-none text-foreground/70 ${strikeClass}`}>
               {customerName}
             </span>
             <span
-              className={`shrink-0 whitespace-nowrap tabular-nums text-[9.5px] font-semibold leading-none text-foreground/50`}
+              className={`shrink-0 whitespace-nowrap tabular-nums text-[9.5px] font-bold leading-none text-foreground/75`}
               dir="ltr"
             >
               {startTime}–{endTime}
@@ -145,7 +145,7 @@ export function CalendarAppointmentCard({
       className={`${c.bg} ${opacityClass} ${CARD_BASE} ${interactive}`}
       dir="rtl"
     >
-      <div className={`absolute top-0 bottom-0 right-0 w-1.5 rounded-r-2xl ${c.bar}`} />
+      <div className={`absolute top-0 bottom-0 right-0 w-1.5 ${c.bar}`} />
 
       {badgeLabel && (
         <span
@@ -159,12 +159,12 @@ export function CalendarAppointmentCard({
         <span className={`text-[13px] font-bold leading-tight truncate text-foreground ${strikeClass}`}>
           {serviceName}
         </span>
-        <span className={`text-[11px] font-medium leading-tight truncate text-foreground/55 ${strikeClass}`}>
+        <span className={`text-[11px] font-medium leading-tight truncate text-foreground/70 ${strikeClass}`}>
           {customerName}
         </span>
         <div className="min-w-0 flex items-center justify-between gap-2">
           <span
-            className="shrink-0 whitespace-nowrap tabular-nums text-[10.5px] font-semibold leading-none text-foreground/50"
+            className="shrink-0 whitespace-nowrap tabular-nums text-[10.5px] font-bold leading-none text-foreground/75"
             dir="ltr"
           >
             {startTime} – {endTime}

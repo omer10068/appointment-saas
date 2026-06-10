@@ -24,7 +24,7 @@ export const SERVICE_COLORS: Record<
   }
 > = {
   rose: {
-    bg: 'bg-rose-50',
+    bg: 'bg-card',
     bar: 'bg-rose-400',
     border: 'border-rose-200',
     customerText: 'text-rose-950',
@@ -34,8 +34,8 @@ export const SERVICE_COLORS: Record<
   },
 
   mint: {
-    bg: 'bg-emerald-50',
-    bar: 'bg-emerald-400',
+    bg: 'bg-card',
+    bar: 'bg-teal-500',
     border: 'border-emerald-200',
     customerText: 'text-emerald-950',
     serviceText: 'text-emerald-700',
@@ -44,7 +44,7 @@ export const SERVICE_COLORS: Record<
   },
 
   cream: {
-    bg: 'bg-amber-50',
+    bg: 'bg-card',
     bar: 'bg-amber-400',
     border: 'border-amber-200',
     customerText: 'text-amber-950',
@@ -54,17 +54,17 @@ export const SERVICE_COLORS: Record<
   },
 
   lavender: {
-    bg: 'bg-purple-50',
-    bar: 'bg-purple-400',
-    border: 'border-purple-200',
-    customerText: 'text-purple-950',
-    serviceText: 'text-purple-700',
-    metaText: 'text-purple-500',
-    editIcon: 'text-purple-400',
+    bg: 'bg-card',
+    bar: 'bg-violet-400',
+    border: 'border-violet-200',
+    customerText: 'text-violet-950',
+    serviceText: 'text-violet-700',
+    metaText: 'text-violet-500',
+    editIcon: 'text-violet-400',
   },
 
   sky: {
-    bg: 'bg-sky-50',
+    bg: 'bg-card',
     bar: 'bg-sky-400',
     border: 'border-sky-200',
     customerText: 'text-sky-950',
