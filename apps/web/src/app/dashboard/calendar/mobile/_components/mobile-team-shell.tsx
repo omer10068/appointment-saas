@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Search, UserCog, X } from 'lucide-react';
+import { Scissors, Search, UsersRound, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
@@ -25,6 +25,27 @@ function formatServiceCount(count: number): string {
   return `${count} שירותים`;
 }
 
+// ─── Status badge ─────────────────────────────────────────────────────────────
+
+function StatusBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={[
+        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold',
+        active ? 'bg-emerald-50 text-emerald-700' : 'bg-muted text-muted-foreground',
+      ].join(' ')}
+    >
+      <span
+        className={[
+          'size-1.5 rounded-full',
+          active ? 'bg-emerald-500' : 'bg-muted-foreground',
+        ].join(' ')}
+      />
+      {active ? 'פעיל' : 'לא פעיל'}
+    </span>
+  );
+}
+
 // ─── Provider row ─────────────────────────────────────────────────────────────
 
 interface ProviderRowProps {
@@ -35,73 +56,57 @@ interface ProviderRowProps {
 
 function ProviderRow({ provider, serviceCount, onClick }: ProviderRowProps) {
   return (
-    <button
-      onClick={onClick}
-      className={[
-        'w-full flex items-center gap-3 py-3.5',
-        'border-b border-gray-100 dark:border-gray-800',
-        'text-right transition-colors active:bg-black/3 dark:active:bg-white/3',
-        !provider.isActive ? 'opacity-50' : '',
-      ].join(' ')}
-    >
-      {/* Initials avatar */}
-      <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
-        <span className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">
-          {provider.displayName.charAt(0).toUpperCase()}
-        </span>
-      </div>
-
-      {/* Name + service count */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold text-gray-800 dark:text-gray-200 truncate leading-tight">
-          {provider.displayName}
-        </p>
-        <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight mt-0.5">
-          {formatServiceCount(serviceCount)}
-        </p>
-      </div>
-
-      {/* Active/inactive badge */}
-      <span
+    <li>
+      <button
+        onClick={onClick}
         className={[
-          'text-[10px] font-medium px-2 py-0.5 rounded-full leading-none shrink-0',
-          provider.isActive
-            ? 'bg-green-50 text-green-700'
-            : 'bg-gray-100 text-gray-500',
+          'flex w-full items-center gap-3.5 rounded-2xl border border-border bg-card p-4 text-right',
+          'shadow-sm shadow-foreground/5 transition active:scale-[0.99]',
+          !provider.isActive ? 'opacity-60' : '',
         ].join(' ')}
       >
-        {provider.isActive ? 'פעיל' : 'לא פעיל'}
-      </span>
-    </button>
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-base font-bold text-accent-foreground">
+          {provider.displayName.charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-foreground">{provider.displayName}</p>
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <Scissors className="size-3.5" aria-hidden="true" />
+            {formatServiceCount(serviceCount)}
+          </p>
+        </div>
+        <StatusBadge active={provider.isActive} />
+      </button>
+    </li>
   );
 }
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
-function RowSkeleton() {
+function CardSkeleton() {
   return (
-    <div className="flex items-center gap-3 py-3.5 border-b border-gray-100 dark:border-gray-800">
-      <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0" />
-      <div className="flex-1 flex flex-col gap-1.5">
-        <div className="h-3.5 w-28 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800" />
+    <div className="flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4">
+      <div className="size-12 shrink-0 rounded-full bg-muted" />
+      <div className="flex flex-1 flex-col gap-2">
+        <div className="h-3.5 w-28 rounded-lg bg-muted" />
+        <div className="h-3 w-16 rounded-lg bg-muted" />
       </div>
-      <div className="h-4 w-10 rounded-full bg-gray-100 dark:bg-gray-800 shrink-0" />
+      <div className="h-5 w-14 shrink-0 rounded-full bg-muted" />
     </div>
   );
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="px-4 animate-pulse flex flex-col">
+    <div className="animate-pulse space-y-2.5 px-5 pt-4">
       {[0, 1, 2, 3].map((i) => (
-        <RowSkeleton key={i} />
+        <CardSkeleton key={i} />
       ))}
     </div>
   );
 }
 
-// ─── Read-only provider detail sheet ─────────────────────────────────────────
+// ─── Read-only provider detail sheet (MEMBER) ─────────────────────────────────
 
 interface ProviderDetailSheetProps {
   provider: DashboardServiceProviderDto | null;
@@ -149,7 +154,8 @@ function ProviderDetailSheet({ provider, serviceMap, onClosed }: ProviderDetailS
       {/* Sheet */}
       <div
         className={[
-          'absolute bottom-0 left-0 right-0',
+          'absolute bottom-0 left-0 right-0 flex flex-col',
+          'max-h-[88%]',
           'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
@@ -159,60 +165,50 @@ function ProviderDetailSheet({ provider, serviceMap, onClosed }: ProviderDetailS
         <div className="flex shrink-0 flex-col px-5 pt-3">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
           <div className="flex items-center justify-between pb-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                <span className="text-[15px] font-bold">
-                  {provider.displayName.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-lg font-extrabold text-foreground truncate">
-                  {provider.displayName}
-                </p>
-                <span
-                  className={[
-                    'text-[10px] font-medium px-2 py-0.5 rounded-full',
-                    provider.isActive
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-gray-100 text-gray-500',
-                  ].join(' ')}
-                >
-                  {provider.isActive ? 'פעיל' : 'לא פעיל'}
-                </span>
-              </div>
-            </div>
+            <h2 className="text-lg font-extrabold text-foreground">פרטי ספק שירות</h2>
             <button
               onClick={triggerClose}
               aria-label="סגור"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
             >
               <X className="size-5" />
             </button>
           </div>
         </div>
 
-        {/* Services section */}
-        <div className="px-4 flex flex-col gap-2">
-          <p className="text-[12px] font-medium text-gray-400 dark:text-gray-500">
-            שירותים
-          </p>
-          {serviceNames.length === 0 ? (
-            <p className="text-[13px] text-gray-400 dark:text-gray-500">ללא שירותים</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {serviceNames.map((name) => (
-                <span
-                  key={name}
-                  className="text-[12px] font-medium px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                >
-                  {name}
-                </span>
-              ))}
+        {/* Body */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
+          {/* Centered avatar + name */}
+          <div className="flex flex-col items-center pb-6 pt-2">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-accent text-2xl font-bold text-accent-foreground">
+              {provider.displayName.charAt(0).toUpperCase()}
             </div>
-          )}
-        </div>
+            <p className="mt-3 text-lg font-extrabold text-foreground">{provider.displayName}</p>
+            <div className="mt-2">
+              <StatusBadge active={provider.isActive} />
+            </div>
+          </div>
 
-        <div className="pb-8 pt-5" />
+          {/* Services panel */}
+          <div className="rounded-2xl border border-border bg-background p-4">
+            <p className="mb-3 text-xs font-semibold text-muted-foreground">שירותים</p>
+            {serviceNames.length === 0 ? (
+              <p className="text-sm text-muted-foreground">ללא שירותים</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {serviceNames.map((name) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+                  >
+                    <Scissors className="size-3" aria-hidden="true" />
+                    {name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -231,15 +227,16 @@ export function MobileTeamShell() {
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
   const isOwner      = currentBusiness?.role === 'OWNER';
+
   // ── Data fetch ────────────────────────────────────────────────────────────────
 
-  const [providers, setProviders]       = useState<DashboardServiceProviderDto[]>([]);
-  const [services, setServices]         = useState<DashboardServiceDto[]>([]);
-  const [serviceMap, setServiceMap]     = useState<Record<string, string>>({});
-  const [businessUsers, setBusinessUsers] = useState<DashboardBusinessUserDto[]>([]);
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState<string | null>(null);
-  const [retryKey, setRetryKey]         = useState(0);
+  const [providers, setProviders]           = useState<DashboardServiceProviderDto[]>([]);
+  const [services, setServices]             = useState<DashboardServiceDto[]>([]);
+  const [serviceMap, setServiceMap]         = useState<Record<string, string>>({});
+  const [businessUsers, setBusinessUsers]   = useState<DashboardBusinessUserDto[]>([]);
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+  const [retryKey, setRetryKey]             = useState(0);
 
   function retry() { setRetryKey((k) => k + 1); }
 
@@ -288,7 +285,7 @@ export function MobileTeamShell() {
       )
     : providers;
 
-  // ── Selected provider (for detail sheet) ─────────────────────────────────────
+  // ── Selected provider (for detail / edit sheet) ───────────────────────────────
 
   const [selectedProvider, setSelectedProvider] =
     useState<DashboardServiceProviderDto | null>(null);
@@ -322,22 +319,19 @@ export function MobileTeamShell() {
             </p>
           </div>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <UserCog className="size-5" />
+            <UsersRound className="size-5" />
           </div>
         </div>
 
         {/* Search bar */}
         <div className="mt-3 flex items-center gap-2 rounded-2xl border border-border bg-muted px-4 py-3">
-          <Search
-            size={16}
-            className="shrink-0 text-muted-foreground pointer-events-none"
-          />
+          <Search size={16} className="shrink-0 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="חיפוש לפי שם"
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {searchQuery && (
             <button
@@ -359,39 +353,41 @@ export function MobileTeamShell() {
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <p className="text-[14px] text-gray-500 dark:text-gray-400">{error}</p>
-            <button
-              onClick={retry}
-              className="text-[13px] font-medium text-blue-600 dark:text-blue-400"
-            >
+          <div className="flex flex-col items-center justify-center gap-3 py-12">
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <button onClick={retry} className="text-sm font-medium text-primary">
               נסה שוב
             </button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2 px-6">
-            <p className="text-[14px] text-gray-400 dark:text-gray-500 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-12">
+            <p className="text-center text-sm text-muted-foreground">
               {searchQuery ? 'לא נמצאו תוצאות לחיפוש זה' : 'אין אנשי צוות עדיין'}
             </p>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-[13px] font-medium text-blue-600 dark:text-blue-400"
+                className="text-sm font-medium text-primary"
               >
                 נקה חיפוש
               </button>
             )}
           </div>
         ) : (
-          <div className="px-4">
-            {filtered.map((provider) => (
-              <ProviderRow
-                key={provider.id}
-                provider={provider}
-                serviceCount={provider.serviceIds.length}
-                onClick={() => setSelectedProvider(provider)}
-              />
-            ))}
+          <div className="px-5 pt-4">
+            <div className="mb-3">
+              <h2 className="text-base font-bold text-foreground">אנשי צוות</h2>
+            </div>
+            <ul className="space-y-2.5">
+              {filtered.map((provider) => (
+                <ProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  serviceCount={provider.serviceIds.length}
+                  onClick={() => setSelectedProvider(provider)}
+                />
+              ))}
+            </ul>
           </div>
         )}
       </div>

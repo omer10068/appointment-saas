@@ -1,38 +1,53 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { AlertCircle, Loader2, X } from 'lucide-react';
 import type { DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
 import {
   ApiError,
   updateDashboardServiceProvider,
 } from '../../../../../lib/api';
 
-// ─── Shared form primitives ───────────────────────────────────────────────────
+// ─── Form primitives ──────────────────────────────────────────────────────────
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{label}</span>
+    <div>
+      <label className="mb-1.5 flex items-center gap-1 text-sm font-semibold text-foreground">
+        {label}
+      </label>
+      {hint && <p className="mb-2 text-xs text-muted-foreground">{hint}</p>}
       {children}
     </div>
   );
 }
 
 const INPUT_CLASS =
-  'w-full h-10 px-3 rounded-xl text-[16px] bg-gray-100 dark:bg-gray-800 outline-none ' +
-  'text-gray-800 dark:text-gray-200 placeholder:text-gray-400';
+  'w-full rounded-2xl border border-border bg-muted px-4 py-3 text-[16px] ' +
+  'text-foreground placeholder:text-muted-foreground outline-none';
+
+// ─── Status segment config ────────────────────────────────────────────────────
+
+const STATUS_ACTIVE_SELECTED   = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+const STATUS_INACTIVE_SELECTED = 'bg-muted text-muted-foreground border-border';
+const STATUS_UNSELECTED        = 'bg-card text-muted-foreground border-border';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   provider: DashboardServiceProviderDto | null;
-  /** All services (active + inactive) fetched by the parent shell. */
   services: DashboardServiceDto[];
   businessId: string | null;
   getToken: () => Promise<string | null>;
   onClosed: () => void;
-  /** Called immediately on successful save, before the close animation. */
   onSaved: () => void;
 }
 
@@ -55,7 +70,6 @@ export function ProviderEditSheet({
   const [error, setError]             = useState<string | null>(null);
   const [submitting, setSubmitting]   = useState(false);
 
-  // Populate fields and animate in whenever a different provider is opened.
   useEffect(() => {
     if (!provider) return;
     setDisplayName(provider.displayName);
@@ -88,7 +102,6 @@ export function ProviderEditSheet({
     });
   }
 
-  // Categorise services for display.
   const activeServices   = services.filter((s) => s.isActive);
   const inactiveAssigned = services.filter(
     (s) => !s.isActive && provider?.serviceIds.includes(s.id),
@@ -99,8 +112,8 @@ export function ProviderEditSheet({
   async function handleSave() {
     if (!businessId || !provider || !isValid || submitting) return;
 
-    const sortedInitial = [...provider.serviceIds].sort().join(',');
-    const sortedCurrent = [...selectedIds].sort().join(',');
+    const sortedInitial   = [...provider.serviceIds].sort().join(',');
+    const sortedCurrent   = [...selectedIds].sort().join(',');
     const serviceIdsChanged  = sortedInitial !== sortedCurrent;
     const displayNameChanged = displayName.trim() !== provider.displayName;
     const fieldsChanged      = displayNameChanged || serviceIdsChanged;
@@ -152,9 +165,9 @@ export function ProviderEditSheet({
       {/* Sheet */}
       <div
         className={[
-          'absolute bottom-0 left-0 right-0',
+          'absolute bottom-0 left-0 right-0 flex flex-col',
+          'max-h-[88%]',
           'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
-          'max-h-[88%] flex flex-col',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
@@ -179,122 +192,122 @@ export function ProviderEditSheet({
         </div>
 
         {/* Scrollable form */}
-        <div className="flex-1 overflow-y-auto px-4 flex flex-col gap-5 pb-2">
+        <div className="flex-1 overflow-y-auto px-5 py-2">
+          <div className="space-y-5 pb-2">
 
-          {/* Display name */}
-          <FormField label="שם תצוגה">
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              autoComplete="off"
-              className={INPUT_CLASS}
-            />
-          </FormField>
-
-          {/* Active services */}
-          <FormField label="שירותים">
-            {activeServices.length === 0 ? (
-              <p className="text-[13px] text-gray-400 dark:text-gray-500">
-                אין שירותים פעילים בעסק
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {activeServices.map((s) => {
-                  const selected = selectedIds.has(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleService(s.id)}
-                      className={[
-                        'text-[13px] font-medium px-3 py-2 rounded-full border transition-colors',
-                        selected
-                          ? 'bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white border-transparent'
-                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700',
-                      ].join(' ')}
-                    >
-                      {s.name}
-                    </button>
-                  );
-                })}
+            {/* Centered avatar */}
+            <div className="flex flex-col items-center py-2">
+              <div className="flex size-20 items-center justify-center rounded-full bg-accent text-2xl font-bold text-accent-foreground">
+                {provider.displayName.charAt(0).toUpperCase()}
               </div>
-            )}
-          </FormField>
+            </div>
 
-          {/* Inactive services that are currently assigned */}
-          {inactiveAssigned.length > 0 && (
-            <FormField label="שירותים לא פעילים (מוקצים כרגע)">
-              <div className="flex flex-wrap gap-2">
-                {inactiveAssigned.map((s) => {
-                  const selected = selectedIds.has(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleService(s.id)}
-                      className={[
-                        'text-[13px] font-medium px-3 py-2 rounded-full border transition-colors opacity-60',
-                        selected
-                          ? 'bg-gray-400 dark:bg-gray-600 text-white border-transparent'
-                          : 'bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border-gray-200 dark:border-gray-700',
-                      ].join(' ')}
-                    >
-                      {s.name}
-                    </button>
-                  );
-                })}
+            <FormField label="שם תצוגה">
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                autoComplete="off"
+                className={INPUT_CLASS}
+              />
+            </FormField>
+
+            <FormField label="שירותים" hint="בחרו אילו שירותים ספק השירות מבצע">
+              {activeServices.length === 0 ? (
+                <p className="text-sm text-muted-foreground">אין שירותים פעילים בעסק</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {activeServices.map((s) => {
+                    const selected = selectedIds.has(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleService(s.id)}
+                        className={[
+                          'rounded-full border px-3 py-1.5 text-xs font-semibold transition active:scale-[0.97]',
+                          selected
+                            ? 'border-transparent bg-accent text-accent-foreground'
+                            : 'border-border bg-muted text-muted-foreground',
+                        ].join(' ')}
+                      >
+                        {s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </FormField>
+
+            {inactiveAssigned.length > 0 && (
+              <FormField label="שירותים לא פעילים (מוקצים כרגע)">
+                <div className="flex flex-wrap gap-2">
+                  {inactiveAssigned.map((s) => {
+                    const selected = selectedIds.has(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleService(s.id)}
+                        className={[
+                          'rounded-full border px-3 py-1.5 text-xs font-semibold opacity-60 transition active:scale-[0.97]',
+                          selected
+                            ? 'border-transparent bg-accent text-accent-foreground'
+                            : 'border-border bg-muted text-muted-foreground',
+                        ].join(' ')}
+                      >
+                        {s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </FormField>
+            )}
+
+            {selectedIds.size === 0 && (
+              <p className="text-xs text-amber-600">יש לבחור לפחות שירות אחד</p>
+            )}
+
+            <FormField label="סטטוס">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsActive(true)}
+                  className={[
+                    'flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition active:scale-[0.98]',
+                    isActive ? STATUS_ACTIVE_SELECTED : STATUS_UNSELECTED,
+                  ].join(' ')}
+                >
+                  פעיל
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(false)}
+                  className={[
+                    'flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition active:scale-[0.98]',
+                    !isActive ? STATUS_INACTIVE_SELECTED : STATUS_UNSELECTED,
+                  ].join(' ')}
+                >
+                  לא פעיל
+                </button>
               </div>
             </FormField>
-          )}
 
-          {/* Inline validation hint */}
-          {selectedIds.size === 0 && (
-            <p className="text-[12px] text-orange-500 -mt-2">
-              יש לבחור לפחות שירות אחד
-            </p>
-          )}
-
-          {/* Status */}
-          <FormField label="סטטוס">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setIsActive(true)}
-                className={[
-                  'flex-1 h-9 rounded-xl text-[13px] font-medium border transition-colors',
-                  isActive
-                    ? 'bg-green-100 text-green-700 border-green-200'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-400 border-gray-100 dark:border-gray-700',
-                ].join(' ')}
-              >
-                פעיל
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsActive(false)}
-                className={[
-                  'flex-1 h-9 rounded-xl text-[13px] font-medium border transition-colors',
-                  !isActive
-                    ? 'bg-gray-200 text-gray-600 border-gray-300'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-400 border-gray-100 dark:border-gray-700',
-                ].join(' ')}
-              >
-                לא פעיל
-              </button>
-            </div>
-          </FormField>
+          </div>
         </div>
 
-        {/* Error + submit */}
-        <div className="px-4 pt-4 pb-8 shrink-0 flex flex-col gap-3">
+        {/* Footer */}
+        <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
           {error && (
-            <p className="text-[13px] text-red-500 text-center">{error}</p>
+            <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-red-100 bg-red-50 px-3.5 py-2.5">
+              <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-500" />
+              <p className="flex-1 text-right text-[13px] leading-snug text-red-600">{error}</p>
+            </div>
           )}
           <button
             onClick={handleSave}
             disabled={!isValid || submitting}
-            className="w-full h-12 rounded-2xl bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white text-[15px] font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98] disabled:opacity-60"
           >
             {submitting ? <Loader2 size={18} className="animate-spin" /> : 'שמור שינויים'}
           </button>

@@ -1,27 +1,44 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { AlertCircle, Loader2, X } from 'lucide-react';
 import type { DashboardServiceDto } from '@appointment/contracts';
 import {
   updateDashboardService,
   updateDashboardServiceStatus,
 } from '../../../../../lib/api';
 
-// ─── Shared form primitives ───────────────────────────────────────────────────
+// ─── Form primitives ──────────────────────────────────────────────────────────
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[12px] font-medium text-gray-500 dark:text-gray-400">{label}</span>
+    <div>
+      <label className="mb-1.5 flex items-center gap-1 text-sm font-semibold text-foreground">
+        {label}
+        {required && <span className="text-primary">*</span>}
+      </label>
       {children}
     </div>
   );
 }
 
 const INPUT_CLASS =
-  'w-full h-10 px-3 rounded-xl text-[16px] bg-gray-100 dark:bg-gray-800 outline-none ' +
-  'text-gray-800 dark:text-gray-200 placeholder:text-gray-400';
+  'w-full rounded-2xl border border-border bg-muted px-4 py-3 text-[16px] ' +
+  'text-foreground placeholder:text-muted-foreground outline-none';
+
+// ─── Status segment config ────────────────────────────────────────────────────
+
+const STATUS_ACTIVE_SELECTED   = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+const STATUS_INACTIVE_SELECTED = 'bg-muted text-muted-foreground border-border';
+const STATUS_UNSELECTED        = 'bg-card text-muted-foreground border-border';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +47,6 @@ interface Props {
   businessId: string | null;
   getToken: () => Promise<string | null>;
   onClosed: () => void;
-  /** Called immediately on successful save, before the close animation. */
   onSaved: () => void;
 }
 
@@ -54,7 +70,6 @@ export function ServiceEditSheet({
   const [error, setError]             = useState<string | null>(null);
   const [submitting, setSubmitting]   = useState(false);
 
-  // Populate fields and animate in whenever a different service is opened.
   useEffect(() => {
     if (!service) return;
     setName(service.name);
@@ -77,9 +92,9 @@ export function ServiceEditSheet({
     setTimeout(onClosed, 310);
   }
 
-  const durationNum = parseInt(durationStr, 10);
+  const durationNum   = parseInt(durationStr, 10);
   const durationValid = !isNaN(durationNum) && durationNum >= 5 && durationNum <= 480;
-  const isValid = !!name.trim() && durationValid;
+  const isValid       = !!name.trim() && durationValid;
 
   async function handleSave() {
     if (!businessId || !service || !isValid || submitting) return;
@@ -155,9 +170,9 @@ export function ServiceEditSheet({
       {/* Sheet */}
       <div
         className={[
-          'absolute bottom-0 left-0 right-0',
+          'absolute bottom-0 left-0 right-0 flex flex-col',
+          'max-h-[88%]',
           'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
-          'max-h-[88%] flex flex-col',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
@@ -182,92 +197,97 @@ export function ServiceEditSheet({
         </div>
 
         {/* Scrollable form */}
-        <div className="flex-1 overflow-y-auto px-4 flex flex-col gap-4 pb-2">
-          <FormField label="שם שירות">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="off"
-              className={INPUT_CLASS}
-            />
-          </FormField>
+        <div className="flex-1 overflow-y-auto px-5 py-2">
+          <div className="space-y-5 pb-2">
 
-          <FormField label="משך (דקות)">
-            <input
-              type="number"
-              inputMode="numeric"
-              value={durationStr}
-              onChange={(e) => setDurationStr(e.target.value)}
-              min={5}
-              max={480}
-              dir="ltr"
-              className={`${INPUT_CLASS} text-left`}
-            />
-          </FormField>
+            <FormField label="שם שירות" required>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
+                className={INPUT_CLASS}
+              />
+            </FormField>
 
-          <FormField label="מחיר (₪)">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={priceStr}
-              onChange={(e) => setPriceStr(e.target.value)}
-              placeholder="ללא מחיר"
-              min={0}
-              dir="ltr"
-              className={`${INPUT_CLASS} text-left`}
-            />
-          </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="משך (דקות)" required>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={durationStr}
+                  onChange={(e) => setDurationStr(e.target.value)}
+                  min={5}
+                  max={480}
+                  dir="ltr"
+                  className={`${INPUT_CLASS} text-left`}
+                />
+              </FormField>
 
-          <FormField label="תיאור">
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="תיאור קצר של השירות..."
-              rows={3}
-              className={`${INPUT_CLASS} h-auto py-2.5 resize-none leading-relaxed`}
-            />
-          </FormField>
-
-          <FormField label="סטטוס">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setIsActive(true)}
-                className={[
-                  'flex-1 h-9 rounded-xl text-[13px] font-medium border transition-colors',
-                  isActive
-                    ? 'bg-green-100 text-green-700 border-green-200'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-400 border-gray-100 dark:border-gray-700',
-                ].join(' ')}
-              >
-                פעיל
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsActive(false)}
-                className={[
-                  'flex-1 h-9 rounded-xl text-[13px] font-medium border transition-colors',
-                  !isActive
-                    ? 'bg-gray-200 text-gray-600 border-gray-300'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-400 border-gray-100 dark:border-gray-700',
-                ].join(' ')}
-              >
-                לא פעיל
-              </button>
+              <FormField label="מחיר (₪)">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={priceStr}
+                  onChange={(e) => setPriceStr(e.target.value)}
+                  placeholder="ללא מחיר"
+                  min={0}
+                  dir="ltr"
+                  className={`${INPUT_CLASS} text-left`}
+                />
+              </FormField>
             </div>
-          </FormField>
+
+            <FormField label="תיאור">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="תיאור קצר של השירות..."
+                rows={3}
+                className={`${INPUT_CLASS} h-auto resize-none leading-relaxed`}
+              />
+            </FormField>
+
+            <FormField label="סטטוס">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsActive(true)}
+                  className={[
+                    'flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition active:scale-[0.98]',
+                    isActive ? STATUS_ACTIVE_SELECTED : STATUS_UNSELECTED,
+                  ].join(' ')}
+                >
+                  פעיל
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(false)}
+                  className={[
+                    'flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition active:scale-[0.98]',
+                    !isActive ? STATUS_INACTIVE_SELECTED : STATUS_UNSELECTED,
+                  ].join(' ')}
+                >
+                  לא פעיל
+                </button>
+              </div>
+            </FormField>
+
+          </div>
         </div>
 
-        {/* Error + submit */}
-        <div className="px-4 pt-4 pb-8 shrink-0 flex flex-col gap-3">
+        {/* Footer */}
+        <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
           {error && (
-            <p className="text-[13px] text-red-500 text-center">{error}</p>
+            <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-red-100 bg-red-50 px-3.5 py-2.5">
+              <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-500" />
+              <p className="flex-1 text-right text-[13px] leading-snug text-red-600">{error}</p>
+            </div>
           )}
           <button
             onClick={handleSave}
             disabled={!isValid || submitting}
-            className="w-full h-12 rounded-2xl bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white text-[15px] font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98] disabled:opacity-60"
           >
             {submitting ? <Loader2 size={18} className="animate-spin" /> : 'שמור שינויים'}
           </button>
