@@ -24,7 +24,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: CalendarOff,
     label: 'חריגות וחופשות',
     sub: 'חגים, חופשות וסגירות חד-פעמיות',
-    route: null,
+    route: '/settings/exceptions',
   },
   {
     icon: Users,
