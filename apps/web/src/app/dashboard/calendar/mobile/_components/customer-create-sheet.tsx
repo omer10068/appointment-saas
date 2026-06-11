@@ -17,8 +17,8 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
 }
 
 const INPUT_CLASS =
-  'w-full h-10 px-3 rounded-xl text-[14px] bg-gray-100 dark:bg-gray-800 outline-none ' +
-  'text-gray-800 dark:text-gray-200 placeholder:text-gray-400';
+  'w-full h-10 px-3 rounded-xl text-[16px] bg-gray-100 dark:bg-gray-800 outline-none ' +
+  'text-gray-800 dark:text-gray-200 placeholder:text-sm placeholder:text-gray-400';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -107,7 +107,7 @@ export function CustomerCreateSheet({
       {/* Backdrop */}
       <div
         className={[
-          'absolute inset-0 bg-black/40 transition-opacity duration-300',
+          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
           visible ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
         onClick={submitting ? undefined : triggerClose}
@@ -118,28 +118,26 @@ export function CustomerCreateSheet({
       <div
         className={[
           'absolute bottom-0 left-0 right-0',
-          'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
-          'max-h-[90dvh] flex flex-col',
+          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
+          'max-h-[88%] flex flex-col',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-2 pb-4 shrink-0">
-          <h2 className="text-[17px] font-bold text-gray-900 dark:text-gray-100">לקוח חדש</h2>
-          <button
-            onClick={submitting ? undefined : triggerClose}
-            aria-label="סגור"
-            disabled={submitting}
-            className="p-1.5 rounded-full text-gray-400 hover:bg-black/5 active:bg-black/10 transition-colors disabled:opacity-40"
-          >
-            <X size={18} />
-          </button>
+        {/* Handle + header */}
+        <div className="flex shrink-0 flex-col px-5 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          <div className="flex items-center justify-between pb-2">
+            <h2 className="text-lg font-extrabold text-foreground">לקוח חדש</h2>
+            <button
+              onClick={submitting ? undefined : triggerClose}
+              aria-label="סגור"
+              disabled={submitting}
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 disabled:opacity-40"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable form */}
@@ -196,7 +194,7 @@ export function CustomerCreateSheet({
           <button
             onClick={handleSubmit}
             disabled={!isValid || submitting}
-            className="w-full h-12 rounded-2xl bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white text-[15px] font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98] disabled:opacity-60"
           >
             {submitting ? <Loader2 size={18} className="animate-spin" /> : 'שמור לקוח'}
           </button>

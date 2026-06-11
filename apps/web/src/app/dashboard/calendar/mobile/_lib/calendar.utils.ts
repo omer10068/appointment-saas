@@ -60,6 +60,20 @@ export function formatDate(date: Date, timezone: string): string {
   return `${weekday}, ${day}/${month}/${year}`;
 }
 
+/** Returns a compact date string: DD/MM/YY (e.g. 18/06/26) */
+export function formatShortDate(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('he-IL', {
+    timeZone: timezone,
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  }).formatToParts(date);
+  const day   = parts.find((p) => p.type === 'day')?.value   ?? '';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '';
+  const year  = parts.find((p) => p.type === 'year')?.value  ?? '';
+  return `${day}/${month}/${year}`;
+}
+
 /**
  * Returns the time-of-day in the given IANA timezone as "HH:MM".
  * Uses Intl — no external library needed.
@@ -104,6 +118,21 @@ export function formatMonthYear(date: Date): string {
 
 export function isCurrentWeek(date: Date): boolean {
   return isSameDay(startOfWeek(date), startOfWeek(new Date()));
+}
+
+export function formatWeekRange(date: Date): string {
+  const days = getWeekDays(date);
+  const first = days[0];
+  const last  = days[6];
+  const sy = first.getFullYear(), ey = last.getFullYear();
+  const sm = first.getMonth(),    em = last.getMonth();
+  if (sy !== ey) {
+    return `${first.getDate()} ${HEBREW_MONTHS[sm]} ${sy} - ${last.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
+  }
+  if (sm !== em) {
+    return `${first.getDate()} ${HEBREW_MONTHS[sm]} - ${last.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
+  }
+  return `${first.getDate()}-${last.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
 }
 
 // ─── Calendar date utilities ─────────────────────────────────────────────────
@@ -231,6 +260,15 @@ export function businessDayRange(timezone: string): { from: string; to: string }
   const toMs   = fromMs + 24 * 60 * 60 * 1000;
 
   return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() };
+}
+
+/**
+ * Returns true when a slot's UTC start time is strictly in the future.
+ * Use this to hide already-passed slots when the selected date is today.
+ * Comparison uses UTC timestamps — no timezone math needed.
+ */
+export function isFutureSlot(slot: { startsAt: string }): boolean {
+  return new Date(slot.startsAt).getTime() > Date.now();
 }
 
 /**

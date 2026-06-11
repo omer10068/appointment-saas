@@ -138,4 +138,11 @@ Completed:
 - ConfigModule setup
 - PrismaModule and PrismaService
 - Health endpoint connected to PostgreSQL
-- Next.js web frontend (`apps/web`) — dashboard (desktop) and mobile calendar MVP (`/mobile/calendar`)
+- Full backend: authentication, all dashboard CRUD domains, available-slots engine, public booking endpoints, backend hardening — see `docs/backend-roadmap.md`
+- Next.js web frontend (`apps/web`):
+  - Desktop dashboard (full CRUD)
+  - Mobile MVP CRUD stable — all five tabs live: `/mobile/home`, `/mobile/calendar`, `/mobile/customers`, `/mobile/services`, `/mobile/team`
+  - OWNER / MANAGER / MEMBER role behavior verified across all mobile tabs
+  - Bottom nav complete; all five tabs active
+  - Customer flow is detail-first: tapping a customer always opens read-only `CustomerDetailSheet`; OWNER/MANAGER reach `CustomerEditSheet` via explicit "עריכת לקוח" action
+  - `CustomerDetailSheet` includes per-customer appointment history (`CustomerAppointmentHistory`); fetches backend-filtered past appointments via `businessCustomerId` query param

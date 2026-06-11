@@ -23,6 +23,7 @@ const E2E_APT_MBR_USER_ID = 'e2eb0000-0000-4000-8000-000000000004';
 const E2E_APT_OUT_USER_ID = 'e2eb0000-0000-4000-8000-000000000005';
 const E2E_APT_SVC_ID = 'e2eb0000-0000-4000-8000-000000000010';
 const E2E_APT_PROFILE_ID = 'e2eb0000-0000-4000-8000-000000000020';
+const E2E_APT_BC_ID = 'e2eb0000-0000-4000-8000-000000000040';
 // Cross-tenant fixture
 const E2E_APT_OTHER_BIZ_ID = 'e2eb0000-0000-4000-8000-000000000030';
 const E2E_APT_OTHER_USER_ID = 'e2eb0000-0000-4000-8000-000000000031';
@@ -209,6 +210,7 @@ beforeAll(async () => {
 
   const bc = await prisma.businessCustomer.create({
     data: {
+      id: E2E_APT_BC_ID,
       businessId: E2E_APT_BIZ_ID,
       customerProfileId: E2E_APT_PROFILE_ID,
       status: 'ACTIVE',
@@ -467,5 +469,28 @@ describe('GET /dashboard/businesses/:businessId/appointments', () => {
         '/dashboard/businesses/00000000-0000-4000-8000-000000000000/appointments',
       )
       .expect(403);
+  });
+
+  it('businessCustomerId filter returns only that customer appointments', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .query({ businessCustomerId: E2E_APT_BC_ID })
+      .expect(200);
+
+    const body = res.body as AppointmentDto[];
+    expect(body).toHaveLength(1);
+    expect(body[0].id).toBe(appointmentId);
+    expect(body[0].businessCustomerId).toBe(E2E_APT_BC_ID);
+  });
+
+  it('businessCustomerId filter for unknown customer returns empty list', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .query({ businessCustomerId: 'e2eb0000-0000-4000-8000-999999999999' })
+      .expect(200);
+
+    expect(res.body).toEqual([]);
   });
 });

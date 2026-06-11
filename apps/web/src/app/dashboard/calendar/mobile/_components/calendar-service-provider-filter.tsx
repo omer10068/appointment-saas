@@ -15,30 +15,30 @@ function getFirstName(fullName: string): string {
   return fullName.split(' ')[0] ?? fullName;
 }
 
-interface FilterPillProps {
+interface FilterChipProps {
   label: string;
   count: number;
   isActive: boolean;
   onClick: () => void;
 }
 
-function FilterPill({ label, count, isActive, onClick }: FilterPillProps) {
+function FilterChip({ label, count, isActive, onClick }: FilterChipProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        'flex flex-col items-center justify-center gap-0.5 min-w-13 py-2.5 rounded-xl transition-all duration-150 border',
+        'flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
         isActive
-          ? 'bg-[#2d2d3a] text-white border-[#2d2d3a] shadow-sm'
-          : 'bg-transparent text-gray-700 border-gray-200',
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-card text-foreground',
       ].join(' ')}
     >
-      <span className="text-[12px] font-normal leading-tight text-center">{label}</span>
+      {label}
       <span
         className={[
-          'text-[10px] leading-none',
-          isActive ? 'text-white/70' : 'text-gray-400',
+          'rounded-full px-1.5 text-[10px] tabular-nums',
+          isActive ? 'bg-primary-foreground/20' : 'bg-muted',
         ].join(' ')}
       >
         {count}
@@ -56,31 +56,25 @@ export function CalendarServiceProviderFilter({
 }: Props) {
   return (
     <div
-      className="bg-gray-50 dark:bg-gray-950 px-3 py-2 border-b border-gray-100 dark:border-gray-800"
+      className="flex gap-2 overflow-x-auto border-b border-border/30 bg-card px-5 py-3 scrollbar-none [&::-webkit-scrollbar]:hidden"
       dir="rtl"
+      style={{ msOverflowStyle: 'none' } as React.CSSProperties}
     >
-      <div
-        className="overflow-x-auto"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
-      >
-        <div className="flex justify-center gap-2 min-w-full">
-          <FilterPill
-            label="כל הצוות"
-            count={totalAppointmentsCount}
-            isActive={selectedServiceProviderId === 'all'}
-            onClick={() => onSelectServiceProvider('all')}
-          />
-          {serviceProviders.map((sp) => (
-            <FilterPill
-              key={sp.id}
-              label={getFirstName(sp.name)}
-              count={appointmentCountsByServiceProviderId[sp.id] ?? 0}
-              isActive={selectedServiceProviderId === sp.id}
-              onClick={() => onSelectServiceProvider(sp.id)}
-            />
-          ))}
-        </div>
-      </div>
+      <FilterChip
+        label="כל הצוות"
+        count={totalAppointmentsCount}
+        isActive={selectedServiceProviderId === 'all'}
+        onClick={() => onSelectServiceProvider('all')}
+      />
+      {serviceProviders.map((sp) => (
+        <FilterChip
+          key={sp.id}
+          label={getFirstName(sp.name)}
+          count={appointmentCountsByServiceProviderId[sp.id] ?? 0}
+          isActive={selectedServiceProviderId === sp.id}
+          onClick={() => onSelectServiceProvider(sp.id)}
+        />
+      ))}
     </div>
   );
 }

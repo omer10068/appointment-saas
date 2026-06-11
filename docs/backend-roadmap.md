@@ -62,7 +62,7 @@ Covered by:
 | `GET /dashboard/businesses/:businessId/working-hours` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours` | assertAccess | |
 | `GET /dashboard/businesses/:businessId/availability-exceptions` | assertAccess | |
-| `GET /dashboard/businesses/:businessId/appointments` | assertAccess | Supports `from`, `to`, `status` query params |
+| `GET /dashboard/businesses/:businessId/appointments` | assertAccess | Supports `from`, `to`, `status`, `businessCustomerId` query params |
 
 ### Key response shapes
 
@@ -169,6 +169,8 @@ Endpoints covered:
 - `PATCH /dashboard/businesses/:businessId/service-providers/:serviceProviderId/status`
 
 Verified: OWNER/MANAGER allowed; MEMBER/outsider 403; missing auth 401; validation; duplicate `businessUserId` behavior; cross-tenant Pattern A and Pattern B.
+
+**ServiceProvider assignment policy (locked):** Removing a `serviceId` assignment from a `ServiceProvider` does **not** block or cancel existing future appointments for that `(serviceProviderId, serviceId)` pair. Existing appointments remain valid and manageable. The change applies only to new bookings — the available-slots engine queries `ServiceProviderService` at request time. Do not add blocking validation or cascade cancellation to `updateServiceProvider` without an explicit product decision.
 
 #### 3. Customers mutations — done
 
@@ -433,6 +435,43 @@ To share slot computation between the authenticated dashboard and the public sur
 | `GET /public/businesses/:slug/service-providers` | 200 with active-only filter; correct shape; 404 unknown slug |
 | `GET /public/businesses/:slug/available-slots` | 200 correct shape with slots; 404 unknown slug; 404 suspended; 400 inactive service; 400 inactive SP |
 
+## Completed — Phase 5: Backend Hardening
+
+Applied after Phase 2 mutation E2E phases. No new endpoints; validates invariants in existing `createServiceProvider`, `updateServiceProvider`, and `createAppointment`.
+
+### ServiceProvider activation invariants
+
+`createServiceProvider` and both `updateServiceProvider` + `/status` now reject activation when:
+
+- No services are assigned.
+- Any assigned service is inactive (`isActive: false`).
+- The linked `BusinessUser` is not `ACTIVE` (checked only on activation, not on deactivation).
+
+`updateServiceProvider` enforces the inactive-service invariant in two scenarios:
+
+1. **`serviceIds` present in payload** — validates the incoming list before committing.
+2. **`serviceIds` absent from payload, `isActive: true`** — queries existing `ServiceProviderService` links and rejects if any linked service is currently inactive.
+
+This prevents a `ServiceProvider` from being activated when it holds stale links to services that were deactivated after the original assignment.
+
+E2E coverage added to `dashboard-service-providers.e2e-spec.ts` for: create with `isActive: true` + inactive service → 400; update without `serviceIds` + activate + inactive existing service → 400.
+
+### Customer activity check on appointment creation
+
+`createAppointment` now rejects if the `BusinessCustomer` status is not `ACTIVE`, with `BadRequestException('Customer is not active')`.
+
+This prevents creating appointments for blocked or archived customers even if the caller knows their ID.
+
+E2E coverage added to `dashboard-appointments.e2e-spec.ts`: appointment create with BLOCKED customer → 400.
+
+### Customer appointment history filter
+
+`GET …/appointments` now accepts an optional `businessCustomerId` (`@IsUUID`, `@IsOptional`) query parameter. When provided, the Prisma `where` clause adds `businessCustomerId: query.businessCustomerId`. Existing `from`/`to`/`status` filters are unaffected.
+
+This supports the mobile customer history feature: the frontend fetches past appointments filtered by customer without a separate endpoint.
+
+E2E coverage added to `dashboard-appointments.e2e-spec.ts`: `businessCustomerId` filter returns only that customer's appointments (1 result); unknown `businessCustomerId` returns empty list. Suite: 11/11 passing.
+
 ## Later — Phase 3 and Beyond
 
 - Notifications and outbox (async appointment created/cancelled events).
@@ -440,4 +479,4 @@ To share slot computation between the authenticated dashboard and the public sur
 - CI/CD polish and staging deployment (CI already runs unit tests, E2E tests, lint, and build via GitHub Actions).
 - Staging environment.
 - Billing and subscriptions.
-- Frontend (Next.js + React under `apps/web`) — separate roadmap.
+- Frontend (Next.js + React under `apps/web`): mobile MVP CRUD is stable across all five tabs — see `CLAUDE.md` § "Current Mobile Frontend Status". Next frontend focus areas: public booking flow, notifications UI, billing UI.

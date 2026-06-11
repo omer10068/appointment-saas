@@ -803,6 +803,19 @@ export class DashboardDataService {
           'Cannot activate ServiceProvider with no services',
         );
       }
+      if (effectiveIsActive && existing.services.length > 0) {
+        const inactiveServiceCount = await this.prisma.service.count({
+          where: {
+            id: { in: existing.services.map((s) => s.serviceId) },
+            isActive: false,
+          },
+        });
+        if (inactiveServiceCount > 0) {
+          throw new BadRequestException(
+            'Active ServiceProvider cannot be linked to inactive services',
+          );
+        }
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -856,6 +869,17 @@ export class DashboardDataService {
       if (existing.services.length === 0) {
         throw new BadRequestException(
           'Cannot activate ServiceProvider with no services',
+        );
+      }
+      const inactiveServiceCount = await this.prisma.service.count({
+        where: {
+          id: { in: existing.services.map((s) => s.serviceId) },
+          isActive: false,
+        },
+      });
+      if (inactiveServiceCount > 0) {
+        throw new BadRequestException(
+          'Active ServiceProvider cannot be linked to inactive services',
         );
       }
       const businessUser = await this.prisma.businessUser.findUnique({

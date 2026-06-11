@@ -22,6 +22,9 @@ const E2E_SP_MUT_MBR_USER_ID = 'e2ed0000-0000-4000-8000-000000000004';
 const E2E_SP_MUT_OUT_USER_ID = 'e2ed0000-0000-4000-8000-000000000005';
 // Dedicated user/BU for the pre-seeded ServiceProvider (update/status tests)
 const E2E_SP_MUT_SP_USER_ID = 'e2ed0000-0000-4000-8000-000000000006';
+// SP seeded with only an inactive service (for activation-invariant tests)
+const E2E_SP_MUT_INACT_SVC_SP_USER_ID = 'e2ed0000-0000-4000-8000-000000000007';
+const E2E_SP_MUT_INACT_SVC_SP_ID = 'e2ed0000-0000-4000-8000-000000000020';
 // Services
 const E2E_SP_MUT_ACTIVE_SVC_ID = 'e2ed0000-0000-4000-8000-000000000010';
 const E2E_SP_MUT_INACTIVE_SVC_ID = 'e2ed0000-0000-4000-8000-000000000011';
@@ -108,6 +111,7 @@ beforeAll(async () => {
           E2E_SP_MUT_MBR_USER_ID,
           E2E_SP_MUT_OUT_USER_ID,
           E2E_SP_MUT_SP_USER_ID,
+          E2E_SP_MUT_INACT_SVC_SP_USER_ID,
           E2E_SP_MUT_OTHER_USER_ID,
         ],
       },
@@ -242,6 +246,34 @@ beforeAll(async () => {
   });
   existingSpId = existingSp.id;
 
+  // Inactive SP whose only assigned service is also inactive — activation-invariant tests
+  const inactSvcSpUser = await prisma.user.create({
+    data: {
+      id: E2E_SP_MUT_INACT_SVC_SP_USER_ID,
+      phoneNormalized: '+19990009006',
+      status: 'ACTIVE',
+      platformRole: 'USER',
+    },
+  });
+  const inactSvcSpBU = await prisma.businessUser.create({
+    data: {
+      businessId: E2E_SP_MUT_BIZ_ID,
+      userId: inactSvcSpUser.id,
+      role: 'MEMBER',
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.serviceProvider.create({
+    data: {
+      id: E2E_SP_MUT_INACT_SVC_SP_ID,
+      businessId: E2E_SP_MUT_BIZ_ID,
+      businessUserId: inactSvcSpBU.id,
+      displayName: 'InactiveSvc Provider',
+      isActive: false,
+      services: { create: [{ serviceId: E2E_SP_MUT_INACTIVE_SVC_ID }] },
+    },
+  });
+
   // ── Cross-tenant fixture ───────────────────────────────────────────────────
   await prisma.business.create({
     data: {
@@ -325,6 +357,7 @@ afterAll(async () => {
           E2E_SP_MUT_MBR_USER_ID,
           E2E_SP_MUT_OUT_USER_ID,
           E2E_SP_MUT_SP_USER_ID,
+          E2E_SP_MUT_INACT_SVC_SP_USER_ID,
           E2E_SP_MUT_OTHER_USER_ID,
         ],
       },
@@ -680,6 +713,16 @@ describe('PATCH /dashboard/businesses/:businessId/service-providers/:serviceProv
       .send({ serviceIds: [E2E_SP_MUT_OTHER_SVC_ID] })
       .expect(400);
   });
+
+  it('isActive: true with no serviceIds when existing services are all inactive → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${E2E_SP_MUT_INACT_SVC_SP_ID}`,
+      )
+      .send({ isActive: true })
+      .expect(400);
+  });
 });
 
 // ─── PATCH /dashboard/businesses/:businessId/service-providers/:id/status ─────
@@ -788,6 +831,16 @@ describe('PATCH /dashboard/businesses/:businessId/service-providers/:serviceProv
         `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${existingSpId}/status`,
       )
       .send({})
+      .expect(400);
+  });
+
+  it('activating when all assigned services are inactive → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${E2E_SP_MUT_INACT_SVC_SP_ID}/status`,
+      )
+      .send({ isActive: true })
       .expect(400);
   });
 });

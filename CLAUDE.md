@@ -143,8 +143,55 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
 - Appointment status endpoint enforces time-based rules in addition to RBAC and terminal-status protection: COMPLETED and NO_SHOW require the appointment to have already started; CANCELLED_BY_BUSINESS requires it has not yet started.
 - Available-slots engine (dashboard + public) is complete and covered by E2E tests.
 - Public booking read endpoints (`/public/businesses/:slug/…`) are complete.
+- Backend hardening (applied after mutation E2E phases):
+  - `createServiceProvider` rejects `isActive: true` when any linked service is inactive.
+  - `updateServiceProvider` enforces the inactive-service invariant even when `serviceIds` are absent from the payload (checks existing links before activation).
+  - `createAppointment` rejects a non-ACTIVE `BusinessCustomer` with `BadRequestException('Customer is not active')`.
+  - E2E coverage added for SP inactive-service activation/update paths and customer-activity check on appointment creation.
 - Approximate test counts: 22+ E2E suites / 400+ tests, 17+ unit suites / 285+ unit tests.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+
+## Current Mobile Frontend Status
+
+Mobile MVP CRUD is stable. All five `/mobile/` tabs are complete and role-gated.
+
+Completed tabs: `/mobile/home`, `/mobile/calendar`, `/mobile/customers`, `/mobile/services`, `/mobile/team`.
+
+Bottom nav is clean: all five tabs active, no "coming soon" overlays or state.
+
+Role behavior across all tabs:
+
+- **OWNER**: full create/edit on customers, services, team; create + manage appointments on calendar and home.
+- **MANAGER**: same as OWNER on customers, services, calendar; can edit existing `ServiceProvider`s on team but has no create FAB.
+- **MEMBER**: read-only on all tabs — no create or edit sheets are mounted.
+
+Mobile team specifics:
+
+- OWNER sees a FAB and can create a `ServiceProvider` linked to an eligible `BusinessUser`. Eligible = `status === 'ACTIVE'` AND `hasServiceProviderProfile === false`.
+- `GET /dashboard/businesses/:businessId/users` is OWNER-only. For non-OWNER roles the fetch is skipped entirely (`Promise.resolve([])`). No 403 is triggered for MANAGER.
+- `ProviderEditSheet` saves `displayName`/`serviceIds` first, then `isActive` in a second sequential call to avoid a race where the status validation (which checks service links in the DB) fires before the new `serviceIds` are committed.
+
+Mobile customer specifics:
+
+- Tapping a customer row always opens a read-only `CustomerDetailSheet` for all roles (OWNER, MANAGER, MEMBER).
+- `CustomerDetailSheet` shows: name, status badge, phone, email, notes, and customer appointment history.
+- OWNER/MANAGER see an "עריכת לקוח" button fixed at the bottom of the detail sheet. Tapping it opens `CustomerEditSheet` on top.
+- `CustomerEditSheet` contains only editable fields and the fixed save button. No history is shown there.
+- MEMBER sees details and history only — no edit action is mounted.
+
+Mobile customer appointment history:
+
+- `CustomerAppointmentHistory` component fetches past appointments for the selected customer using the backend `businessCustomerId` filter.
+- Lookback: 18 months. Cap: 10 rows. Sort: newest first (client-side reverse of backend ASC).
+- Each row shows: service name, status badge, date/time, provider name.
+- Hebrew empty/loading/error states included.
+- Calendar is not changed and remains future-only.
+
+ServiceProvider assignment policy (locked — do not change without explicit instruction):
+
+Removing a `serviceId` from a `ServiceProvider` does **not** block or cancel existing future appointments for that `(serviceProviderId, serviceId)` pair. Existing appointments remain valid and manageable. The change applies only to new bookings. Do not add blocking confirmation or cascade cancellation without an explicit product decision.
+
+Next mobile focus areas: public booking flow, notifications UI, billing UI.
 
 ## Workflow
 

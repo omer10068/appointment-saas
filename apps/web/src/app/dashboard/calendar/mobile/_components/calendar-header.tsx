@@ -1,52 +1,70 @@
 'use client';
 
-import { ChevronRight, ChevronLeft } from 'lucide-react';
-import { formatMonthYear, isCurrentWeek } from '../_lib/calendar.utils';
+import { ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
+import { formatWeekRange, isCurrentWeek } from '../_lib/calendar.utils';
 
 interface Props {
   selectedDate: Date;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
+  onOpenCalendar: () => void;
 }
 
-export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday }: Props) {
-  const showToday = !isCurrentWeek(selectedDate);
+export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, onOpenCalendar }: Props) {
+  const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
-    // dir="rtl" is inherited from the shell — ChevronRight (→) is on the right = prev week
-    <div className="flex items-center justify-between py-2 bg-transparent dark:bg-gray-900">
-      {/* First child → rightmost in RTL = previous week */}
+    // dir="rtl" inherited — DOM order maps to visual RTL positions:
+    // [היום] [›] [range] [‹] [🗓]  →  visual: [🗓] [‹] [range] [›] [היום]
+    <div className="flex items-center gap-1 px-1 pb-2.5">
+      {/* Far right in RTL — today shortcut */}
+      <button
+        onClick={onCurrentWeek ? undefined : onToday}
+        disabled={onCurrentWeek}
+        aria-label="חזור להיום"
+        className={[
+          'flex h-7 items-center rounded-full px-2 text-[11px] font-semibold transition',
+          onCurrentWeek
+            ? 'cursor-default text-muted-foreground/30'
+            : 'text-primary active:opacity-70',
+        ].join(' ')}
+      >
+        היום
+      </button>
+
+      {/* Previous week */}
       <button
         onClick={onPrevWeek}
         aria-label="שבוע קודם"
-        className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors"
+        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
       >
-        <ChevronRight size={20} />
+        <ChevronRight className="size-4" />
       </button>
 
-      {/* Center: month/year + today pill */}
-      <div className="flex flex-col items-center gap-0.5">
-        <h1 className="text-[15px] text-gray-900 dark:text-gray-100 leading-tight">
-          {formatMonthYear(selectedDate)}
-        </h1>
-        {showToday && (
-          <button
-            onClick={onToday}
-            className="text-[11px] text-blue-600 font-medium px-2.5 py-0.5 rounded-full hover:bg-blue-50 transition-colors"
-          >
-            היום
-          </button>
-        )}
+      {/* Week range — centered */}
+      <div className="flex-1 text-center">
+        <span className="text-xs font-bold text-foreground">
+          {formatWeekRange(selectedDate)}
+        </span>
       </div>
 
-      {/* Last child → leftmost in RTL = next week */}
+      {/* Next week */}
       <button
         onClick={onNextWeek}
         aria-label="שבוע הבא"
-        className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors"
+        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
       >
-        <ChevronLeft size={20} />
+        <ChevronLeft className="size-4" />
+      </button>
+
+      {/* Far left in RTL — full calendar picker */}
+      <button
+        onClick={onOpenCalendar}
+        aria-label="לוח שנה מלא"
+        className="flex size-7 items-center justify-center rounded-full text-primary transition active:scale-90 active:opacity-70"
+      >
+        <CalendarDays className="size-4" />
       </button>
     </div>
   );

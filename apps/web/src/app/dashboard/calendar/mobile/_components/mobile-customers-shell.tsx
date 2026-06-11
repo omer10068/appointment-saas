@@ -1,23 +1,29 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { Plus, Search, X } from 'lucide-react';
-import type { CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
+import { Search, Users, X, Phone, Mail, AlignLeft, Ban } from 'lucide-react';
+import { MobileFab } from './mobile-fab';
+import type { AppointmentStatus as ContractsStatus, CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
-import { fetchDashboardCustomers } from '../../../../../lib/api';
+import { fetchDashboardCustomers, updateDashboardAppointmentStatus } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CustomerCreateSheet } from './customer-create-sheet';
+import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CustomerEditSheet } from './customer-edit-sheet';
+import { CustomerAppointmentHistory } from './customer-appointment-history';
+import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { formatIsraeliPhone } from '../_lib/calendar.utils';
 import { LAYOUT } from '../_lib/calendar.design';
+import { mapDtoToAppointment } from '../_lib/calendar.mappers';
+import type { Appointment } from '../_lib/calendar.types';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<CustomerStatus, string> = {
-  ACTIVE:   'bg-green-50 text-green-700',
-  BLOCKED:  'bg-orange-50 text-orange-700',
-  ARCHIVED: 'bg-gray-100 text-gray-500',
+const STATUS_BADGE_STYLE: Record<CustomerStatus, { bg: string; text: string; dot: string }> = {
+  ACTIVE:   { bg: 'bg-emerald-50', text: 'text-emerald-700',      dot: 'bg-emerald-500' },
+  BLOCKED:  { bg: 'bg-red-50',     text: 'text-red-600',          dot: 'bg-red-500' },
+  ARCHIVED: { bg: 'bg-muted',      text: 'text-muted-foreground', dot: 'bg-muted-foreground/60' },
 };
 
 const STATUS_LABEL: Record<CustomerStatus, string> = {
@@ -26,61 +32,31 @@ const STATUS_LABEL: Record<CustomerStatus, string> = {
   ARCHIVED: 'ארכיון',
 };
 
-// ─── Customer row ─────────────────────────────────────────────────────────────
-
-interface CustomerRowProps {
-  customer: DashboardCustomerDto;
-  onClick: () => void;
+function getInitial(name: string): string {
+  return (name.trim()[0] ?? '').toUpperCase();
 }
 
-function CustomerRow({ customer, onClick }: CustomerRowProps) {
-  const isSecondary = customer.status !== 'ACTIVE';
+// ─── Customer row ─────────────────────────────────────────────────────────────
 
+function CustomerRow({ customer, onClick }: { customer: DashboardCustomerDto; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className={[
-        'w-full flex items-center gap-3 py-3.5',
-        'border-b border-gray-100 dark:border-gray-800',
-        'text-right transition-colors active:bg-black/3 dark:active:bg-white/3',
-        isSecondary ? 'opacity-50' : '',
-      ].join(' ')}
+      className="flex w-full items-center gap-3.5 rounded-2xl border border-border bg-card p-3.5 text-right shadow-sm shadow-foreground/5 transition active:scale-[0.99]"
     >
-      {/* Initials avatar */}
-      <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
-        <span className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">
-          {customer.fullName.charAt(0).toUpperCase()}
-        </span>
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+        <span className="text-sm font-bold">{getInitial(customer.fullName)}</span>
       </div>
-
-      {/* Name + email */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold text-gray-800 dark:text-gray-200 truncate leading-tight">
-          {customer.fullName}
-        </p>
-        {customer.email && (
-          <p
-            className="text-[11px] text-gray-400 dark:text-gray-500 truncate leading-tight"
-            dir="ltr"
-          >
-            {customer.email}
-          </p>
-        )}
-      </div>
-
-      {/* Status badge + phone */}
-      <div className="flex flex-col items-end gap-1 shrink-0">
-        <span
-          className={`text-[10px] font-medium px-2 py-0.5 rounded-full leading-none ${STATUS_BADGE[customer.status]}`}
-        >
-          {STATUS_LABEL[customer.status]}
-        </span>
-        <span
-          className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums"
-          dir="ltr"
-        >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-bold text-foreground">{customer.fullName}</p>
+          {customer.status === 'BLOCKED' && (
+            <Ban className="size-3.5 shrink-0 text-red-500" aria-hidden="true" />
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground" dir="ltr">
           {formatIsraeliPhone(customer.phone)}
-        </span>
+        </p>
       </div>
     </button>
   );
@@ -88,59 +64,68 @@ function CustomerRow({ customer, onClick }: CustomerRowProps) {
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
-function RowSkeleton() {
-  return (
-    <div className="flex items-center gap-3 py-3.5 border-b border-gray-100 dark:border-gray-800">
-      <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0" />
-      <div className="flex-1 flex flex-col gap-1.5">
-        <div className="h-3.5 w-28 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-3 w-36 rounded bg-gray-100 dark:bg-gray-800" />
-      </div>
-      <div className="flex flex-col items-end gap-1.5">
-        <div className="h-4 w-10 rounded-full bg-gray-100 dark:bg-gray-800" />
-        <div className="h-3 w-20 rounded bg-gray-100 dark:bg-gray-800" />
-      </div>
-    </div>
-  );
-}
-
 function LoadingSkeleton() {
   return (
-    <div className="px-4 animate-pulse flex flex-col">
+    <div className="animate-pulse space-y-2 px-5 pt-4">
       {[0, 1, 2, 3, 4].map((i) => (
-        <RowSkeleton key={i} />
+        <div key={i} className="flex items-center gap-3.5 rounded-2xl border border-border bg-card p-3.5">
+          <div className="size-11 shrink-0 rounded-full bg-muted" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 w-28 rounded-full bg-muted" />
+            <div className="h-3 w-20 rounded-full bg-muted" />
+          </div>
+        </div>
       ))}
     </div>
   );
 }
 
-// ─── Read-only detail sheet (MEMBER view) ─────────────────────────────────────
+// ─── Contact row ──────────────────────────────────────────────────────────────
 
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+function ContactRow({ icon, value, ltr }: { icon: ReactNode; value: string; ltr?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="text-[13px] text-gray-400 dark:text-gray-500 shrink-0 pt-0.5">
-        {label}
-      </span>
-      <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200 text-right min-w-0">
-        {children}
+    <div className="flex items-center gap-3">
+      <span className="shrink-0 text-primary">{icon}</span>
+      <span className="text-sm font-semibold text-foreground" dir={ltr ? 'ltr' : undefined}>
+        {value}
       </span>
     </div>
   );
 }
 
+// ─── Customer detail sheet ────────────────────────────────────────────────────
+
 interface CustomerDetailSheetProps {
   customer: DashboardCustomerDto | null;
+  businessId: string | null;
+  getToken: () => Promise<string | null>;
+  timezone: string;
+  canEdit: boolean;
+  historyRefreshKey: number;
+  onSelectHistoryAppointment: (apt: Appointment) => void;
+  onEdit: () => void;
   onClosed: () => void;
 }
 
-function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
+function CustomerDetailSheet({
+  customer,
+  businessId,
+  getToken,
+  timezone,
+  canEdit,
+  historyRefreshKey,
+  onSelectHistoryAppointment,
+  onEdit,
+  onClosed,
+}: CustomerDetailSheetProps) {
   const [visible, setVisible] = useState(false);
   const isClosingRef = useRef(false);
+  const [historyCount, setHistoryCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!customer) return;
     isClosingRef.current = false;
+    setHistoryCount(null);
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,11 +140,13 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
 
   if (!customer) return null;
 
+  const badge = STATUS_BADGE_STYLE[customer.status];
+
   return (
     <div className="fixed inset-0 z-60" dir="rtl">
       <div
         className={[
-          'absolute inset-0 bg-black/40 transition-opacity duration-300',
+          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
           visible ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
         onClick={triggerClose}
@@ -168,62 +155,107 @@ function CustomerDetailSheet({ customer, onClosed }: CustomerDetailSheetProps) {
 
       <div
         className={[
-          'absolute bottom-0 left-0 right-0',
-          'bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl',
+          'absolute bottom-0 left-0 right-0 flex flex-col',
+          'max-h-[88%]',
+          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
           'transition-transform duration-300 ease-out',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
+        {/* Handle + header */}
+        <div className="flex shrink-0 flex-col px-5 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          <div className="flex items-center justify-between pb-2">
+            <h2 className="text-lg font-extrabold text-foreground">פרטי לקוח</h2>
+            <button
+              onClick={triggerClose}
+              aria-label="סגור"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="bg-gray-50 dark:bg-gray-800 mx-4 mt-2 mb-4 rounded-2xl px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
-              <span className="text-[15px] font-bold text-gray-600 dark:text-gray-300">
-                {customer.fullName.charAt(0).toUpperCase()}
-              </span>
+        {/* Fixed: avatar + contact panel */}
+        <div className="shrink-0 space-y-5 px-5 pb-4 pt-2">
+          {/* Avatar + name + status */}
+          <div className="flex flex-col items-center text-center">
+            <div className="flex size-20 items-center justify-center rounded-full bg-accent text-accent-foreground">
+              <span className="text-2xl font-bold">{getInitial(customer.fullName)}</span>
             </div>
-            <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 leading-tight truncate">
-                {customer.fullName}
-              </p>
+            <p className="mt-3 text-lg font-extrabold text-foreground">{customer.fullName}</p>
+            <div className="mt-1.5">
               <span
-                className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[customer.status]}`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.bg} ${badge.text}`}
               >
+                <span className={`size-1.5 rounded-full ${badge.dot}`} />
                 {STATUS_LABEL[customer.status]}
               </span>
             </div>
           </div>
-          <button
-            onClick={triggerClose}
-            aria-label="סגור"
-            className="mr-3 p-1.5 rounded-full text-gray-400 hover:bg-black/5 active:bg-black/10 transition-colors shrink-0"
-          >
-            <X size={18} />
-          </button>
+
+          {/* Contact panel */}
+          <div className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4">
+            <ContactRow
+              icon={<Phone className="size-4" />}
+              value={formatIsraeliPhone(customer.phone)}
+              ltr
+            />
+            {customer.email && (
+              <ContactRow icon={<Mail className="size-4" />} value={customer.email} ltr />
+            )}
+            {customer.notes && (
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 shrink-0 text-primary">
+                  <AlignLeft className="size-4" />
+                </span>
+                <span className="flex-1 whitespace-pre-wrap text-sm leading-snug text-muted-foreground">
+                  {customer.notes}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="px-4 flex flex-col gap-4">
-          <DetailRow label="טלפון">
-            <span dir="ltr">{formatIsraeliPhone(customer.phone)}</span>
-          </DetailRow>
-          {customer.email && (
-            <DetailRow label="אימייל">
-              <span dir="ltr">{customer.email}</span>
-            </DetailRow>
-          )}
-          {customer.notes && (
-            <DetailRow label="הערות">
-              <span className="text-gray-600 dark:text-gray-300 leading-snug whitespace-pre-wrap">
-                {customer.notes}
+        {/* Fixed: history heading */}
+        <div className="shrink-0 border-t border-border px-5 pb-2 pt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-foreground">היסטוריית תורים</p>
+            {historyCount !== null && (
+              <span className="text-xs font-medium text-muted-foreground">
+                {historyCount} תורים
               </span>
-            </DetailRow>
-          )}
+            )}
+          </div>
         </div>
 
-        <div className="pb-8 pt-5" />
+        {/* Scrollable: history list only */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 pt-2">
+          <CustomerAppointmentHistory
+            businessId={businessId}
+            businessCustomerId={customer.businessCustomerId}
+            getToken={getToken}
+            timezone={timezone}
+            onCountReady={setHistoryCount}
+            refreshKey={historyRefreshKey}
+            onSelect={(dto) => onSelectHistoryAppointment(mapDtoToAppointment(dto, new Map()))}
+          />
+        </div>
+
+        {/* Footer */}
+        {canEdit ? (
+          <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
+            <button
+              onClick={onEdit}
+              className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98]"
+            >
+              עריכת לקוח
+            </button>
+          </div>
+        ) : (
+          <div className="pb-8 shrink-0" />
+        )}
       </div>
     </div>
   );
@@ -259,7 +291,13 @@ export function MobileCustomersShell() {
 
     fetchDashboardCustomers(businessId, () => getTokenRef.current())
       .then((data) => {
-        if (!cancelled) setCustomers(data);
+        if (!cancelled) {
+          setCustomers(data);
+          // Sync the open detail sheet with fresh data after any refresh.
+          setSelectedCustomer((prev) =>
+            prev ? (data.find((c) => c.businessCustomerId === prev.businessCustomerId) ?? prev) : null,
+          );
+        }
       })
       .catch(() => {
         if (!cancelled) setError('שגיאה בטעינת לקוחות');
@@ -272,21 +310,14 @@ export function MobileCustomersShell() {
   }, [businessId, retryKey]);
 
   // ── Search ────────────────────────────────────────────────────────────────────
-  // Strip non-digit chars from both query and phone so that "0521120018" matches
-  // a phone displayed as "052-112-0018".
 
   const [searchQuery, setSearchQuery] = useState('');
 
   const filtered = searchQuery.trim()
     ? customers.filter((c) => {
         const q = searchQuery.toLowerCase();
-
         if (c.fullName.toLowerCase().includes(q)) return true;
         if (c.email && c.email.toLowerCase().includes(q)) return true;
-
-        // Phone: only search by digits when the query looks like a phone number
-        // (digits, dashes, spaces, +). A mixed query like "054גגג" must NOT strip
-        // the letters and then accidentally match unrelated phones.
         if (/^[\d+\-\s]+$/.test(q)) {
           const queryDigits = q.replace(/\D/g, '');
           if (queryDigits.length > 0) {
@@ -294,59 +325,81 @@ export function MobileCustomersShell() {
             if (phoneDigits.includes(queryDigits)) return true;
           }
         }
-
         return false;
       })
     : customers;
 
+  // ── Grouped by initial letter ─────────────────────────────────────────────────
+
+  const grouped = filtered.reduce<Record<string, DashboardCustomerDto[]>>((acc, c) => {
+    const letter = getInitial(c.fullName) || '#';
+    (acc[letter] ??= []).push(c);
+    return acc;
+  }, {});
+  const letters = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'he'));
+
   // ── Sheet state ───────────────────────────────────────────────────────────────
 
-  const [selectedCustomer, setSelectedCustomer]   = useState<DashboardCustomerDto | null>(null);
-  const [showCreateSheet, setShowCreateSheet]     = useState(false);
+  const [selectedCustomer, setSelectedCustomer]           = useState<DashboardCustomerDto | null>(null);
+  const [isEditing, setIsEditing]                         = useState(false);
+  const [showCreateSheet, setShowCreateSheet]             = useState(false);
+  const [selectedHistoryApt, setSelectedHistoryApt]       = useState<Appointment | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey]         = useState(0);
+
+  async function handleHistoryStatusUpdate(
+    appointmentId: string,
+    newStatus: ContractsStatus,
+  ): Promise<void> {
+    if (!businessId) return;
+    await updateDashboardAppointmentStatus(
+      businessId,
+      appointmentId,
+      { status: newStatus },
+      () => getTokenRef.current(),
+    );
+    setHistoryRefreshKey((k) => k + 1);
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      className={[
-        'fixed inset-0 z-50 flex flex-col overflow-hidden',
-        'bg-gray-50 dark:bg-gray-950',
-        'md:inset-auto md:top-1/2 md:left-1/2',
-        'md:-translate-x-1/2 md:-translate-y-1/2',
-        'md:w-107.5 md:h-[90dvh]',
-        'md:rounded-4xl md:shadow-2xl md:overflow-hidden',
-      ].join(' ')}
-      dir="rtl"
-    >
+    <MobilePhoneFrame dir="rtl">
       {/* Header */}
-      <div className="flex-none px-6 pt-5 pb-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-        {businessName && (
-          <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">
-            {businessName}
-          </p>
-        )}
-        <h1 className="text-[22px] font-bold text-gray-900 dark:text-gray-100 leading-tight">
-          לקוחות
-        </h1>
+      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+        <div className="flex items-start justify-between">
+          <div>
+            {businessName && (
+              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                {businessName}
+              </p>
+            )}
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
+              לקוחות
+            </h1>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
+              {customers.length} לקוחות
+            </p>
+          </div>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <Users className="size-5" />
+          </div>
+        </div>
 
         {/* Search bar */}
-        <div className="mt-3 relative">
-          <Search
-            size={15}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-          />
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-border bg-muted px-4 py-3">
+          <Search size={16} className="shrink-0 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="חיפוש לפי שם או טלפון"
-            className="w-full h-9 pr-9 pl-9 rounded-xl text-[13px] bg-gray-100 dark:bg-gray-800 outline-none text-gray-800 dark:text-gray-200 placeholder:text-gray-400"
+            className="flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
               aria-label="נקה חיפוש"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-gray-400 hover:text-gray-600 active:text-gray-800"
+              className="shrink-0 p-0.5 text-muted-foreground transition active:opacity-60"
             >
               <X size={14} />
             </button>
@@ -357,76 +410,86 @@ export function MobileCustomersShell() {
       {/* Scrollable content */}
       <div
         className="flex-1 overflow-y-auto"
-        style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 16 }}
+        style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 88 }}
       >
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <p className="text-[14px] text-gray-500 dark:text-gray-400">{error}</p>
-            <button
-              onClick={retry}
-              className="text-[13px] font-medium text-blue-600 dark:text-blue-400"
-            >
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-12">
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <button onClick={retry} className="text-sm font-medium text-primary">
               נסה שוב
             </button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2 px-6">
-            <p className="text-[14px] text-gray-400 dark:text-gray-500 text-center">
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-12">
+            <p className="text-center text-sm text-muted-foreground">
               {searchQuery ? 'לא נמצאו תוצאות לחיפוש זה' : 'אין לקוחות עדיין'}
             </p>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-[13px] font-medium text-blue-600 dark:text-blue-400"
+                className="text-sm font-medium text-primary"
               >
                 נקה חיפוש
               </button>
             )}
           </div>
         ) : (
-          <div className="px-4">
-            {filtered.map((customer) => (
-              <CustomerRow
-                key={customer.businessCustomerId}
-                customer={customer}
-                onClick={() => setSelectedCustomer(customer)}
-              />
+          <div className="space-y-5 px-5 pb-4 pt-4">
+            {letters.map((letter) => (
+              <section key={letter}>
+                <p className="mb-2 px-1 text-xs font-bold text-primary">{letter}</p>
+                <ul className="space-y-2">
+                  {grouped[letter].map((customer) => (
+                    <li key={customer.businessCustomerId}>
+                      <CustomerRow
+                        customer={customer}
+                        onClick={() => setSelectedCustomer(customer)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
           </div>
         )}
       </div>
 
       {/* FAB — OWNER/MANAGER only */}
-      {canMutate && (
-        <button
-          onClick={() => setShowCreateSheet(true)}
-          aria-label="הוסף לקוח"
-          className="absolute left-4 w-14 h-14 rounded-full bg-[#2d2d3a] dark:bg-[#3d3d4a] text-white shadow-lg flex items-center justify-center active:opacity-75 transition-opacity z-10"
-          style={{ bottom: LAYOUT.fabBottomOffset }}
-        >
-          <Plus size={24} />
-        </button>
-      )}
+      {canMutate && <MobileFab onClick={() => setShowCreateSheet(true)} ariaLabel="הוסף לקוח" />}
 
       <CalendarBottomNav activeKey="customers" />
 
-      {/* Detail sheet — MEMBER only */}
-      {!canMutate && (
-        <CustomerDetailSheet
-          customer={selectedCustomer}
-          onClosed={() => setSelectedCustomer(null)}
-        />
-      )}
+      {/* Detail sheet — all roles; always opens on row tap */}
+      <CustomerDetailSheet
+        customer={selectedCustomer}
+        businessId={businessId}
+        getToken={() => getTokenRef.current()}
+        timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
+        canEdit={canMutate}
+        historyRefreshKey={historyRefreshKey}
+        onSelectHistoryAppointment={setSelectedHistoryApt}
+        onEdit={() => setIsEditing(true)}
+        onClosed={() => { setSelectedCustomer(null); setIsEditing(false); }}
+      />
 
-      {/* Edit sheet — OWNER/MANAGER */}
-      {canMutate && (
+      {/* Appointment detail sheet — opens when tapping a history item */}
+      <CalendarAppointmentSheet
+        appointment={selectedHistoryApt}
+        timezone={currentBusiness?.business.timezone ?? 'Asia/Jerusalem'}
+        canMutate={canMutate}
+        onStatusUpdate={handleHistoryStatusUpdate}
+        onClosed={() => setSelectedHistoryApt(null)}
+      />
+
+      {/* Edit sheet — OWNER/MANAGER; layers on top of detail sheet */}
+      {isEditing && canMutate && (
         <CustomerEditSheet
           customer={selectedCustomer}
           businessId={businessId}
           getToken={() => getTokenRef.current()}
-          onClosed={() => setSelectedCustomer(null)}
+          onClosed={() => setIsEditing(false)}
           onSaved={retry}
         />
       )}
@@ -441,6 +504,6 @@ export function MobileCustomersShell() {
           onCreated={retry}
         />
       )}
-    </div>
+    </MobilePhoneFrame>
   );
 }

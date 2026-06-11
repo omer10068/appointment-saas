@@ -10,6 +10,7 @@ import {
   BusinessStatus,
   BusinessUserRole,
   BusinessUserStatus,
+  CustomerStatus,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingValidationService } from './booking-validation.service';
@@ -117,6 +118,9 @@ export class AppointmentsService {
     if (query.status) {
       where['status'] = query.status;
     }
+    if (query.businessCustomerId) {
+      where['businessCustomerId'] = query.businessCustomerId;
+    }
 
     const rows = await this.prisma.appointment.findMany({
       where,
@@ -149,9 +153,11 @@ export class AppointmentsService {
 
     const customer = await this.prisma.businessCustomer.findFirst({
       where: { id: dto.businessCustomerId, businessId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!customer) throw new NotFoundException('Customer not found');
+    if (customer.status !== CustomerStatus.ACTIVE)
+      throw new BadRequestException('Customer is not active');
 
     await this.assertServiceProviderReadyForBooking(
       dto.serviceProviderId,

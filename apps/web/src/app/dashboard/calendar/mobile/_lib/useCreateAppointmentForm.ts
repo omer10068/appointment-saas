@@ -11,7 +11,7 @@ import {
   fetchDashboardCustomers,
 } from '../../../../../lib/api';
 import type { AvailableSlotItem } from '../../../../../lib/api';
-import { toLocalDateString } from './calendar.utils';
+import { isFutureSlot, toLocalDateString } from './calendar.utils';
 import type { ServiceProvider } from './calendar.types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -164,7 +164,7 @@ export function useCreateAppointmentForm(params: {
       () => getTokenRef.current(),
     )
       .then((res) => {
-        if (!cancelled) setSlots(res.slots);
+        if (!cancelled) setSlots(res.slots.filter(isFutureSlot));
       })
       .catch(() => {
         if (!cancelled) {

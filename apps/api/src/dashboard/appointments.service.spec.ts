@@ -413,7 +413,7 @@ describe('AppointmentsService', () => {
       setupHappyPath();
       // SP conflict check passes; customer conflict check fires
       mockPrisma.appointment.findFirst
-        .mockResolvedValueOnce(null)             // checkServiceProviderConflict: no conflict
+        .mockResolvedValueOnce(null) // checkServiceProviderConflict: no conflict
         .mockResolvedValueOnce(mockAppointment); // checkCustomerConflict: conflict!
 
       await expect(
@@ -519,8 +519,8 @@ describe('AppointmentsService', () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.appointment.findFirst
         .mockResolvedValueOnce(mockAppointment) // fetch existing
-        .mockResolvedValueOnce(null)             // SP conflict check
-        .mockResolvedValueOnce(null);            // customer conflict check
+        .mockResolvedValueOnce(null) // SP conflict check
+        .mockResolvedValueOnce(null); // customer conflict check
       mockPrisma.appointment.update.mockResolvedValue(
         mockAppointmentRow as unknown as Appointment,
       );
@@ -571,8 +571,8 @@ describe('AppointmentsService', () => {
 
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.appointment.findFirst
-        .mockResolvedValueOnce(mockAppointment)  // fetch existing
-        .mockResolvedValueOnce(null)              // SP conflict: ok
+        .mockResolvedValueOnce(mockAppointment) // fetch existing
+        .mockResolvedValueOnce(null) // SP conflict: ok
         .mockResolvedValueOnce(mockAppointment); // customer conflict: conflict!
 
       await expect(
@@ -754,7 +754,7 @@ describe('AppointmentsService', () => {
         mockPrisma.appointment.update.mockResolvedValue({
           ...mockAppointmentRow,
           status,
-        } as unknown as Appointment);
+        });
 
         await expect(
           service.setAppointmentStatus(USER_ID, BUSINESS_ID, APPOINTMENT_ID, {

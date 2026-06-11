@@ -2,20 +2,26 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '../../../../../lib/api';
-import { addDays, isSameDay } from '../_lib/calendar.utils';
+import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';
+import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
 import { CalendarDayPicker } from './calendar-day-picker';
 import { CalendarServiceProviderFilter } from './calendar-service-provider-filter';
 import { CalendarTimeline } from './calendar-timeline';
-import { CalendarNewButton } from './calendar-new-button';
+import { MobileFab } from './mobile-fab';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
+import { MobilePhoneFrame } from './mobile-phone-frame';
+import { MobileToast } from './mobile-toast';
+import { useMobileToast } from '../_lib/useMobileToast';
 import { CalendarCreateSheet } from './calendar-create-sheet';
+import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -23,6 +29,7 @@ export function MobileCalendarShell() {
   getTokenRef.current = getToken;
 
   const { currentBusinessId, currentBusiness } = useDashboardBusiness();
+  const businessName = currentBusiness?.business.name;
 
   // Use the business's IANA timezone for all time display and timeline positioning.
   // Falls back to the browser's own timezone so behaviour is unchanged when the field is absent.
@@ -41,22 +48,11 @@ export function MobileCalendarShell() {
   const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
 
-  // ── Success banner ────────────────────────────────────────────────────────────
-  const [successBanner, setSuccessBanner] = useState<string | null>(null);
-  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (successTimerRef.current) clearTimeout(successTimerRef.current);
-    };
-  }, []);
-
-  function showSuccess(message: string) {
-    if (successTimerRef.current) clearTimeout(successTimerRef.current);
-    setSuccessBanner(message);
-    successTimerRef.current = setTimeout(() => setSuccessBanner(null), 3500);
-  }
+  // ── Toast ─────────────────────────────────────────────────────────────────────
+  const { message: toastMessage, showToast } = useMobileToast();
 
   const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
     useMobileCalendarData(currentBusinessId, selectedDate);
@@ -71,6 +67,17 @@ export function MobileCalendarShell() {
       setSelectedServiceProviderId(myProvider.id);
     }
     autoFilterApplied.current = true;
+  }, [serviceProviders, currentBusiness]);
+
+  // Current user's provider first, then the rest in original API order.
+  // RTL renders the first item rightmost, so this also pins the user's lane to the right.
+  const sortedServiceProviders = useMemo(() => {
+    if (!currentBusiness) return serviceProviders;
+    return [...serviceProviders].sort((a, b) => {
+      if (a.businessUserId === currentBusiness.id) return -1;
+      if (b.businessUserId === currentBusiness.id) return 1;
+      return 0;
+    });
   }, [serviceProviders, currentBusiness]);
 
   // All appointments for the selected day (used by the timeline)
@@ -143,6 +150,10 @@ export function MobileCalendarShell() {
     refreshWeek();
   }
 
+  function handleReschedule() {
+    setRescheduleTarget(selectedAppointment);
+  }
+
   return (
     // PHONE PREVIEW WRAPPER
     // Mobile  : fixed full-screen overlay (inset-0)
@@ -152,37 +163,46 @@ export function MobileCalendarShell() {
     // relative to this container on desktop, not the viewport — no extra work needed.
     //
     // Remove the md: classes when a proper desktop layout is designed.
-    <div
-      className={[
-        'fixed inset-0 z-50 flex flex-col overflow-hidden',
-        'bg-gray-50 dark:bg-gray-950',
-        'md:inset-auto md:top-1/2 md:left-1/2',
-        'md:-translate-x-1/2 md:-translate-y-1/2',
-        'md:w-107.5 md:h-[90dvh]',
-        'md:rounded-4xl md:shadow-2xl md:overflow-hidden',
-      ].join(' ')}
-      dir="rtl"
-    >
-      <CalendarHeader
-        selectedDate={selectedDate}
-        onPrevWeek={handlePrevWeek}
-        onNextWeek={handleNextWeek}
-        onToday={handleToday}
-      />
-
-      <CalendarDayPicker
-        selectedDate={selectedDate}
-        today={today}
-        onSelect={setSelectedDate}
-      />
-
-      {/* ── Success banner (auto-dismisses after 3.5 s) ─────────────────── */}
-      {successBanner && (
-        <div className="flex-none flex items-center justify-center gap-2 bg-emerald-500 dark:bg-emerald-600 text-white text-[13px] font-semibold px-4 py-2.5">
-          <span aria-hidden="true">✓</span>
-          <span>{successBanner}</span>
+    <MobilePhoneFrame dir="rtl">
+      {/* Page header */}
+      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+        <div className="flex items-start justify-between">
+          <div>
+            {businessName && (
+              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                {businessName}
+              </p>
+            )}
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
+              יומן
+            </h1>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
+              {formatMonthYear(selectedDate)}
+            </p>
+          </div>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <Calendar className="size-5" />
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Week strip: nav row + day picker share one card section */}
+      <div className="flex-none border-b border-border bg-card px-3 pb-3 pt-2">
+        <CalendarHeader
+          selectedDate={selectedDate}
+          onPrevWeek={handlePrevWeek}
+          onNextWeek={handleNextWeek}
+          onToday={handleToday}
+          onOpenCalendar={() => setShowMonthPicker(true)}
+        />
+        <CalendarDayPicker
+          selectedDate={selectedDate}
+          today={today}
+          onSelect={setSelectedDate}
+        />
+      </div>
+
+      <MobileToast message={toastMessage} />
 
       {/* ── Content area ───────────────────────────────────────────────── */}
 
@@ -206,13 +226,15 @@ export function MobileCalendarShell() {
         </div>
       ) : (
         <>
-          <CalendarServiceProviderFilter
-            serviceProviders={serviceProviders}
-            selectedServiceProviderId={selectedServiceProviderId}
-            onSelectServiceProvider={setSelectedServiceProviderId}
-            appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
-            totalAppointmentsCount={countableDayAppointments.length}
-          />
+          {sortedServiceProviders.length >= 2 && (
+            <CalendarServiceProviderFilter
+              serviceProviders={sortedServiceProviders}
+              selectedServiceProviderId={selectedServiceProviderId}
+              onSelectServiceProvider={setSelectedServiceProviderId}
+              appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
+              totalAppointmentsCount={countableDayAppointments.length}
+            />
+          )}
 
           <CalendarTimeline
             key={todayResetKey}
@@ -220,12 +242,12 @@ export function MobileCalendarShell() {
             appointments={timelineAppointments}
             timezone={timezone}
             onSelectAppointment={setSelectedAppointment}
-            serviceProviders={selectedServiceProviderId === 'all' ? serviceProviders : undefined}
+            serviceProviders={selectedServiceProviderId === 'all' ? sortedServiceProviders : undefined}
           />
         </>
       )}
 
-      {canMutate && <CalendarNewButton onClick={handleNewAppointment} />}
+      {canMutate && <MobileFab onClick={handleNewAppointment} />}
       <CalendarBottomNav activeKey="calendar" />
 
       <CalendarAppointmentSheet
@@ -233,7 +255,38 @@ export function MobileCalendarShell() {
         timezone={timezone}
         canMutate={canMutate}
         onStatusUpdate={handleStatusUpdate}
+        onReschedule={canMutate ? handleReschedule : undefined}
         onClosed={() => setSelectedAppointment(null)}
+      />
+
+      <CalendarMonthPicker
+        open={showMonthPicker}
+        selectedDate={selectedDate}
+        timezone={timezone}
+        appointmentDates={appointments.map((a) => a.startTime)}
+        onSelectDate={(date) => {
+          setSelectedDate(date);
+          setTodayResetKey((k) => k + 1);
+        }}
+        onClosed={() => setShowMonthPicker(false)}
+      />
+
+      <RescheduleAppointmentSheet
+        appointment={rescheduleTarget}
+        businessId={currentBusinessId}
+        getToken={() => getTokenRef.current()}
+        timezone={timezone}
+        onSuccess={(newStartsAt) => {
+          // Navigate to the week containing the rescheduled appointment.
+          // If the new date is in the same week, setSelectedDate is a no-op for navigation
+          // but useMobileCalendarData still refetches because refreshWeek() bumps its key.
+          const newDate = new Date(newStartsAt);
+          setSelectedDate(newDate);
+          setSelectedAppointment(null);
+          refreshWeek();
+          showToast('התור עודכן בהצלחה');
+        }}
+        onClosed={() => setRescheduleTarget(null)}
       />
 
       <CalendarCreateSheet
@@ -244,7 +297,7 @@ export function MobileCalendarShell() {
           // then refresh so it appears in the timeline immediately.
           setSelectedDate(appointmentDate);
           refreshWeek();
-          showSuccess('התור נוסף בהצלחה');
+          showToast('התור נוסף בהצלחה');
         }}
         businessId={currentBusinessId}
         timezone={timezone}
@@ -253,6 +306,6 @@ export function MobileCalendarShell() {
         serviceProviders={serviceProviders}
         currentBusinessUserId={currentBusiness?.id}
       />
-    </div>
+    </MobilePhoneFrame>
   );
 }

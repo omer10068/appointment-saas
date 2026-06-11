@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, Fragment } from 'react';
 import type { Appointment, AppointmentStatus, ServiceProvider } from '../_lib/calendar.types';
-import { TIMELINE, LAYOUT, GRID } from '../_lib/calendar.design';
+import { TIMELINE, LAYOUT } from '../_lib/calendar.design';
 import { isSameDay, formatTime, minutesFromMidnightInTimeZone } from '../_lib/calendar.utils';
 import { CalendarAppointmentCard } from './calendar-appointment-card';
 import { CalendarEmptyState } from './calendar-empty-state';
@@ -124,10 +124,39 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
   const laneProviders = serviceProviders && serviceProviders.length > 1 ? serviceProviders : null;
 
+  // Tracks whether we've already scrolled for the current date.
+  // Prevents re-scrolling on status refreshes after the user has scrolled manually.
+  const scrolledDateRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = 0;
-  }, [selectedDate]);
+
+    const dateKey = selectedDate.toDateString();
+
+    // New date selected — reset to top and clear the guard so we scroll once appointments load.
+    if (scrolledDateRef.current !== dateKey) {
+      scrollRef.current.scrollTop = 0;
+    }
+
+    const dayAppts = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
+    if (dayAppts.length === 0) {
+      scrolledDateRef.current = null;
+      return;
+    }
+
+    // Already scrolled for this date — don't jump again.
+    if (scrolledDateRef.current === dateKey) return;
+    scrolledDateRef.current = dateKey;
+
+    const earliest = dayAppts.reduce((prev, curr) =>
+      curr.startTime < prev.startTime ? curr : prev,
+    );
+    const layout = appointmentLayout(earliest, timezone);
+    if (!layout) return;
+
+    // Scroll so the first appointment has ~32 px of breathing room above it.
+    scrollRef.current.scrollTop = Math.max(0, layout.top - 32);
+  }, [selectedDate, appointments, timezone]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -140,17 +169,40 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
 
   if (dayAppointments.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto flex flex-col">
+      <div className="flex-1 overflow-y-auto flex flex-col bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden">
         <CalendarEmptyState />
       </div>
     );
   }
 
   return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Provider column headers — outside scroll container to avoid sticky jitter */}
+      {laneProviders && (
+        <div
+          className="flex-none flex bg-card"
+          style={{ paddingRight: TIME_LABEL_WIDTH }}
+        >
+          {laneProviders.map((sp, i) => (
+            <div
+              key={sp.id}
+              className={[
+                'flex flex-1 items-center justify-center py-2',
+                i > 0 ? 'border-r border-border/10' : '',
+              ].join(' ')}
+            >
+              <span className="truncate px-1 text-[11px] font-semibold leading-none text-muted-foreground/80">
+                {sp.name.split(' ')[0]}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto bg-transparent"
-      style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 72 }}
+      className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
+      style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 104 }}
     >
       <div className="relative mt-2" style={{ height: TOTAL_HEIGHT_PX }}>
 
@@ -160,41 +212,31 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
             slot.isHour ? (
               <div
                 key={slot.topPx}
-                className="absolute inset-x-0 border-t"
-                style={{ top: slot.topPx, borderColor: GRID.hourLineColor }}
+                className="absolute h-px bg-border/40"
+                style={{ top: slot.topPx, left: 0, right: TIME_LABEL_WIDTH }}
               />
             ) : (
               <div
                 key={slot.topPx}
-                className="absolute inset-x-0 h-px"
-                style={{
-                  top: slot.topPx,
-                  backgroundImage: `repeating-linear-gradient(to left, ${GRID.halfHourLineColor} 0 3px, transparent 3px 6px)`,
-                }}
+                className="absolute border-t border-dashed border-border/30"
+                style={{ top: slot.topPx, left: 0, right: TIME_LABEL_WIDTH }}
               />
             ),
           )}
         </div>
 
-        {/* ── Layer A: time labels (right column) ───────────────────────── */}
+        {/* ── Layer A: time labels (right column, hour marks only) ────────── */}
         <div
           className="absolute top-0 right-0 z-4 pointer-events-none"
           style={{ width: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          {GRID_SLOTS.map((slot) => (
+          {GRID_SLOTS.filter((slot) => slot.isHour).map((slot) => (
             <div
               key={slot.topPx}
               className="absolute inset-x-0 h-5 flex items-center justify-center"
               style={{ top: slot.topPx, transform: 'translateY(-50%)' }}
             >
-              <span
-                className={[
-                  'relative inline-flex h-5 translate-y-px items-center bg-gray-50 leading-5',
-                  slot.isHour
-                    ? 'px-1 text-[11px] text-[#6b5b7a]'
-                    : 'px-0.5 text-[9px] text-[#9a93a3]',
-                ].join(' ')}
-              >
+              <span className="relative inline-flex h-5 translate-y-px items-center px-1 text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground/80">
                 {slot.label}
               </span>
             </div>
@@ -206,36 +248,15 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           className="absolute top-0 left-0"
           style={{ right: TIME_LABEL_WIDTH, height: TOTAL_HEIGHT_PX }}
         >
-          <div className="absolute top-0 bottom-0 right-0 z-1 w-px bg-[#d8d5de] pointer-events-none" />
-
           {laneProviders ? (
             <>
               {/* Vertical lane separators */}
               {laneProviders.slice(1).map((_, i) => (
                 <div
                   key={`lane-sep-${i}`}
-                  className="absolute top-0 bottom-0 z-1 w-px bg-[#d8d5de] pointer-events-none"
+                  className="absolute top-0 bottom-0 z-1 w-px bg-border/20 pointer-events-none"
                   style={{ right: `${((i + 1) * 100) / laneProviders.length}%` }}
                 />
-              ))}
-
-              {/* Lane name labels */}
-              {laneProviders.map((sp, i) => (
-                <div
-                  key={`lane-label-${sp.id}`}
-                  className="absolute z-5 flex items-center justify-center pointer-events-none"
-                  style={{
-                    top: 0,
-                    right: `${(i * 100) / laneProviders.length}%`,
-                    width: `${100 / laneProviders.length}%`,
-                    height: 16,
-                    transform: 'translateY(-50%)',
-                  }}
-                >
-                  <span className="bg-gray-50 dark:bg-gray-950 px-1.5 text-[10px] text-gray-400 font-normal leading-none">
-                    {sp.name.split(' ')[0]}
-                  </span>
-                </div>
               ))}
 
               {/* Appointments grouped by lane */}
@@ -262,7 +283,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                           }}
                         >
                           <div
-                            className="absolute overflow-hidden rounded-l-md rounded-r-none"
+                            className="absolute overflow-hidden rounded-l-xl rounded-r-sm"
                             style={{
                               top: APPT_VERTICAL_GAP_PX,
                               bottom: APPT_VERTICAL_GAP_PX,
@@ -312,7 +333,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
                   }}
                 >
                   <div
-                    className="absolute inset-x-0 overflow-hidden rounded-l-md rounded-r-none"
+                    className="absolute inset-x-0 overflow-hidden rounded-l-xl rounded-r-sm"
                     style={{
                       top: APPT_VERTICAL_GAP_PX,
                       bottom: APPT_VERTICAL_GAP_PX,
@@ -344,6 +365,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
