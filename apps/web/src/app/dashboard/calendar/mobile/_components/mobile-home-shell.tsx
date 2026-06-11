@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { Clock3, ChevronLeft, Home, CalendarDays } from 'lucide-react';
+import { Clock3, ChevronLeft, Home } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
@@ -13,7 +13,6 @@ import {
   updateDashboardAppointmentStatus,
 } from '../../../../../lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
-import { CalendarMonthPicker } from './calendar-month-picker';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
@@ -400,7 +399,6 @@ export function MobileHomeShell() {
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet]         = useState(false);
-  const [showMonthPicker, setShowMonthPicker]         = useState(false);
 
   const tz           = timezone ?? 'UTC';
   const todayLabel   = formatDate(new Date(), tz);
@@ -440,18 +438,9 @@ export function MobileHomeShell() {
             </p>
           </div>
 
-          {/* Right side (RTL end = physical left): calendar + home icons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowMonthPicker(true)}
-              aria-label="לוח שנה"
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-primary ring-1 ring-primary/10 transition active:scale-90 active:bg-accent/60"
-            >
-              <CalendarDays className="size-5" />
-            </button>
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-              <Home className="size-5" />
-            </div>
+          {/* Right side (RTL end = physical left): home icon avatar */}
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <Home className="size-5" />
           </div>
         </div>
       </header>
@@ -499,17 +488,6 @@ export function MobileHomeShell() {
       <MobileToast message={toastMessage} />
 
       {canMutate && <MobileFab onClick={openCreate} ariaLabel="קביעת תור חדש" />}
-
-      <CalendarMonthPicker
-        open={showMonthPicker}
-        selectedDate={new Date()}
-        timezone={tz}
-        onSelectDate={(date) => {
-          // Navigate to the calendar tab; the selected date is passed via URL param.
-          router.push(`/mobile/calendar?date=${date.toISOString().slice(0, 10)}`);
-        }}
-        onClosed={() => setShowMonthPicker(false)}
-      />
 
       <CalendarBottomNav activeKey="home" />
 

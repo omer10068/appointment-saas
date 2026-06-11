@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Loader2, Check, Search, AlertCircle, CalendarDays } from 'lucide-react';
 import { useDashboardI18n } from '../../../_i18n/useDashboardI18n';
 import { formatDate, formatIsraeliPhone } from '../_lib/calendar.utils';
-import { CalendarDatePicker } from './calendar-date-picker';
+import { CalendarMonthPicker } from './calendar-month-picker';
 import { useCreateAppointmentForm } from '../_lib/useCreateAppointmentForm';
 import type { Service, ServiceProvider } from '../_lib/calendar.types';
 
@@ -329,18 +329,6 @@ export function CalendarCreateSheet({
                   {formatDate(form.selectedDate, timezone)}
                 </span>
               </button>
-              {showCalendar && (
-                <div className="mt-2 rounded-2xl border border-border bg-muted p-4">
-                  <CalendarDatePicker
-                    selectedDate={form.selectedDate}
-                    timezone={timezone}
-                    onSelect={(date) => {
-                      form.selectDate(date);
-                      setShowCalendar(false);
-                    }}
-                  />
-                </div>
-              )}
             </FormField>
 
             {/* ── Slots (shown once service + provider are selected) ───────── */}
@@ -409,7 +397,7 @@ export function CalendarCreateSheet({
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       placeholder="חיפוש לפי שם או טלפון"
-                      className="w-full bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
+                      className="w-full bg-transparent text-base text-foreground placeholder:text-sm placeholder:text-muted-foreground focus:outline-none"
                     />
                   </div>
 
@@ -505,6 +493,17 @@ export function CalendarCreateSheet({
           </button>
         </div>
       </div>
+
+      {/* Month picker — rendered outside the transformed sheet div so fixed positioning works correctly */}
+      <CalendarMonthPicker
+        open={showCalendar}
+        selectedDate={form.selectedDate}
+        timezone={timezone}
+        onSelectDate={(date) => {
+          form.selectDate(date);
+        }}
+        onClosed={() => setShowCalendar(false)}
+      />
     </div>
   );
 }

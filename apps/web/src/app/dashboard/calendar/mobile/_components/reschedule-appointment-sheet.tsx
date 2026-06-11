@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Loader2, AlertCircle, CalendarDays } from 'lucide-react';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
 import type { Appointment } from '../_lib/calendar.types';
-import { CalendarDatePicker } from './calendar-date-picker';
+import { CalendarMonthPicker } from './calendar-month-picker';
 import { useRescheduleAppointmentForm } from '../_lib/useRescheduleAppointmentForm';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -166,18 +166,6 @@ export function RescheduleAppointmentSheet({
                   {formatDate(form.selectedDate, timezone)}
                 </span>
               </button>
-              {showCalendar && (
-                <div className="mt-2 rounded-2xl border border-border bg-muted p-4">
-                  <CalendarDatePicker
-                    selectedDate={form.selectedDate}
-                    timezone={timezone}
-                    onSelect={(date) => {
-                      form.selectDate(date);
-                      setShowCalendar(false);
-                    }}
-                  />
-                </div>
-              )}
             </FormField>
 
             {/* Time slots */}
@@ -243,6 +231,18 @@ export function RescheduleAppointmentSheet({
           </button>
         </div>
       </div>
+
+      {/* Month picker — rendered outside the transformed sheet div so fixed positioning works correctly */}
+      <CalendarMonthPicker
+        open={showCalendar}
+        selectedDate={form.selectedDate}
+        timezone={timezone}
+        onSelectDate={(date) => {
+          form.selectDate(date);
+          setShowCalendar(false);
+        }}
+        onClosed={() => setShowCalendar(false)}
+      />
     </div>
   );
 }
