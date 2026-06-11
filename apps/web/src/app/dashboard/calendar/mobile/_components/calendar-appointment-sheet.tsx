@@ -22,12 +22,12 @@ const STATUS_BADGE_STYLE: Record<
   AppointmentStatus,
   { bg: string; text: string; dot: string }
 > = {
-  scheduled:             { bg: 'bg-accent',     text: 'text-accent-foreground', dot: 'bg-primary' },
-  confirmed:             { bg: 'bg-accent',     text: 'text-accent-foreground', dot: 'bg-primary' },
-  completed:             { bg: 'bg-emerald-50', text: 'text-emerald-700',       dot: 'bg-emerald-500' },
-  cancelled_by_customer: { bg: 'bg-muted',      text: 'text-muted-foreground',  dot: 'bg-muted-foreground/60' },
-  cancelled_by_business: { bg: 'bg-muted',      text: 'text-muted-foreground',  dot: 'bg-muted-foreground/60' },
-  no_show:               { bg: 'bg-amber-50',   text: 'text-amber-700',         dot: 'bg-amber-500' },
+  scheduled: { bg: 'bg-accent', text: 'text-accent-foreground', dot: 'bg-primary' },
+  confirmed: { bg: 'bg-accent', text: 'text-accent-foreground', dot: 'bg-primary' },
+  completed: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  cancelled_by_customer: { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground/60' },
+  cancelled_by_business: { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground/60' },
+  no_show: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
 };
 
 // Terminal statuses receive no action buttons.
@@ -76,12 +76,12 @@ export function CalendarAppointmentSheet({
   const tForm = dict.appointmentForm;
 
   const STATUS_LABELS: Record<AppointmentStatus, string> = {
-    scheduled:             tList.statusScheduled,
-    confirmed:             tList.statusConfirmed,
-    completed:             tList.statusCompleted,
+    scheduled: tList.statusScheduled,
+    confirmed: tList.statusConfirmed,
+    completed: tList.statusCompleted,
     cancelled_by_customer: tList.statusCancelledByCustomer,
     cancelled_by_business: tList.statusCancelledByBusiness,
-    no_show:               tList.statusNoShow,
+    no_show: tList.statusNoShow,
   };
 
   // ── Animation state ──────────────────────────────────────────────────────
@@ -207,26 +207,32 @@ export function CalendarAppointmentSheet({
             {/* Details panel */}
             <div className="space-y-2.5 rounded-2xl border border-border bg-muted/50 p-4">
               <DetailRow icon={<Clock3 className="size-4" />} label="שעה">
-                <span className="tabular-nums" dir="ltr">
+                <span className="tabular-nums text-[12px] font-semibold" dir="ltr">
                   {formatTime(appointment.startTime, timezone)} - {formatTime(appointment.endTime, timezone)}
                 </span>
               </DetailRow>
 
               <DetailRow icon={<CalendarDays className="size-4" />} label="תאריך">
-                {formatDate(appointment.startTime, timezone)}
+                <span className="text-[12px] font-semibold">
+                  {formatDate(appointment.startTime, timezone)}
+                </span>
               </DetailRow>
 
               <DetailRow icon={<UserRound className="size-4" />} label="נותן שירות">
-                {appointment.provider.name}
+                <span className="text-[12px] font-semibold">
+                  {appointment.provider.name}
+                </span>
               </DetailRow>
 
               <DetailRow icon={<Scissors className="size-4" />} label="שירות">
-                {appointment.service.name}
+                <span className="text-[12px] font-semibold">
+                  {appointment.service.name}
+                </span>
               </DetailRow>
 
               {appointment.notes && (
                 <DetailRow icon={<AlignLeft className="size-4" />} label="הערות">
-                  <span className="whitespace-pre-wrap text-right leading-snug">
+                  <span className="whitespace-pre-wrap text-right leading-snug text-[12px] font-semibold">
                     {appointment.notes}
                   </span>
                 </DetailRow>
@@ -357,7 +363,7 @@ interface ActionButtonProps {
 const VARIANT_STYLES: Record<ActionVariantLocal, string> = {
   success: 'bg-primary text-primary-foreground shadow-sm shadow-primary/30',
   neutral: 'border border-border bg-card text-foreground',
-  danger:  'border border-red-200 bg-red-50 text-red-600',
+  danger: 'border border-red-200 bg-red-50 text-red-600',
 };
 
 function ActionButton({ label, onClick, isPending, disabled, variant }: ActionButtonProps) {
@@ -391,7 +397,7 @@ interface ConfirmationPanelProps {
 const CONFIRM_VARIANT_STYLES: Record<ActionVariantLocal, string> = {
   success: 'bg-primary text-primary-foreground shadow-sm shadow-primary/30',
   neutral: 'bg-foreground/80 text-card',
-  danger:  'bg-red-600 text-white',
+  danger: 'bg-red-600 text-white',
 };
 
 function ConfirmationPanel({
