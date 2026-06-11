@@ -132,7 +132,7 @@ export function formatWeekRange(date: Date): string {
   if (sm !== em) {
     return `${first.getDate()} ${HEBREW_MONTHS[sm]} - ${last.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
   }
-  return `${last.getDate()}-${first.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
+  return `${first.getDate()}-${last.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
 }
 
 // ─── Calendar date utilities ─────────────────────────────────────────────────

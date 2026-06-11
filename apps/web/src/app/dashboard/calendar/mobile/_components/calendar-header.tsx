@@ -3,16 +3,15 @@
 import { ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
 import { formatWeekRange, isCurrentWeek } from '../_lib/calendar.utils';
 
-// TODO: replace onToday placeholder on CalendarDays with a real month-picker handler
-
 interface Props {
   selectedDate: Date;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
+  onOpenCalendar: () => void;
 }
 
-export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday }: Props) {
+export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, onOpenCalendar }: Props) {
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
@@ -59,9 +58,9 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday }
         <ChevronLeft className="size-4" />
       </button>
 
-      {/* Far left in RTL — full calendar picker (TODO: implement) */}
+      {/* Far left in RTL — full calendar picker */}
       <button
-        onClick={() => console.log('TODO: open full calendar picker')}
+        onClick={onOpenCalendar}
         aria-label="לוח שנה מלא"
         className="flex size-7 items-center justify-center rounded-full text-primary transition active:scale-90 active:opacity-70"
       >

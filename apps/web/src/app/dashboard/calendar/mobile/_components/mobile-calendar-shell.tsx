@@ -8,6 +8,7 @@ import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '../../../../../lib/api';
 import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';
+import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
 import { CalendarDayPicker } from './calendar-day-picker';
@@ -47,6 +48,7 @@ export function MobileCalendarShell() {
   const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
 
   // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -191,6 +193,7 @@ export function MobileCalendarShell() {
           onPrevWeek={handlePrevWeek}
           onNextWeek={handleNextWeek}
           onToday={handleToday}
+          onOpenCalendar={() => setShowMonthPicker(true)}
         />
         <CalendarDayPicker
           selectedDate={selectedDate}
@@ -254,6 +257,18 @@ export function MobileCalendarShell() {
         onStatusUpdate={handleStatusUpdate}
         onReschedule={canMutate ? handleReschedule : undefined}
         onClosed={() => setSelectedAppointment(null)}
+      />
+
+      <CalendarMonthPicker
+        open={showMonthPicker}
+        selectedDate={selectedDate}
+        timezone={timezone}
+        appointmentDates={appointments.map((a) => a.startTime)}
+        onSelectDate={(date) => {
+          setSelectedDate(date);
+          setTodayResetKey((k) => k + 1);
+        }}
+        onClosed={() => setShowMonthPicker(false)}
       />
 
       <RescheduleAppointmentSheet
