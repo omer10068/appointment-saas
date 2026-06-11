@@ -12,8 +12,8 @@ const nextConfig: NextConfig = {
       { source: '/dashboard/customers', destination: '/customers', permanent: true },
       { source: '/dashboard/services', destination: '/services', permanent: true },
       { source: '/dashboard/service-providers', destination: '/team', permanent: true },
-      // /dashboard/availability is intentionally excluded — no mobile equivalent yet.
-      // It remains live as temporary legacy debt until /availability is built.
+      // /dashboard/availability stays live until Phase C (provider hours) is complete.
+      { source: '/availability', destination: '/settings/business-hours', permanent: true },
 
       // --- transitional /mobile/* redirects ---
       { source: '/mobile', destination: '/home', permanent: true },

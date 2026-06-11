@@ -81,8 +81,7 @@ function DayToggle({
         .filter(Boolean)
         .join(' ')}
     >
-      {/* Use absolute left/right instead of translateX — physical props are
-          unaffected by dir="rtl", unlike CSS transforms in Tailwind v4. */}
+      {/* Absolute left/right avoids RTL transform issues in Tailwind v4. */}
       <span
         className={[
           'pointer-events-none absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-200',
@@ -107,17 +106,12 @@ function DayRow({ row, onChange, canMutate }: DayRowProps) {
 
   return (
     <div className="space-y-2.5 border-b border-border py-3.5 last:border-0">
-      {/* Day label + open/closed toggle */}
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-foreground">{dayName}</span>
-        {/* Toggle first (physical right in RTL), status text second (physical left).
-            This prevents the checked circle (translate-x-6 = moves right) from
-            overlapping the status label which sits to the toggle's left. */}
         <div className="flex shrink-0 items-center gap-2.5">
           <span className="whitespace-nowrap text-xs text-muted-foreground">
             {isOpen ? 'פתוח' : 'סגור'}
           </span>
-          
           <DayToggle
             checked={isOpen}
             onChange={() => onChange({ isClosed: !row.isClosed })}
@@ -126,8 +120,6 @@ function DayRow({ row, onChange, canMutate }: DayRowProps) {
         </div>
       </div>
 
-      {/* Time pickers — label above each input.
-          RTL flex: פתיחה+startTime column is physical right, סגירה+endTime is left. */}
       {isOpen && (
         <div className="flex items-end gap-2.5 pt-1">
           <div className="flex flex-1 flex-col gap-1">
@@ -163,7 +155,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-3 pt-2">
       {Array.from({ length: 7 }).map((_, i) => (
-        <div key={i} className="h-12 rounded-xl bg-muted animate-pulse" />
+        <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />
       ))}
     </div>
   );
@@ -171,7 +163,7 @@ function LoadingSkeleton() {
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
-export function MobileAvailabilityShell() {
+export function MobileBusinessHoursShell() {
   const router = useRouter();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
@@ -185,14 +177,12 @@ export function MobileAvailabilityShell() {
 
   const { message: toastMessage, showToast } = useMobileToast();
 
-  const [hours, setHours] = useState<HourRow[]>(defaultHours());
-  const [isDirty, setIsDirty] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [hours, setHours]       = useState<HourRow[]>(defaultHours());
+  const [isDirty, setIsDirty]   = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [saving, setSaving]     = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-
-  // ── Load hours on mount / business change ──────────────────────────────────
 
   useEffect(() => {
     if (!businessId) {
@@ -215,12 +205,8 @@ export function MobileAvailabilityShell() {
         if (!cancelled) setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [businessId, retryKey]);
-
-  // ── Update a single day ────────────────────────────────────────────────────
 
   function updateDay(dayOfWeek: number, patch: Partial<HourRow>) {
     setHours((prev) =>
@@ -228,8 +214,6 @@ export function MobileAvailabilityShell() {
     );
     setIsDirty(true);
   }
-
-  // ── Save ───────────────────────────────────────────────────────────────────
 
   async function handleSave() {
     if (!businessId) return;
@@ -253,7 +237,6 @@ export function MobileAvailabilityShell() {
       setHours(mergeHours(updated));
       setIsDirty(false);
       showToast('שעות העבודה נשמרו בהצלחה');
-      setTimeout(() => router.push('/home'), 1200);
     } catch (err) {
       const isConflict =
         err instanceof ApiError && (err.status === 409 || err.status === 400);
@@ -268,8 +251,6 @@ export function MobileAvailabilityShell() {
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   const businessName = currentBusiness?.business.name ?? '';
 
   return (
@@ -277,7 +258,6 @@ export function MobileAvailabilityShell() {
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="flex-none px-5 pt-9 pb-5">
         <div className="flex items-start justify-between">
-          {/* Right side in RTL (first flex child): back + title */}
           <div>
             <button
               onClick={() => router.push('/home')}
@@ -288,7 +268,7 @@ export function MobileAvailabilityShell() {
               <span>חזרה</span>
             </button>
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              שעות עבודה
+              שעות פעילות
             </h1>
             {businessName && (
               <p className="mt-1 text-xs font-medium text-muted-foreground">
@@ -296,8 +276,6 @@ export function MobileAvailabilityShell() {
               </p>
             )}
           </div>
-
-          {/* Left side in RTL (last flex child): icon avatar */}
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
             <Clock className="size-5" />
           </div>
@@ -333,7 +311,6 @@ export function MobileAvailabilityShell() {
           </div>
         ) : (
           <>
-            {/* Day cards */}
             <div className="rounded-2xl border border-border bg-card px-4 py-1 shadow-sm shadow-foreground/5">
               {hours.map((row) => (
                 <DayRow
@@ -368,7 +345,6 @@ export function MobileAvailabilityShell() {
       )}
 
       <MobileToast message={toastMessage} />
-      {/* activeKey doesn't match any tab — nav shows but no tab is highlighted */}
       <CalendarBottomNav activeKey="availability" />
     </MobilePhoneFrame>
   );
