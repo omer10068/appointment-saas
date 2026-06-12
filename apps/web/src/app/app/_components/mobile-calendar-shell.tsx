@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
@@ -45,7 +45,6 @@ export function MobileCalendarShell() {
   const [today] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [todayResetKey, setTodayResetKey] = useState(0);
-  const [selectedServiceProviderId, setSelectedServiceProviderId] = useState<string>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -57,17 +56,19 @@ export function MobileCalendarShell() {
   const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
-  // Auto-select the current user's own provider lane on first load.
-  // Uses businessUserId (preserved from DTO) to match without name comparison.
-  const autoFilterApplied = useRef(false);
-  useEffect(() => {
-    if (autoFilterApplied.current || serviceProviders.length === 0 || !currentBusiness) return;
+  // Provider selection — two-variable pattern avoids a useEffect-driven jump:
+  //   manualProviderId  — null until the user explicitly taps a filter chip.
+  //   defaultProviderId — derived synchronously from loaded providers so the first
+  //                       visible calendar render already uses the correct lane.
+  const [manualProviderId, setManualProviderId] = useState<string | null>(null);
+
+  const defaultProviderId = useMemo(() => {
+    if (!currentBusiness || serviceProviders.length === 0) return 'all';
     const myProvider = serviceProviders.find((sp) => sp.businessUserId === currentBusiness.id);
-    if (myProvider) {
-      setSelectedServiceProviderId(myProvider.id);
-    }
-    autoFilterApplied.current = true;
+    return myProvider?.id ?? 'all';
   }, [serviceProviders, currentBusiness]);
+
+  const selectedServiceProviderId = manualProviderId ?? defaultProviderId;
 
   // Current user's provider first, then the rest in original API order.
   // RTL renders the first item rightmost, so this also pins the user's lane to the right.
@@ -230,7 +231,7 @@ export function MobileCalendarShell() {
             <CalendarServiceProviderFilter
               serviceProviders={sortedServiceProviders}
               selectedServiceProviderId={selectedServiceProviderId}
-              onSelectServiceProvider={setSelectedServiceProviderId}
+              onSelectServiceProvider={(id) => setManualProviderId(id)}
               appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
               totalAppointmentsCount={countableDayAppointments.length}
             />
