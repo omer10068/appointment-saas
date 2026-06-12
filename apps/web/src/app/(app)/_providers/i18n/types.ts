@@ -62,7 +62,6 @@ export interface AppDictionary {
     selectedBusiness: string;
     businessStatus: string;
     yourRole: string;
-    dashboardShowsDataFor: string;
     noBusinessAssigned: string;
     contactAdmin: string;
   };
