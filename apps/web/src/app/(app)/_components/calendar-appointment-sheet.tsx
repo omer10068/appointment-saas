@@ -12,7 +12,7 @@ import {
   AlignLeft,
 } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
-import { useDashboardI18n } from '@/app/dashboard/_i18n/useDashboardI18n';
+import { useDashboardI18n } from '@/app/(app)/_providers/i18n/useDashboardI18n';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
 import type { Appointment, AppointmentStatus } from '../_lib/calendar.types';
 

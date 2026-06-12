@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 import { Clock3, ChevronLeft, Home } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
-import { useDashboardBusiness } from '@/app/dashboard/_business/useDashboardBusiness';
+import { useDashboardBusiness } from '@/app/(app)/_providers/business/useDashboardBusiness';
 import {
   fetchDashboardServiceProviders,
   fetchDashboardServices,

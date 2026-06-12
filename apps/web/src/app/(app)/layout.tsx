@@ -1,10 +1,10 @@
 import { auth } from '@clerk/nextjs/server';
 import { cookies } from 'next/headers';
 import type { BusinessUserWithBusinessDto } from '@appointment/contracts';
-import { DashboardI18nProvider } from '../dashboard/_i18n/DashboardI18nProvider';
-import { getDictionary } from '../dashboard/_i18n/dictionaries';
-import { COOKIE_NAME, DEFAULT_LOCALE, isValidLocale } from '../dashboard/_i18n/config';
-import { DashboardBusinessProvider, BUSINESS_COOKIE } from '../dashboard/_business/DashboardBusinessProvider';
+import { DashboardI18nProvider } from './_providers/i18n/DashboardI18nProvider';
+import { getDictionary } from './_providers/i18n/dictionaries';
+import { COOKIE_NAME, DEFAULT_LOCALE, isValidLocale } from './_providers/i18n/config';
+import { DashboardBusinessProvider, BUSINESS_COOKIE } from './_providers/business/DashboardBusinessProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
