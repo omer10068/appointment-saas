@@ -33,7 +33,7 @@ export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
   }
 
   return (
-    <nav className="fixed inset-x-4 bottom-5 z-40">
+    <nav className="fixed inset-x-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40">
       <div className="flex items-center justify-between rounded-full border border-border bg-card/85 px-2 py-1.5 shadow-xl shadow-foreground/10 backdrop-blur-md">
         {NAV_ITEMS.map(({ icon: Icon, label, key }) => {
           const active = key === activeKey;

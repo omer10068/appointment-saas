@@ -1,6 +1,6 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import { Heebo, Rubik } from 'next/font/google';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 const heebo = Heebo({
@@ -20,6 +20,12 @@ const rubik = Rubik({
 // All pages are rendered at request time — no static pre-rendering during build.
 // This allows next build to succeed without real Clerk env vars being present.
 export const dynamic = 'force-dynamic';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: 'Appointment SaaS',
