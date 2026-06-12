@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
       { source: '/mobile/calendar', destination: '/calendar', permanent: true },
       { source: '/mobile/customers', destination: '/customers', permanent: true },
       { source: '/mobile/services', destination: '/services', permanent: true },
-      { source: '/mobile/team', destination: '/team', permanent: true },
+      { source: '/mobile/team', destination: '/settings/team', permanent: true },
     ];
   },
 };
