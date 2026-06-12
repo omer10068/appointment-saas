@@ -6,7 +6,8 @@ import { Search, Users, X, Phone, Mail, AlignLeft, Ban } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus, CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
-import { fetchDashboardCustomers, updateDashboardAppointmentStatus } from '@/lib/api';
+import { updateDashboardAppointmentStatus } from '@/lib/api';
+import { useAppCustomers } from '../_hooks/useAppCustomers';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CustomerCreateSheet } from './customer-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
@@ -254,38 +255,7 @@ export function MobileCustomersShell() {
 
   // ── Customers fetch ──────────────────────────────────────────────────────────
 
-  const [customers, setCustomers] = useState<DashboardCustomerDto[]>([]);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [retryKey, setRetryKey]   = useState(0);
-
-  function retry() { setRetryKey((k) => k + 1); }
-
-  useEffect(() => {
-    if (!businessId) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchDashboardCustomers(businessId, () => getTokenRef.current())
-      .then((data) => {
-        if (!cancelled) {
-          setCustomers(data);
-          // Sync the open detail sheet with fresh data after any refresh.
-          setSelectedCustomer((prev) =>
-            prev ? (data.find((c) => c.businessCustomerId === prev.businessCustomerId) ?? prev) : null,
-          );
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('שגיאה בטעינת לקוחות');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [businessId, retryKey]);
+  const { customers, loading, error, refetch: retry } = useAppCustomers(businessId);
 
   // ── Search ────────────────────────────────────────────────────────────────────
 
@@ -323,6 +293,12 @@ export function MobileCustomersShell() {
   const [showCreateSheet, setShowCreateSheet]             = useState(false);
   const [selectedHistoryApt, setSelectedHistoryApt]       = useState<Appointment | null>(null);
   const [historyRefreshKey, setHistoryRefreshKey]         = useState(0);
+
+  useEffect(() => {
+    setSelectedCustomer((prev) =>
+      prev ? (customers.find((c) => c.businessCustomerId === prev.businessCustomerId) ?? prev) : null,
+    );
+  }, [customers]);
 
   async function handleHistoryStatusUpdate(
     appointmentId: string,
