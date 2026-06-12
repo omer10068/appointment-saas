@@ -16,6 +16,7 @@ import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ProviderCreateSheet } from './provider-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { ProviderEditSheet } from './provider-edit-sheet';
+import { BottomSheet } from './primitives/bottom-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -116,102 +117,71 @@ interface ProviderDetailSheetProps {
 }
 
 function ProviderDetailSheet({ provider, serviceMap, onClosed }: ProviderDetailSheetProps) {
-  const [visible, setVisible] = useState(false);
-  const isClosingRef = useRef(false);
-
-  useEffect(() => {
-    if (!provider) return;
-    isClosingRef.current = false;
-    const id = requestAnimationFrame(() => setVisible(true));
-    return () => cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider?.id]);
-
-  function triggerClose() {
-    if (isClosingRef.current) return;
-    isClosingRef.current = true;
-    setVisible(false);
-    setTimeout(onClosed, 310);
-  }
-
-  if (!provider) return null;
-
-  const serviceNames = provider.serviceIds
-    .map((id) => serviceMap[id])
-    .filter((name): name is string => !!name);
+  const open = provider !== null;
 
   return (
-    <div className="fixed inset-0 z-60" dir="rtl">
-      {/* Backdrop */}
-      <div
-        className={[
-          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
-          visible ? 'opacity-100' : 'opacity-0',
-        ].join(' ')}
-        onClick={triggerClose}
-        aria-hidden="true"
-      />
+    <BottomSheet open={open} onClosed={onClosed} ariaLabel="פרטי ספק שירות">
+      {(triggerClose) => {
+        if (!provider) return null;
 
-      {/* Sheet */}
-      <div
-        className={[
-          'absolute bottom-0 left-0 right-0 flex flex-col',
-          'max-h-[88%]',
-          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
-          'transition-transform duration-300 ease-out',
-          visible ? 'translate-y-0' : 'translate-y-full',
-        ].join(' ')}
-      >
-        {/* Handle + header */}
-        <div className="flex shrink-0 flex-col px-5 pt-3">
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
-          <div className="flex items-center justify-between pb-2">
-            <h2 className="text-lg font-extrabold text-foreground">פרטי ספק שירות</h2>
-            <button
-              onClick={triggerClose}
-              aria-label="סגור"
-              className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
+        const serviceNames = provider.serviceIds
+          .map((id) => serviceMap[id])
+          .filter((name): name is string => !!name);
 
-        {/* Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
-          {/* Centered avatar + name */}
-          <div className="flex flex-col items-center pb-6 pt-2">
-            <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-accent text-2xl font-bold text-accent-foreground">
-              {provider.displayName.charAt(0).toUpperCase()}
-            </div>
-            <p className="mt-3 text-lg font-extrabold text-foreground">{provider.displayName}</p>
-            <div className="mt-2">
-              <StatusBadge active={provider.isActive} />
-            </div>
-          </div>
-
-          {/* Services panel */}
-          <div className="rounded-2xl border border-border bg-background p-4">
-            <p className="mb-3 text-xs font-semibold text-muted-foreground">שירותים</p>
-            {serviceNames.length === 0 ? (
-              <p className="text-sm text-muted-foreground">ללא שירותים</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {serviceNames.map((name) => (
-                  <span
-                    key={name}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
-                  >
-                    <Scissors className="size-3" aria-hidden="true" />
-                    {name}
-                  </span>
-                ))}
+        return (
+          <>
+            {/* Handle + header */}
+            <div className="flex shrink-0 flex-col px-5 pt-3">
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+              <div className="flex items-center justify-between pb-2">
+                <h2 className="text-lg font-extrabold text-foreground">פרטי ספק שירות</h2>
+                <button
+                  onClick={triggerClose}
+                  aria-label="סגור"
+                  className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+                >
+                  <X className="size-5" />
+                </button>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+            </div>
+
+            {/* Body */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
+              {/* Centered avatar + name */}
+              <div className="flex flex-col items-center pb-6 pt-2">
+                <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-accent text-2xl font-bold text-accent-foreground">
+                  {provider.displayName.charAt(0).toUpperCase()}
+                </div>
+                <p className="mt-3 text-lg font-extrabold text-foreground">{provider.displayName}</p>
+                <div className="mt-2">
+                  <StatusBadge active={provider.isActive} />
+                </div>
+              </div>
+
+              {/* Services panel */}
+              <div className="rounded-2xl border border-border bg-background p-4">
+                <p className="mb-3 text-xs font-semibold text-muted-foreground">שירותים</p>
+                {serviceNames.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">ללא שירותים</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {serviceNames.map((name) => (
+                      <span
+                        key={name}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+                      >
+                        <Scissors className="size-3" aria-hidden="true" />
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      }}
+    </BottomSheet>
   );
 }
 

@@ -11,6 +11,7 @@ import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ServiceCreateSheet } from './service-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { ServiceEditSheet } from './service-edit-sheet';
+import { BottomSheet } from './primitives/bottom-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
@@ -123,110 +124,78 @@ interface ServiceDetailSheetProps {
 }
 
 function ServiceDetailSheet({ service, onClosed }: ServiceDetailSheetProps) {
-  const [visible, setVisible] = useState(false);
-  const isClosingRef = useRef(false);
-
-  useEffect(() => {
-    if (!service) return;
-    isClosingRef.current = false;
-    const id = requestAnimationFrame(() => setVisible(true));
-    return () => cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service?.id]);
-
-  function triggerClose() {
-    if (isClosingRef.current) return;
-    isClosingRef.current = true;
-    setVisible(false);
-    setTimeout(onClosed, 310);
-  }
-
-  if (!service) return null;
+  const open = service !== null;
 
   return (
-    <div className="fixed inset-0 z-60" dir="rtl">
-      {/* Backdrop */}
-      <div
-        className={[
-          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
-          visible ? 'opacity-100' : 'opacity-0',
-        ].join(' ')}
-        onClick={triggerClose}
-        aria-hidden="true"
-      />
-
-      {/* Sheet */}
-      <div
-        className={[
-          'absolute bottom-0 left-0 right-0 flex flex-col',
-          'max-h-[88%]',
-          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
-          'transition-transform duration-300 ease-out',
-          visible ? 'translate-y-0' : 'translate-y-full',
-        ].join(' ')}
-      >
-        {/* Handle + header */}
-        <div className="flex shrink-0 flex-col px-5 pt-3">
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
-          <div className="flex items-center justify-between pb-2">
-            <h2 className="text-lg font-extrabold text-foreground">פרטי שירות</h2>
-            <button
-              onClick={triggerClose}
-              aria-label="סגור"
-              className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
-          {/* Centered icon + name */}
-          <div className="flex flex-col items-center pb-6 pt-2">
-            <div className="flex size-20 items-center justify-center rounded-3xl bg-accent text-accent-foreground">
-              <Scissors className="size-9" aria-hidden="true" />
-            </div>
-            <p className="mt-3 text-lg font-extrabold text-foreground">{service.name}</p>
-            <div className="mt-2">
-              <StatusBadge active={service.isActive} />
-            </div>
-          </div>
-
-          {/* Info panel */}
-          <div className="overflow-hidden rounded-2xl border border-border bg-background">
-            <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
-              <Clock3 className="size-4 shrink-0 text-muted-foreground" />
-              <span className="flex-1 text-sm text-muted-foreground">משך</span>
-              <span className="text-sm font-semibold text-foreground tabular-nums">
-                {formatDuration(service.durationMinutes)}
-              </span>
-            </div>
-            <div
-              className={[
-                'flex items-center gap-3 px-4 py-3.5',
-                service.description ? 'border-b border-border' : '',
-              ].join(' ')}
-            >
-              <Tag className="size-4 shrink-0 text-muted-foreground" />
-              <span className="flex-1 text-sm text-muted-foreground">מחיר</span>
-              <span className="text-sm font-semibold text-foreground tabular-nums">
-                {formatPrice(service.priceCents)}
-              </span>
-            </div>
-            {service.description && (
-              <div className="flex items-start gap-3 px-4 py-3.5">
-                <AlignLeft className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 text-sm text-muted-foreground">תיאור</span>
-                <span className="max-w-[55%] text-right text-sm font-medium leading-snug text-foreground whitespace-pre-wrap">
-                  {service.description}
-                </span>
+    <BottomSheet open={open} onClosed={onClosed} ariaLabel="פרטי שירות">
+      {(triggerClose) => {
+        if (!service) return null;
+        return (
+          <>
+            {/* Handle + header */}
+            <div className="flex shrink-0 flex-col px-5 pt-3">
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+              <div className="flex items-center justify-between pb-2">
+                <h2 className="text-lg font-extrabold text-foreground">פרטי שירות</h2>
+                <button
+                  onClick={triggerClose}
+                  aria-label="סגור"
+                  className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+                >
+                  <X className="size-5" />
+                </button>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+            </div>
+
+            {/* Body */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
+              {/* Centered icon + name */}
+              <div className="flex flex-col items-center pb-6 pt-2">
+                <div className="flex size-20 items-center justify-center rounded-3xl bg-accent text-accent-foreground">
+                  <Scissors className="size-9" aria-hidden="true" />
+                </div>
+                <p className="mt-3 text-lg font-extrabold text-foreground">{service.name}</p>
+                <div className="mt-2">
+                  <StatusBadge active={service.isActive} />
+                </div>
+              </div>
+
+              {/* Info panel */}
+              <div className="overflow-hidden rounded-2xl border border-border bg-background">
+                <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
+                  <Clock3 className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 text-sm text-muted-foreground">משך</span>
+                  <span className="text-sm font-semibold text-foreground tabular-nums">
+                    {formatDuration(service.durationMinutes)}
+                  </span>
+                </div>
+                <div
+                  className={[
+                    'flex items-center gap-3 px-4 py-3.5',
+                    service.description ? 'border-b border-border' : '',
+                  ].join(' ')}
+                >
+                  <Tag className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 text-sm text-muted-foreground">מחיר</span>
+                  <span className="text-sm font-semibold text-foreground tabular-nums">
+                    {formatPrice(service.priceCents)}
+                  </span>
+                </div>
+                {service.description && (
+                  <div className="flex items-start gap-3 px-4 py-3.5">
+                    <AlignLeft className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <span className="flex-1 text-sm text-muted-foreground">תיאור</span>
+                    <span className="max-w-[55%] text-right text-sm font-medium leading-snug text-foreground whitespace-pre-wrap">
+                      {service.description}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      }}
+    </BottomSheet>
   );
 }
 

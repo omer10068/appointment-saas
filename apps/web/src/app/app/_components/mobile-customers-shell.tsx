@@ -13,6 +13,7 @@ import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CustomerEditSheet } from './customer-edit-sheet';
 import { CustomerAppointmentHistory } from './customer-appointment-history';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
+import { BottomSheet } from './primitives/bottom-sheet';
 import { formatIsraeliPhone } from '../_lib/calendar.utils';
 import { LAYOUT } from '../_lib/calendar.design';
 import { mapDtoToAppointment } from '../_lib/calendar.mappers';
@@ -118,146 +119,123 @@ function CustomerDetailSheet({
   onEdit,
   onClosed,
 }: CustomerDetailSheetProps) {
-  const [visible, setVisible] = useState(false);
-  const isClosingRef = useRef(false);
   const [historyCount, setHistoryCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!customer) return;
-    isClosingRef.current = false;
     setHistoryCount(null);
-    const id = requestAnimationFrame(() => setVisible(true));
-    return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer?.businessCustomerId]);
 
-  function triggerClose() {
-    if (isClosingRef.current) return;
-    isClosingRef.current = true;
-    setVisible(false);
-    setTimeout(onClosed, 310);
-  }
-
-  if (!customer) return null;
-
-  const badge = STATUS_BADGE_STYLE[customer.status];
+  const open = customer !== null;
 
   return (
-    <div className="fixed inset-0 z-60" dir="rtl">
-      <div
-        className={[
-          'absolute inset-0 bg-foreground/40 backdrop-blur-[1px] transition-opacity duration-300',
-          visible ? 'opacity-100' : 'opacity-0',
-        ].join(' ')}
-        onClick={triggerClose}
-        aria-hidden="true"
-      />
+    <BottomSheet open={open} onClosed={onClosed} ariaLabel="פרטי לקוח">
+      {(triggerClose) => {
+        if (!customer) return null;
 
-      <div
-        className={[
-          'absolute bottom-0 left-0 right-0 flex flex-col',
-          'max-h-[88%]',
-          'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
-          'transition-transform duration-300 ease-out',
-          visible ? 'translate-y-0' : 'translate-y-full',
-        ].join(' ')}
-      >
-        {/* Handle + header */}
-        <div className="flex shrink-0 flex-col px-5 pt-3">
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
-          <div className="flex items-center justify-between pb-2">
-            <h2 className="text-lg font-extrabold text-foreground">פרטי לקוח</h2>
-            <button
-              onClick={triggerClose}
-              aria-label="סגור"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
+        const badge = STATUS_BADGE_STYLE[customer.status];
 
-        {/* Fixed: avatar + contact panel */}
-        <div className="shrink-0 space-y-5 px-5 pb-4 pt-2">
-          {/* Avatar + name + status */}
-          <div className="flex flex-col items-center text-center">
-            <div className="flex size-20 items-center justify-center rounded-full bg-accent text-accent-foreground">
-              <span className="text-2xl font-bold">{getInitial(customer.fullName)}</span>
-            </div>
-            <p className="mt-3 text-lg font-extrabold text-foreground">{customer.fullName}</p>
-            <div className="mt-1.5">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.bg} ${badge.text}`}
-              >
-                <span className={`size-1.5 rounded-full ${badge.dot}`} />
-                {STATUS_LABEL[customer.status]}
-              </span>
-            </div>
-          </div>
-
-          {/* Contact panel */}
-          <div className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4">
-            <ContactRow
-              icon={<Phone className="size-4" />}
-              value={formatIsraeliPhone(customer.phone)}
-              ltr
-            />
-            {customer.email && (
-              <ContactRow icon={<Mail className="size-4" />} value={customer.email} ltr />
-            )}
-            {customer.notes && (
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 shrink-0 text-primary">
-                  <AlignLeft className="size-4" />
-                </span>
-                <span className="flex-1 whitespace-pre-wrap text-sm leading-snug text-muted-foreground">
-                  {customer.notes}
-                </span>
+        return (
+          <>
+            {/* Handle + header */}
+            <div className="flex shrink-0 flex-col px-5 pt-3">
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+              <div className="flex items-center justify-between pb-2">
+                <h2 className="text-lg font-extrabold text-foreground">פרטי לקוח</h2>
+                <button
+                  onClick={triggerClose}
+                  aria-label="סגור"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+                >
+                  <X className="size-5" />
+                </button>
               </div>
+            </div>
+
+            {/* Fixed: avatar + contact panel */}
+            <div className="shrink-0 space-y-5 px-5 pb-4 pt-2">
+              {/* Avatar + name + status */}
+              <div className="flex flex-col items-center text-center">
+                <div className="flex size-20 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                  <span className="text-2xl font-bold">{getInitial(customer.fullName)}</span>
+                </div>
+                <p className="mt-3 text-lg font-extrabold text-foreground">{customer.fullName}</p>
+                <div className="mt-1.5">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.bg} ${badge.text}`}
+                  >
+                    <span className={`size-1.5 rounded-full ${badge.dot}`} />
+                    {STATUS_LABEL[customer.status]}
+                  </span>
+                </div>
+              </div>
+
+              {/* Contact panel */}
+              <div className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4">
+                <ContactRow
+                  icon={<Phone className="size-4" />}
+                  value={formatIsraeliPhone(customer.phone)}
+                  ltr
+                />
+                {customer.email && (
+                  <ContactRow icon={<Mail className="size-4" />} value={customer.email} ltr />
+                )}
+                {customer.notes && (
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 shrink-0 text-primary">
+                      <AlignLeft className="size-4" />
+                    </span>
+                    <span className="flex-1 whitespace-pre-wrap text-sm leading-snug text-muted-foreground">
+                      {customer.notes}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Fixed: history heading */}
+            <div className="shrink-0 border-t border-border px-5 pb-2 pt-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-foreground">היסטוריית תורים</p>
+                {historyCount !== null && (
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {historyCount} תורים
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable: history list only */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 pt-2">
+              <CustomerAppointmentHistory
+                businessId={businessId}
+                businessCustomerId={customer.businessCustomerId}
+                getToken={getToken}
+                timezone={timezone}
+                onCountReady={setHistoryCount}
+                refreshKey={historyRefreshKey}
+                onSelect={(dto) => onSelectHistoryAppointment(mapDtoToAppointment(dto, new Map()))}
+              />
+            </div>
+
+            {/* Footer */}
+            {canEdit ? (
+              <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
+                <button
+                  onClick={onEdit}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98]"
+                >
+                  עריכת לקוח
+                </button>
+              </div>
+            ) : (
+              <div className="pb-8 shrink-0" />
             )}
-          </div>
-        </div>
-
-        {/* Fixed: history heading */}
-        <div className="shrink-0 border-t border-border px-5 pb-2 pt-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-foreground">היסטוריית תורים</p>
-            {historyCount !== null && (
-              <span className="text-xs font-medium text-muted-foreground">
-                {historyCount} תורים
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Scrollable: history list only */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 pt-2">
-          <CustomerAppointmentHistory
-            businessId={businessId}
-            businessCustomerId={customer.businessCustomerId}
-            getToken={getToken}
-            timezone={timezone}
-            onCountReady={setHistoryCount}
-            refreshKey={historyRefreshKey}
-            onSelect={(dto) => onSelectHistoryAppointment(mapDtoToAppointment(dto, new Map()))}
-          />
-        </div>
-
-        {/* Footer */}
-        {canEdit ? (
-          <div className="shrink-0 border-t border-border bg-card px-5 pb-7 pt-4">
-            <button
-              onClick={onEdit}
-              className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm shadow-primary/30 transition active:scale-[0.98]"
-            >
-              עריכת לקוח
-            </button>
-          </div>
-        ) : (
-          <div className="pb-8 shrink-0" />
-        )}
-      </div>
-    </div>
+          </>
+        );
+      }}
+    </BottomSheet>
   );
 }
 
