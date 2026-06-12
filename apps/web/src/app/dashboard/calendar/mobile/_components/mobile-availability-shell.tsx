@@ -260,9 +260,9 @@ export function MobileBusinessHoursShell() {
         <div className="flex items-start justify-between">
           <div>
             <button
-              onClick={() => router.push('/home')}
+              onClick={() => router.back()}
               className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-              aria-label="חזרה לדף הבית"
+              aria-label="חזרה"
             >
               <ChevronRight className="size-4" />
               <span>חזרה</span>
@@ -345,7 +345,7 @@ export function MobileBusinessHoursShell() {
       )}
 
       <MobileToast message={toastMessage} />
-      <CalendarBottomNav activeKey="availability" />
+      <CalendarBottomNav activeKey="settings" />
     </MobilePhoneFrame>
   );
 }

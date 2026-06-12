@@ -11,9 +11,12 @@ const nextConfig: NextConfig = {
       { source: '/dashboard/calendar', destination: '/calendar', permanent: true },
       { source: '/dashboard/customers', destination: '/customers', permanent: true },
       { source: '/dashboard/services', destination: '/services', permanent: true },
-      { source: '/dashboard/service-providers', destination: '/team', permanent: true },
+      { source: '/dashboard/service-providers', destination: '/settings/team', permanent: true },
       { source: '/dashboard/availability', destination: '/settings', permanent: true },
       { source: '/availability', destination: '/settings/business-hours', permanent: true },
+
+      // --- /team moved under /settings ---
+      { source: '/team', destination: '/settings/team', permanent: true },
 
       // --- transitional /mobile/* redirects ---
       { source: '/mobile', destination: '/home', permanent: true },

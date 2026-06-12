@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { Clock3, ChevronLeft, Home, Settings } from 'lucide-react';
+import { Clock3, ChevronLeft, Home } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
@@ -439,18 +439,9 @@ export function MobileHomeShell() {
             </p>
           </div>
 
-          {/* Right side (RTL end = physical left): settings link + home icon */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push('/settings')}
-              className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-accent"
-              aria-label="הגדרות"
-            >
-              <Settings className="size-[18px]" />
-            </button>
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-              <Home className="size-5" />
-            </div>
+          {/* Right side (RTL end = physical left): home icon */}
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
+            <Home className="size-5" />
           </div>
         </div>
       </header>

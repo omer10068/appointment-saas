@@ -1,15 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Home, Calendar, Users, Scissors, UserCog } from 'lucide-react';
+import { Calendar, Home, Scissors, Settings, Users } from 'lucide-react';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost.
 const NAV_ITEMS = [
-  { icon: Home,     label: 'בית',     key: 'home'      },
-  { icon: Calendar, label: 'יומן',    key: 'calendar'  },
-  { icon: Users,    label: 'לקוחות',  key: 'customers' },
-  { icon: Scissors, label: 'שירותים', key: 'services'  },
-  { icon: UserCog,  label: 'צוות',    key: 'team'      },
+  { icon: Home,     label: 'בית',      key: 'home'      },
+  { icon: Calendar, label: 'יומן',     key: 'calendar'  },
+  { icon: Users,    label: 'לקוחות',   key: 'customers' },
+  { icon: Scissors, label: 'שירותים',  key: 'services'  },
+  { icon: Settings, label: 'הגדרות',   key: 'settings'  },
 ] as const;
 
 const NAV_ROUTES: Partial<Record<string, string>> = {
@@ -17,7 +17,7 @@ const NAV_ROUTES: Partial<Record<string, string>> = {
   calendar:  '/calendar',
   customers: '/customers',
   services:  '/services',
-  team:      '/team',
+  settings:  '/settings',
 };
 
 interface Props {

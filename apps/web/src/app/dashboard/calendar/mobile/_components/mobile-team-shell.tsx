@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { Scissors, Search, UsersRound, X } from 'lucide-react';
+import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
@@ -217,6 +218,7 @@ function ProviderDetailSheet({ provider, serviceMap, onClosed }: ProviderDetailS
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function MobileTeamShell() {
+  const router = useRouter();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
@@ -304,7 +306,15 @@ export function MobileTeamShell() {
     <MobilePhoneFrame dir="rtl">
       {/* Header */}
       <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
-        <div className="flex items-start justify-between">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
+          aria-label="חזרה"
+        >
+          <ChevronRight className="size-4" />
+          <span>חזרה</span>
+        </button>
+        <div className="mt-2 flex items-start justify-between">
           <div>
             {businessName && (
               <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
@@ -392,7 +402,7 @@ export function MobileTeamShell() {
         )}
       </div>
 
-      <CalendarBottomNav activeKey="team" />
+      <CalendarBottomNav activeKey="settings" />
 
       {/* FAB — OWNER only (MANAGER cannot access business users list) */}
       {isOwner && <MobileFab onClick={() => setShowCreateSheet(true)} ariaLabel="הוסף חבר צוות" />}

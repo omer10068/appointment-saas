@@ -192,7 +192,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-3 pt-1">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-[76px] animate-pulse rounded-2xl bg-muted" />
+        <div key={i} className="h-19 animate-pulse rounded-2xl bg-muted" />
       ))}
     </div>
   );
@@ -317,9 +317,9 @@ export function MobileExceptionsShell() {
         <div className="flex items-start justify-between">
           <div>
             <button
-              onClick={() => router.push('/home')}
+              onClick={() => router.back()}
               className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-              aria-label="חזרה לדף הבית"
+              aria-label="חזרה"
             >
               <ChevronRight className="size-4" />
               <span>חזרה</span>
@@ -448,7 +448,7 @@ export function MobileExceptionsShell() {
 
       <MobileToast message={toastMessage} />
       {/* No tab highlighted — exceptions is a settings page, not a main nav tab */}
-      <CalendarBottomNav activeKey="exceptions" />
+      <CalendarBottomNav activeKey="settings" />
     </MobilePhoneFrame>
   );
 }

@@ -472,9 +472,9 @@ export function MobileProviderHoursShell() {
         <div className="flex items-start justify-between">
           <div>
             <button
-              onClick={() => router.push('/home')}
+              onClick={() => router.back()}
               className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-              aria-label="חזרה לדף הבית"
+              aria-label="חזרה"
             >
               <ChevronRight className="size-4" />
               <span>חזרה</span>
@@ -555,7 +555,7 @@ export function MobileProviderHoursShell() {
 
       <MobileToast message={toastMessage} />
       {/* Settings page — no main-nav tab is active */}
-      <CalendarBottomNav activeKey="provider-hours" />
+      <CalendarBottomNav activeKey="settings" />
     </MobilePhoneFrame>
   );
 }

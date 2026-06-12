@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { CalendarOff, ChevronLeft, ChevronRight, Clock, Settings, Users } from 'lucide-react';
+import { CalendarOff, ChevronLeft, Clock, Settings, UserCog, Users } from 'lucide-react';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 
@@ -26,6 +26,12 @@ const ITEMS = [
     sub: 'שעות עבודה לכל נותן שירות',
     route: '/settings/provider-hours',
   },
+  {
+    icon: UserCog,
+    label: 'אנשי צוות',
+    sub: 'ניהול נותני שירות והרשאות צוות',
+    route: '/settings/team',
+  },
 ] as const;
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
@@ -37,15 +43,7 @@ export function MobileSettingsHubShell() {
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="flex-none px-5 pb-3 pt-9">
-        <button
-          onClick={() => router.push('/home')}
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-          aria-label="חזרה לדף הבית"
-        >
-          <ChevronRight className="size-4" />
-          <span>חזרה</span>
-        </button>
-        <div className="mt-2 flex items-start justify-between">
+        <div className="flex items-start justify-between">
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
             ניהול והגדרות
           </h1>
