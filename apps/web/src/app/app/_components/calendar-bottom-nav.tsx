@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Calendar, Home, Scissors, Settings, Users } from 'lucide-react';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost.
@@ -26,22 +27,35 @@ interface Props {
 
 export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+
+  // Clear pending state once the route has committed.
+  useEffect(() => {
+    setPendingKey(null);
+  }, [pathname]);
+
+  // Visual active key: pending tap wins until the route commits, then real activeKey takes over.
+  const displayKey = pendingKey ?? activeKey;
 
   function handleNavTap(key: string) {
     const route = NAV_ROUTES[key];
-    if (route) router.push(route);
+    if (route) {
+      setPendingKey(key);
+      router.push(route);
+    }
   }
 
   return (
     <nav className="fixed inset-x-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40">
       <div className="flex items-center justify-between rounded-full border border-border bg-card/85 px-2 py-1.5 shadow-xl shadow-foreground/10 backdrop-blur-md">
         {NAV_ITEMS.map(({ icon: Icon, label, key }) => {
-          const active = key === activeKey;
+          const active = key === displayKey;
           return (
             <button
               key={key}
               aria-label={label}
-              aria-current={active ? 'page' : undefined}
+              aria-current={key === activeKey ? 'page' : undefined}
               onClick={() => handleNavTap(key)}
               className={[
                 'flex flex-col items-center gap-0.5 rounded-[1.26rem] py-1.5 transition-colors',
