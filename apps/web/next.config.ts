@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       { source: '/dashboard/services', destination: '/services', permanent: true },
       { source: '/dashboard/service-providers', destination: '/settings/team', permanent: true },
       { source: '/dashboard/availability', destination: '/settings', permanent: true },
+      { source: '/dashboard/settings', destination: '/settings', permanent: true },
       { source: '/availability', destination: '/settings/business-hours', permanent: true },
 
       // --- /team moved under /settings ---
