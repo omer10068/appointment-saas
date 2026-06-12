@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ import {
   fetchDashboardBusinessUsers,
   fetchDashboardServiceProviders,
   fetchDashboardServices,
-} from '../../../../../lib/api';
+} from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ProviderCreateSheet } from './provider-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';

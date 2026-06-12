@@ -1,12 +1,12 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   fetchAvailableSlots,
   updateDashboardAppointment,
-} from '../../../../../lib/api';
-import type { AvailableSlotItem } from '../../../../../lib/api';
+} from '@/lib/api';
+import type { AvailableSlotItem } from '@/lib/api';
 import { isFutureSlot, toLocalDateString } from './calendar.utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

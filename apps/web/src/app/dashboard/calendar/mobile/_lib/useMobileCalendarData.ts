@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
@@ -7,7 +7,7 @@ import {
   fetchDashboardAppointments,
   fetchDashboardServiceProviders,
   fetchDashboardServices,
-} from '../../../../../lib/api';
+} from '@/lib/api';
 import {
   buildServiceMap,
   mapDtoToAppointment,

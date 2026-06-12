@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
@@ -6,7 +6,7 @@ import type { DashboardServiceDto, DashboardServiceProviderDto } from '@appointm
 import {
   ApiError,
   updateDashboardServiceProvider,
-} from '../../../../../lib/api';
+} from '@/lib/api';
 
 // ─── Form primitives ──────────────────────────────────────────────────────────
 

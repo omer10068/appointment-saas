@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { DashboardAppointmentDto } from '@appointment/contracts';
-import { fetchDashboardAppointments } from '../../../../../lib/api';
+import { fetchDashboardAppointments } from '@/lib/api';
 import { formatShortDate } from '../_lib/calendar.utils';
 
 // ─── Status config ────────────────────────────────────────────────────────────

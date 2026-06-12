@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, CalendarDays, Loader2, X } from 'lucide-react';
@@ -6,7 +6,7 @@ import type {
   CreateAvailabilityExceptionPayload,
   DashboardServiceProviderDto,
 } from '@appointment/contracts';
-import { ApiError, createAvailabilityException } from '../../../../../lib/api';
+import { ApiError, createAvailabilityException } from '@/lib/api';
 import { CalendarMonthPicker } from './calendar-month-picker';
 
 // ─── Form helpers ─────────────────────────────────────────────────────────────

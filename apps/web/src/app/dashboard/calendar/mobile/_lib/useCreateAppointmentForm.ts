@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
@@ -9,8 +9,8 @@ import {
   createDashboardAppointment,
   fetchAvailableSlots,
   fetchDashboardCustomers,
-} from '../../../../../lib/api';
-import type { AvailableSlotItem } from '../../../../../lib/api';
+} from '@/lib/api';
+import type { AvailableSlotItem } from '@/lib/api';
 import { isFutureSlot, toLocalDateString } from './calendar.utils';
 import type { ServiceProvider } from './calendar.types';
 

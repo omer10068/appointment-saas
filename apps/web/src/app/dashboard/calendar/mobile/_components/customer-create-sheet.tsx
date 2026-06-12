@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { CreateCustomerPayload } from '@appointment/contracts';
-import { ApiError, createDashboardCustomer } from '../../../../../lib/api';
+import { ApiError, createDashboardCustomer } from '@/lib/api';
 
 // ─── Shared form primitives ───────────────────────────────────────────────────
 

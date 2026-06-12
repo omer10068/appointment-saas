@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,7 +13,7 @@ import {
   deleteAvailabilityException,
   fetchAvailabilityExceptions,
   fetchDashboardServiceProviders,
-} from '../../../../../lib/api';
+} from '@/lib/api';
 import { AddExceptionSheet } from './exception-add-sheet';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';

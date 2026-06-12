@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppointmentStatus } from '@appointment/contracts';
-import { fetchDashboardAppointments } from '../../../../../lib/api';
+import { fetchDashboardAppointments } from '@/lib/api';
 import { mapDtoToAppointment } from '../_lib/calendar.mappers';
 import type { Appointment, Service } from '../_lib/calendar.types';
 import { businessDayRange } from '../_lib/calendar.utils';

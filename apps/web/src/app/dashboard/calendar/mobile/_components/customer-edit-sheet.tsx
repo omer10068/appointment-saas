@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
@@ -7,7 +7,7 @@ import {
   ApiError,
   updateDashboardCustomer,
   updateDashboardCustomerStatus,
-} from '../../../../../lib/api';
+} from '@/lib/api';
 import { formatIsraeliPhone } from '../_lib/calendar.utils';
 
 // ─── Status segment config ────────────────────────────────────────────────────

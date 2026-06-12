@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@clerk/nextjs';
@@ -6,7 +6,7 @@ import { Search, Users, X, Phone, Mail, AlignLeft, Ban } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus, CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
 import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
-import { fetchDashboardCustomers, updateDashboardAppointmentStatus } from '../../../../../lib/api';
+import { fetchDashboardCustomers, updateDashboardAppointmentStatus } from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CustomerCreateSheet } from './customer-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';

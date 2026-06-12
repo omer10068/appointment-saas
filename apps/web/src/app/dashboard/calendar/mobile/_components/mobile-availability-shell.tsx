@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,7 +13,7 @@ import {
   ApiError,
   fetchBusinessWorkingHours,
   updateBusinessWorkingHours,
-} from '../../../../../lib/api';
+} from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';

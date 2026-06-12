@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
 import type { DashboardBusinessUserDto, DashboardServiceDto } from '@appointment/contracts';
-import { ApiError, createDashboardServiceProvider } from '../../../../../lib/api';
+import { ApiError, createDashboardServiceProvider } from '@/lib/api';
 
 // ─── Form primitives ──────────────────────────────────────────────────────────
 
