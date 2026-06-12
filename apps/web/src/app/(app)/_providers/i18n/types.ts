@@ -1,6 +1,6 @@
 export type Locale = 'he' | 'en';
 
-export interface DashboardDictionary {
+export interface AppDictionary {
   locale: Locale;
   dir: 'rtl' | 'ltr';
   lang: string;

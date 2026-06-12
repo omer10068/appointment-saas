@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
-import { useDashboardBusiness } from '@/app/(app)/_providers/business/useDashboardBusiness';
+import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';
@@ -28,7 +28,7 @@ export function MobileCalendarShell() {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
-  const { currentBusinessId, currentBusiness } = useDashboardBusiness();
+  const { currentBusinessId, currentBusiness } = useBusiness();
   const businessName = currentBusiness?.business.name;
 
   // Use the business's IANA timezone for all time display and timeline positioning.

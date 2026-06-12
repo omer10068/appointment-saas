@@ -11,7 +11,7 @@ import type { BusinessUserWithBusinessDto } from './types';
 
 export const BUSINESS_COOKIE = 'dashboard_business_id';
 
-export interface DashboardBusinessContextValue {
+export interface BusinessContextValue {
   businesses: BusinessUserWithBusinessDto[];
   currentBusiness: BusinessUserWithBusinessDto | null;
   currentBusinessId: string | null;
@@ -20,8 +20,8 @@ export interface DashboardBusinessContextValue {
   error: string | null;
 }
 
-const DashboardBusinessContext =
-  createContext<DashboardBusinessContextValue | null>(null);
+const BusinessContext =
+  createContext<BusinessContextValue | null>(null);
 
 function writeBusinessCookie(id: string | null): void {
   if (typeof document === 'undefined') return;
@@ -45,7 +45,7 @@ function resolveSelectedId(
   return businesses[0].business.id;
 }
 
-export function DashboardBusinessProvider({
+export function BusinessProvider({
   initialBusinesses,
   initialSelectedId,
   children,
@@ -78,7 +78,7 @@ export function DashboardBusinessProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const value: DashboardBusinessContextValue = {
+  const value: BusinessContextValue = {
     businesses: initialBusinesses,
     currentBusiness,
     currentBusinessId: selectedId,
@@ -88,17 +88,17 @@ export function DashboardBusinessProvider({
   };
 
   return (
-    <DashboardBusinessContext.Provider value={value}>
+    <BusinessContext.Provider value={value}>
       {children}
-    </DashboardBusinessContext.Provider>
+    </BusinessContext.Provider>
   );
 }
 
-export function useDashboardBusiness(): DashboardBusinessContextValue {
-  const ctx = useContext(DashboardBusinessContext);
+export function useBusiness(): BusinessContextValue {
+  const ctx = useContext(BusinessContext);
   if (!ctx)
     throw new Error(
-      'useDashboardBusiness must be used inside DashboardBusinessProvider',
+      'useBusiness must be used inside BusinessProvider',
     );
   return ctx;
 }

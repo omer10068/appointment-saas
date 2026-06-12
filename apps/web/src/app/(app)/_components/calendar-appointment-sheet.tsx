@@ -12,7 +12,7 @@ import {
   AlignLeft,
 } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
-import { useDashboardI18n } from '@/app/(app)/_providers/i18n/useDashboardI18n';
+import { useI18n } from '@/app/(app)/_providers/i18n/useI18n';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
 import type { Appointment, AppointmentStatus } from '../_lib/calendar.types';
 
@@ -71,7 +71,7 @@ export function CalendarAppointmentSheet({
   onReschedule,
   onClosed,
 }: Props) {
-  const dict = useDashboardI18n();
+  const dict = useI18n();
   const tList = dict.appointmentsList;
   const tForm = dict.appointmentForm;
 

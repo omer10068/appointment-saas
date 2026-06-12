@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import { Search, Users, X, Phone, Mail, AlignLeft, Ban } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus, CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
-import { useDashboardBusiness } from '@/app/(app)/_providers/business/useDashboardBusiness';
+import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
 import { fetchDashboardCustomers, updateDashboardAppointmentStatus } from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CustomerCreateSheet } from './customer-create-sheet';
@@ -268,7 +268,7 @@ export function MobileCustomersShell() {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
-  const { currentBusiness } = useDashboardBusiness();
+  const { currentBusiness } = useBusiness();
   const businessName = currentBusiness?.business.name;
   const businessId   = currentBusiness?.business.id ?? null;
   const canMutate    =

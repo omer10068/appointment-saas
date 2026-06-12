@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
-import { useDashboardBusiness } from '@/app/(app)/_providers/business/useDashboardBusiness';
+import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
 import {
   fetchDashboardBusinessUsers,
   fetchDashboardServiceProviders,
@@ -223,7 +223,7 @@ export function MobileTeamShell() {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
-  const { currentBusiness } = useDashboardBusiness();
+  const { currentBusiness } = useBusiness();
   const businessName = currentBusiness?.business.name;
   const businessId   = currentBusiness?.business.id ?? null;
   const canMutate    =

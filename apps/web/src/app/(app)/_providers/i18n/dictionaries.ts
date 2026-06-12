@@ -1,7 +1,7 @@
-import type { DashboardDictionary, Locale } from './types';
+import type { AppDictionary, Locale } from './types';
 import { getDir, getLang } from './config';
 
-const he: DashboardDictionary = {
+const he: AppDictionary = {
   locale: 'he',
   dir: 'rtl',
   lang: 'he',
@@ -327,7 +327,7 @@ const he: DashboardDictionary = {
   comingSoon: 'בקרוב',
 };
 
-const en: DashboardDictionary = {
+const en: AppDictionary = {
   locale: 'en',
   dir: 'ltr',
   lang: 'en',
@@ -653,13 +653,13 @@ const en: DashboardDictionary = {
   comingSoon: 'Coming soon',
 };
 
-const dictionaries: Record<Locale, DashboardDictionary> = { he, en };
+const dictionaries: Record<Locale, AppDictionary> = { he, en };
 
-export function getDictionary(locale: Locale): DashboardDictionary {
+export function getDictionary(locale: Locale): AppDictionary {
   return dictionaries[locale];
 }
 
-export function getDictionaryWithDir(locale: Locale): DashboardDictionary {
+export function getDictionaryWithDir(locale: Locale): AppDictionary {
   return {
     ...dictionaries[locale],
     dir: getDir(locale),

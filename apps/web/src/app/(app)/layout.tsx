@@ -1,10 +1,10 @@
 import { auth } from '@clerk/nextjs/server';
 import { cookies } from 'next/headers';
 import type { BusinessUserWithBusinessDto } from '@appointment/contracts';
-import { DashboardI18nProvider } from './_providers/i18n/DashboardI18nProvider';
+import { I18nProvider } from './_providers/i18n/I18nProvider';
 import { getDictionary } from './_providers/i18n/dictionaries';
 import { COOKIE_NAME, DEFAULT_LOCALE, isValidLocale } from './_providers/i18n/config';
-import { DashboardBusinessProvider, BUSINESS_COOKIE } from './_providers/business/DashboardBusinessProvider';
+import { BusinessProvider, BUSINESS_COOKIE } from './_providers/business/BusinessProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -44,15 +44,15 @@ export default async function AppLayout({
   const businesses = await fetchMyBusinesses(token ?? '');
 
   return (
-    <DashboardI18nProvider dict={dict}>
-      <DashboardBusinessProvider
+    <I18nProvider dict={dict}>
+      <BusinessProvider
         initialBusinesses={businesses}
         initialSelectedId={rawBusinessId}
       >
         <div className="md:min-h-dvh md:overflow-y-auto md:flex md:items-center md:justify-center md:py-8 md:bg-muted">
           {children}
         </div>
-      </DashboardBusinessProvider>
-    </DashboardI18nProvider>
+      </BusinessProvider>
+    </I18nProvider>
   );
 }

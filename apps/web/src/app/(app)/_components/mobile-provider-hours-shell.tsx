@@ -9,7 +9,7 @@ import type {
   DashboardWorkingHourDto,
   UpdateWorkingHoursPayload,
 } from '@appointment/contracts';
-import { useDashboardBusiness } from '@/app/(app)/_providers/business/useDashboardBusiness';
+import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
 import {
   ApiError,
   fetchDashboardServiceProviders,
@@ -426,7 +426,7 @@ export function MobileProviderHoursShell() {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
-  const { currentBusiness, currentBusinessId: businessId } = useDashboardBusiness();
+  const { currentBusiness, currentBusinessId: businessId } = useBusiness();
 
   const canMutate =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';

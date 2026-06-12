@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Loader2, Check, Search, AlertCircle, CalendarDays } from 'lucide-react';
-import { useDashboardI18n } from '@/app/(app)/_providers/i18n/useDashboardI18n';
+import { useI18n } from '@/app/(app)/_providers/i18n/useI18n';
 import { formatDate, formatIsraeliPhone } from '../_lib/calendar.utils';
 import { CalendarMonthPicker } from './calendar-month-picker';
 import { useCreateAppointmentForm } from '../_lib/useCreateAppointmentForm';
@@ -120,7 +120,7 @@ export function CalendarCreateSheet({
   serviceProviders,
   currentBusinessUserId,
 }: Props) {
-  const dict = useDashboardI18n();
+  const dict = useI18n();
   const tForm = dict.appointmentForm;
 
   // ── Animation ────────────────────────────────────────────────────────────────
