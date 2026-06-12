@@ -307,7 +307,7 @@ export function MobileTeamShell() {
       {/* Header */}
       <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push('/settings')}
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
           aria-label="חזרה"
         >

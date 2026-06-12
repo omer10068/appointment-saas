@@ -472,7 +472,7 @@ export function MobileProviderHoursShell() {
         <div className="flex items-start justify-between">
           <div>
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push('/settings')}
               className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
               aria-label="חזרה"
             >
