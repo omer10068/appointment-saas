@@ -1,7 +1,7 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppointmentStatus } from '@appointment/contracts';
 import { fetchDashboardAppointments } from '@/lib/api';
 import { mapDtoToAppointment } from '../_lib/calendar.mappers';
@@ -41,24 +41,13 @@ export function useTodayAppointments(
   timezone: string | undefined,
 ): UseTodayAppointmentsResult {
   const { getToken } = useAuth();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [summary, setSummary] = useState<TodaySummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const reqRef = useRef(0);
 
-  const load = useCallback(async () => {
-    if (!businessId) return;
-    const tz = timezone ?? 'UTC';
-    const { from, to } = businessDayRange(tz);
-    const req = ++reqRef.current;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const dtos = await fetchDashboardAppointments(businessId, getToken, { from, to });
-      if (req !== reqRef.current) return;
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['app', 'appointments', 'today', businessId] as const,
+    queryFn: async () => {
+      const tz = timezone ?? 'UTC';
+      const { from, to } = businessDayRange(tz);
+      const dtos = await fetchDashboardAppointments(businessId!, getToken, { from, to });
 
       const now = new Date();
       const totalToday     = dtos.filter((d) => !CANCELLED.has(d.status)).length;
@@ -73,19 +62,21 @@ export function useTodayAppointments(
         .map((dto) => mapDtoToAppointment(dto, EMPTY_SERVICE_MAP))
         .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-      setSummary({ totalToday, remainingToday, completedToday });
-      setAppointments(mapped);
-    } catch {
-      if (req !== reqRef.current) return;
-      setError('שגיאה בטעינת הנתונים');
-    } finally {
-      if (req === reqRef.current) setLoading(false);
-    }
-  }, [businessId, timezone, getToken]);
+      return {
+        appointments: mapped,
+        summary: { totalToday, remainingToday, completedToday } satisfies TodaySummary,
+      };
+    },
+    enabled: !!businessId,
+    staleTime: 30_000,
+    retry: false,
+  });
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  return { appointments, summary, loading, error, retry: load };
+  return {
+    appointments: data?.appointments ?? [],
+    summary: data?.summary ?? null,
+    loading: isLoading,
+    error: isError ? 'שגיאה בטעינת הנתונים' : null,
+    retry: () => { void refetch(); },
+  };
 }
