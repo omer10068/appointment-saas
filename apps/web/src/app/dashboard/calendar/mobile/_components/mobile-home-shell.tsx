@@ -17,7 +17,7 @@ import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
-import { SettingsMenuSheet } from './settings-menu-sheet';
+
 import { useMobileToast } from '../_lib/useMobileToast';
 import { useTodayAppointments } from '../_hooks/use-today-appointments';
 import { mapDtoToService, mapDtoToServiceProvider } from '../_lib/calendar.mappers';
@@ -408,8 +408,6 @@ export function MobileHomeShell() {
   const isLoading    = loading || providersLoading;
   const memberWithNoProvider = !canMutate && !myProvider;
 
-  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
-
   function openCreate()   { setShowCreateSheet(true); }
   function openCalendar() { router.push('/calendar'); }
 
@@ -444,7 +442,7 @@ export function MobileHomeShell() {
           {/* Right side (RTL end = physical left): settings link + home icon */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setSettingsSheetOpen(true)}
+              onClick={() => router.push('/settings')}
               className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-accent"
               aria-label="הגדרות"
             >
@@ -495,12 +493,6 @@ export function MobileHomeShell() {
           />
         )}
       </div>
-
-      {/* ── Floating + button (OWNER / MANAGER only) ────────────────────── */}
-      <SettingsMenuSheet
-        open={settingsSheetOpen}
-        onClosed={() => setSettingsSheetOpen(false)}
-      />
 
       <MobileToast message={toastMessage} />
 

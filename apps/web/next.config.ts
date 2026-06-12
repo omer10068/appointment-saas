@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
       { source: '/dashboard/customers', destination: '/customers', permanent: true },
       { source: '/dashboard/services', destination: '/services', permanent: true },
       { source: '/dashboard/service-providers', destination: '/team', permanent: true },
-      // /dashboard/availability stays live until Phase C (provider hours) is complete.
+      { source: '/dashboard/availability', destination: '/settings', permanent: true },
       { source: '/availability', destination: '/settings/business-hours', permanent: true },
 
       // --- transitional /mobile/* redirects ---
