@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
-import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
+import { useDashboardBusiness } from '@/app/dashboard/_business/useDashboardBusiness';
 import {
   fetchDashboardBusinessUsers,
   fetchDashboardServiceProviders,

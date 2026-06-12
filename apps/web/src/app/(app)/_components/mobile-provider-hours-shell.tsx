@@ -9,7 +9,7 @@ import type {
   DashboardWorkingHourDto,
   UpdateWorkingHoursPayload,
 } from '@appointment/contracts';
-import { useDashboardBusiness } from '../../../_business/useDashboardBusiness';
+import { useDashboardBusiness } from '@/app/dashboard/_business/useDashboardBusiness';
 import {
   ApiError,
   fetchDashboardServiceProviders,

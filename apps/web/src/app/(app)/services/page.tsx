@@ -1,4 +1,4 @@
-import { MobileServicesShell } from '../../dashboard/calendar/mobile/_components/mobile-services-shell';
+import { MobileServicesShell } from '../_components/mobile-services-shell';
 
 export default function ServicesPage() {
   return <MobileServicesShell />;

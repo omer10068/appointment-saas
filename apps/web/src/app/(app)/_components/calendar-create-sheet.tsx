@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Loader2, Check, Search, AlertCircle, CalendarDays } from 'lucide-react';
-import { useDashboardI18n } from '../../../_i18n/useDashboardI18n';
+import { useDashboardI18n } from '@/app/dashboard/_i18n/useDashboardI18n';
 import { formatDate, formatIsraeliPhone } from '../_lib/calendar.utils';
 import { CalendarMonthPicker } from './calendar-month-picker';
 import { useCreateAppointmentForm } from '../_lib/useCreateAppointmentForm';
