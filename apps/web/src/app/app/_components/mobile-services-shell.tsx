@@ -1,12 +1,12 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { AlignLeft, Clock3, Scissors, Search, Tag, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardServiceDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
-import { fetchDashboardServices } from '@/lib/api';
+import { useAppServices } from '../_hooks/useAppServices';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ServiceCreateSheet } from './service-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
@@ -214,32 +214,7 @@ export function MobileServicesShell() {
 
   // ── Services fetch ────────────────────────────────────────────────────────────
 
-  const [services, setServices] = useState<DashboardServiceDto[]>([]);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
-
-  function retry() { setRetryKey((k) => k + 1); }
-
-  useEffect(() => {
-    if (!businessId) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchDashboardServices(businessId, () => getTokenRef.current())
-      .then((data) => {
-        if (!cancelled) setServices(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('שגיאה בטעינת שירותים');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [businessId, retryKey]);
+  const { services, loading, error, refetch: retry } = useAppServices(businessId);
 
   // ── Search ────────────────────────────────────────────────────────────────────
 

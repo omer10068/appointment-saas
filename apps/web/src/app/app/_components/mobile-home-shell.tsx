@@ -1,17 +1,13 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Clock3, ChevronLeft, Home } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
-import {
-  fetchDashboardServiceProviders,
-  fetchDashboardServices,
-  updateDashboardAppointmentStatus,
-} from '@/lib/api';
+import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
@@ -20,13 +16,13 @@ import { MobileToast } from './mobile-toast';
 
 import { useMobileToast } from '../_lib/useMobileToast';
 import { useTodayAppointments } from '../_hooks/use-today-appointments';
+import { useAppServices } from '../_hooks/useAppServices';
+import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
 import { mapDtoToService, mapDtoToServiceProvider } from '../_lib/calendar.mappers';
 import { formatDate, formatTime } from '../_lib/calendar.utils';
 import type {
   Appointment,
   AppointmentStatus,
-  Service,
-  ServiceProvider,
 } from '../_lib/calendar.types';
 
 // ─── Status badge config (dot-indicator style matching v0) ────────────────────
@@ -341,27 +337,11 @@ export function MobileHomeShell() {
 
   // ── Service providers + services ─────────────────────────────────────────────
 
-  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
-  const [services, setServices]                 = useState<Service[]>([]);
-  const [providersLoading, setProvidersLoading] = useState(false);
+  const { providers: rawProviders, loading: providersLoading } = useAppServiceProviders(businessId);
+  const { services: rawServices } = useAppServices(businessId);
 
-  useEffect(() => {
-    if (!businessId) { setServiceProviders([]); setServices([]); return; }
-    let cancelled = false;
-    setProvidersLoading(true);
-    Promise.all([
-      fetchDashboardServiceProviders(businessId, () => getTokenRef.current()),
-      fetchDashboardServices(businessId, () => getTokenRef.current()),
-    ])
-      .then(([providerDtos, serviceDtos]) => {
-        if (cancelled) return;
-        setServiceProviders(providerDtos.map(mapDtoToServiceProvider));
-        setServices(serviceDtos.filter(d => d.isActive).map(mapDtoToService));
-      })
-      .catch(() => { /* Graceful degradation */ })
-      .finally(() => { if (!cancelled) setProvidersLoading(false); });
-    return () => { cancelled = true; };
-  }, [businessId]);
+  const serviceProviders = rawProviders.map(mapDtoToServiceProvider);
+  const services = rawServices.filter((d) => d.isActive).map(mapDtoToService);
 
   // ── Today's appointments ──────────────────────────────────────────────────────
 
