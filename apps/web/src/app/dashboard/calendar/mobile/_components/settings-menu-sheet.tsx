@@ -30,7 +30,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: Users,
     label: 'שעות צוות',
     sub: 'שעות עבודה לכל נותן שירות',
-    route: null,
+    route: '/settings/provider-hours',
   },
 ];
 
