@@ -5,27 +5,35 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
-      // --- legacy /dashboard/* redirects ---
-      { source: '/dashboard', destination: '/home', permanent: true },
-      { source: '/dashboard/appointments', destination: '/calendar', permanent: true },
-      { source: '/dashboard/calendar', destination: '/calendar', permanent: true },
-      { source: '/dashboard/customers', destination: '/customers', permanent: true },
-      { source: '/dashboard/services', destination: '/services', permanent: true },
-      { source: '/dashboard/service-providers', destination: '/settings/team', permanent: true },
-      { source: '/dashboard/availability', destination: '/settings', permanent: true },
-      { source: '/dashboard/settings', destination: '/settings', permanent: true },
-      { source: '/availability', destination: '/settings/business-hours', permanent: true },
+      // --- current flat app routes → /app/* ---
+      { source: '/home',              destination: '/app/home',                    permanent: true },
+      { source: '/calendar',          destination: '/app/calendar',                permanent: true },
+      { source: '/customers',         destination: '/app/customers',               permanent: true },
+      { source: '/services',          destination: '/app/services',                permanent: true },
+      { source: '/settings',          destination: '/app/settings',                permanent: true },
+      { source: '/settings/:path*',   destination: '/app/settings/:path*',         permanent: true },
 
-      // --- /team moved under /settings ---
-      { source: '/team', destination: '/settings/team', permanent: true },
+      // --- legacy /team and /availability → /app/* ---
+      { source: '/team',              destination: '/app/settings/team',           permanent: true },
+      { source: '/availability',      destination: '/app/settings/business-hours', permanent: true },
 
-      // --- transitional /mobile/* redirects ---
-      { source: '/mobile', destination: '/home', permanent: true },
-      { source: '/mobile/home', destination: '/home', permanent: true },
-      { source: '/mobile/calendar', destination: '/calendar', permanent: true },
-      { source: '/mobile/customers', destination: '/customers', permanent: true },
-      { source: '/mobile/services', destination: '/services', permanent: true },
-      { source: '/mobile/team', destination: '/settings/team', permanent: true },
+      // --- legacy /dashboard/* → /app/* (direct, no chains) ---
+      { source: '/dashboard',                   destination: '/app/home',           permanent: true },
+      { source: '/dashboard/appointments',      destination: '/app/calendar',       permanent: true },
+      { source: '/dashboard/calendar',          destination: '/app/calendar',       permanent: true },
+      { source: '/dashboard/customers',         destination: '/app/customers',      permanent: true },
+      { source: '/dashboard/services',          destination: '/app/services',       permanent: true },
+      { source: '/dashboard/service-providers', destination: '/app/settings/team',  permanent: true },
+      { source: '/dashboard/availability',      destination: '/app/settings',       permanent: true },
+      { source: '/dashboard/settings',          destination: '/app/settings',       permanent: true },
+
+      // --- legacy /mobile/* → /app/* (direct, no chains) ---
+      { source: '/mobile',            destination: '/app/home',                    permanent: true },
+      { source: '/mobile/home',       destination: '/app/home',                    permanent: true },
+      { source: '/mobile/calendar',   destination: '/app/calendar',                permanent: true },
+      { source: '/mobile/customers',  destination: '/app/customers',               permanent: true },
+      { source: '/mobile/services',   destination: '/app/services',                permanent: true },
+      { source: '/mobile/team',       destination: '/app/settings/team',           permanent: true },
     ];
   },
 };

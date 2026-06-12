@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import { Search, Users, X, Phone, Mail, AlignLeft, Ban } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus, CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
-import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
+import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { fetchDashboardCustomers, updateDashboardAppointmentStatus } from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { CustomerCreateSheet } from './customer-create-sheet';

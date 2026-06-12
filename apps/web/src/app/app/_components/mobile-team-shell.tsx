@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
-import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
+import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import {
   fetchDashboardBusinessUsers,
   fetchDashboardServiceProviders,
@@ -307,7 +307,7 @@ export function MobileTeamShell() {
       {/* Header */}
       <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
         <button
-          onClick={() => router.push('/settings')}
+          onClick={() => router.push('/app/settings')}
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
           aria-label="חזרה"
         >

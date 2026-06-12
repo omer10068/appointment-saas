@@ -9,7 +9,7 @@ import type {
   DashboardWorkingHourDto,
   UpdateWorkingHoursPayload,
 } from '@appointment/contracts';
-import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
+import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import {
   ApiError,
   fetchDashboardServiceProviders,
@@ -472,7 +472,7 @@ export function MobileProviderHoursShell() {
         <div className="flex items-start justify-between">
           <div>
             <button
-              onClick={() => router.push('/settings')}
+              onClick={() => router.push('/app/settings')}
               className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
               aria-label="חזרה"
             >

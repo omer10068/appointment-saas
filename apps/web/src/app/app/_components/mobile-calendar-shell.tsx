@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
-import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
+import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';

@@ -13,11 +13,11 @@ const NAV_ITEMS = [
 ] as const;
 
 const NAV_ROUTES: Partial<Record<string, string>> = {
-  home:      '/home',
-  calendar:  '/calendar',
-  customers: '/customers',
-  services:  '/services',
-  settings:  '/settings',
+  home:      '/app/home',
+  calendar:  '/app/calendar',
+  customers: '/app/customers',
+  services:  '/app/services',
+  settings:  '/app/settings',
 };
 
 interface Props {

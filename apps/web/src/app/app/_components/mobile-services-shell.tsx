@@ -5,7 +5,7 @@ import { useAuth } from '@clerk/nextjs';
 import { AlignLeft, Clock3, Scissors, Search, Tag, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardServiceDto } from '@appointment/contracts';
-import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
+import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { fetchDashboardServices } from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ServiceCreateSheet } from './service-create-sheet';

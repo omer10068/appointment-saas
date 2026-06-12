@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/nextjs';
 import { Clock3, ChevronLeft, Home } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
-import { useBusiness } from '@/app/(app)/_providers/business/useBusiness';
+import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import {
   fetchDashboardServiceProviders,
   fetchDashboardServices,
@@ -409,7 +409,7 @@ export function MobileHomeShell() {
   const memberWithNoProvider = !canMutate && !myProvider;
 
   function openCreate()   { setShowCreateSheet(true); }
-  function openCalendar() { router.push('/calendar'); }
+  function openCalendar() { router.push('/app/calendar'); }
 
   async function handleStatusUpdate(appointmentId: string, newStatus: ContractsStatus): Promise<void> {
     if (!businessId) return;

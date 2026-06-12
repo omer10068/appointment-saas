@@ -12,25 +12,25 @@ const ITEMS = [
     icon: Clock,
     label: 'שעות פעילות העסק',
     sub: 'ימי ושעות פתיחה שבועיות',
-    route: '/settings/business-hours',
+    route: '/app/settings/business-hours',
   },
   {
     icon: CalendarOff,
     label: 'חריגות וחופשות',
     sub: 'חגים, חופשות וסגירות חד-פעמיות',
-    route: '/settings/exceptions',
+    route: '/app/settings/exceptions',
   },
   {
     icon: Users,
     label: 'שעות צוות',
     sub: 'שעות עבודה לכל נותן שירות',
-    route: '/settings/provider-hours',
+    route: '/app/settings/provider-hours',
   },
   {
     icon: UserCog,
     label: 'אנשי צוות',
     sub: 'ניהול נותני שירות והרשאות צוות',
-    route: '/settings/team',
+    route: '/app/settings/team',
   },
 ] as const;
 
