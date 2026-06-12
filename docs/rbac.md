@@ -4,13 +4,13 @@
 
 ### 1. BusinessUser
 
-A user who has dashboard/system access to a business. Controlled by `BusinessUser.role`.
+A user who has Business App access to a business. Controlled by `BusinessUser.role`.
 
 ### 2. ServiceProvider
 
 A bookable entity that appears in the calendar and can receive appointments. A `ServiceProvider` is linked to a `BusinessUser` but is a separate concept — a `BusinessUser` with `MEMBER` role may or may not have a corresponding `ServiceProvider` profile.
 
-These are not the same thing. `BusinessUser.role` controls dashboard permissions. `ServiceProvider` controls booking/calendar assignment.
+These are not the same thing. `BusinessUser.role` controls Business App permissions. `ServiceProvider` controls booking/calendar assignment.
 
 ---
 
@@ -32,7 +32,7 @@ Full control over the business.
 - Invite/remove MANAGER users
 - Invite/remove MEMBER users
 - Change user roles
-- Access dashboard data
+- Access business app
 - Future: billing/subscription/ownership operations
 
 ### MANAGER
@@ -47,7 +47,7 @@ Operational manager.
 - Manage service providers
 - Manage working hours
 - Manage availability exceptions
-- Access dashboard data
+- Access business app
 
 **Cannot:**
 
@@ -63,7 +63,7 @@ Basic operational user with read access.
 
 **Can:**
 
-- View dashboard data
+- View business app data
 - View services
 - View customers
 - View service providers
@@ -97,7 +97,7 @@ Basic operational user with read access.
 
 | Capability                             | OWNER | MANAGER | MEMBER |
 |----------------------------------------|:-----:|:-------:|:------:|
-| View business dashboard                | yes   | yes     | yes    |
+| View business app                      | yes   | yes     | yes    |
 | View services                          | yes   | yes     | yes    |
 | Create/update/delete services          | yes   | yes     | no     |
 | View customers                         | yes   | yes     | yes    |
@@ -140,10 +140,10 @@ The following items require an explicit decision before being tested, changed, o
    - Caller cannot change their own role.
 
    Status endpoint (`PATCH .../status`):
-   - Accepts `status: ACTIVE | BLOCKED` only. `INVITED` is not settable from the dashboard.
+   - Accepts `status: ACTIVE | BLOCKED` only. `INVITED` is not settable from the app.
    - Caller cannot change their own status.
    - Cannot block the last active OWNER of the business.
 
    Both endpoints scope the target lookup by both `businessUserId` and `businessId` — a foreign `businessUserId` from another business returns 404.
 
-5. **Remove business users — not yet implemented**: Hard delete and soft-removal via a dedicated endpoint are deferred. Until a DELETE endpoint is added, blocking a user (`status = BLOCKED`) is the mechanism to revoke dashboard access. MANAGER cannot remove users; this restriction is permanent per the permission matrix above.
+5. **Remove business users — not yet implemented**: Hard delete and soft-removal via a dedicated endpoint are deferred. Until a DELETE endpoint is added, blocking a user (`status = BLOCKED`) is the mechanism to revoke app access. MANAGER cannot remove users; this restriction is permanent per the permission matrix above.

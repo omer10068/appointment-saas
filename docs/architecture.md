@@ -140,9 +140,9 @@ Completed:
 - Health endpoint connected to PostgreSQL
 - Full backend: authentication, all dashboard CRUD domains, available-slots engine, public booking endpoints, backend hardening — see `docs/backend-roadmap.md`
 - Next.js web frontend (`apps/web`):
-  - Desktop dashboard (full CRUD)
-  - Mobile MVP CRUD stable — all five tabs live: `/mobile/home`, `/mobile/calendar`, `/mobile/customers`, `/mobile/services`, `/mobile/team`
-  - OWNER / MANAGER / MEMBER role behavior verified across all mobile tabs
+  - Business App (mobile-first) at `/app/*`: home, calendar, customers, services, settings; settings sub-routes cover business-hours, exceptions, provider-hours, team
+  - OWNER / MANAGER / MEMBER role behavior verified across all tabs
   - Bottom nav complete; all five tabs active
   - Customer flow is detail-first: tapping a customer always opens read-only `CustomerDetailSheet`; OWNER/MANAGER reach `CustomerEditSheet` via explicit "עריכת לקוח" action
   - `CustomerDetailSheet` includes per-customer appointment history (`CustomerAppointmentHistory`); fetches backend-filtered past appointments via `businessCustomerId` query param
+  - Internal admin placeholder at `/admin`
