@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Calendar, Home, Scissors, Settings, Users } from 'lucide-react';
 
 // Ordered right-to-left for RTL flex: first item renders rightmost.
@@ -13,7 +14,7 @@ const NAV_ITEMS = [
   { icon: Settings, label: 'הגדרות',   key: 'settings'  },
 ] as const;
 
-const NAV_ROUTES: Partial<Record<string, string>> = {
+const NAV_ROUTES: Record<string, string> = {
   home:      '/app/home',
   calendar:  '/app/calendar',
   customers: '/app/customers',
@@ -26,7 +27,6 @@ interface Props {
 }
 
 export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
-  const router = useRouter();
   const pathname = usePathname();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
@@ -38,37 +38,40 @@ export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
   // Visual active key: pending tap wins until the route commits, then real activeKey takes over.
   const displayKey = pendingKey ?? activeKey;
 
-  function handleNavTap(key: string) {
-    const route = NAV_ROUTES[key];
-    if (route) {
-      setPendingKey(key);
-      router.push(route);
-    }
-  }
-
   return (
     <nav className="fixed inset-x-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40">
-      <div className="flex items-center justify-between rounded-full border border-border bg-card/85 px-2 py-1.5 shadow-xl shadow-foreground/10 backdrop-blur-md">
+      {/*
+       * Each <Link> is flex-1 — a stable equal-width slot regardless of active state.
+       * The pill lives on the inner <span> with a fixed w-14 width so every tab's
+       * active pill is identically sized, independent of label length.
+       * <Link> provides automatic prefetch; onClick sets pendingKey for instant feedback.
+       */}
+      <div className="flex items-center rounded-full border border-border bg-card/85 px-2 py-1.5 shadow-xl shadow-foreground/10 backdrop-blur-md">
         {NAV_ITEMS.map(({ icon: Icon, label, key }) => {
           const active = key === displayKey;
           return (
-            <button
+            <Link
               key={key}
+              href={NAV_ROUTES[key]}
               aria-label={label}
               aria-current={key === activeKey ? 'page' : undefined}
-              onClick={() => handleNavTap(key)}
-              className={[
-                'flex flex-col items-center gap-0.5 rounded-[1.26rem] py-1.5 transition-colors',
-                active
-                  ? 'bg-foreground px-4 text-background'
-                  : 'px-2.5 text-muted-foreground',
-              ].join(' ')}
+              onClick={() => setPendingKey(key)}
+              className="flex flex-1 items-center justify-center"
             >
-              <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
-              <span className={`text-[10px] leading-none ${active ? 'font-bold' : 'font-medium'}`}>
-                {label}
+              <span
+                className={[
+                  'flex flex-col items-center gap-0.5 rounded-[1.26rem] py-1.5 transition-colors',
+                  active
+                    ? 'bg-foreground w-14 text-background'
+                    : 'px-2.5 text-muted-foreground',
+                ].join(' ')}
+              >
+                <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+                <span className={`text-[10px] leading-none ${active ? 'font-bold' : 'font-medium'}`}>
+                  {label}
+                </span>
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>
