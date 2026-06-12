@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 interface BottomSheetProps {
   open: boolean;
   onClosed: () => void;
-  /** When true, backdrop click does not trigger close (e.g. during form submission). */
+  /** When true, backdrop click and Escape do not trigger close (e.g. during form submission). */
   lockClose?: boolean;
   /** Passed to aria-label on the sheet panel. */
   ariaLabel?: string;
@@ -32,19 +32,43 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const [visible, setVisible] = useState(false);
   const isClosingRef = useRef(false);
+  const panelRef     = useRef<HTMLDivElement>(null);
+  const prevFocusRef = useRef<Element | null>(null);
 
+  // Open animation + focus management
   useEffect(() => {
     if (!open) return;
     isClosingRef.current = false;
-    const id = requestAnimationFrame(() => setVisible(true));
+    prevFocusRef.current = document.activeElement;
+    const id = requestAnimationFrame(() => {
+      setVisible(true);
+      panelRef.current?.focus({ preventScroll: true });
+    });
     return () => cancelAnimationFrame(id);
   }, [open]);
+
+  // Escape key to close (disabled when lockClose is true)
+  useEffect(() => {
+    if (!open || lockClose) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') triggerClose();
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, lockClose]);
 
   function triggerClose() {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
     setVisible(false);
-    setTimeout(onClosed, 310);
+    const target = prevFocusRef.current;
+    setTimeout(() => {
+      onClosed();
+      if (target instanceof HTMLElement && target.isConnected) {
+        target.focus({ preventScroll: true });
+      }
+    }, 310);
   }
 
   if (!open && !visible) return null;
@@ -63,6 +87,8 @@ export function BottomSheet({
 
       {/* Sheet panel */}
       <div
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
@@ -71,6 +97,7 @@ export function BottomSheet({
           'bg-card rounded-t-4xl border-t border-border shadow-2xl shadow-foreground/30',
           'max-h-[88%] flex flex-col',
           'transition-transform duration-300 ease-out',
+          'outline-none',
           visible ? 'translate-y-0' : 'translate-y-full',
         ].join(' ')}
       >
