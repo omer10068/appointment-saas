@@ -468,7 +468,7 @@ E2E coverage added to `dashboard-appointments.e2e-spec.ts`: appointment create w
 
 `GET …/appointments` now accepts an optional `businessCustomerId` (`@IsUUID`, `@IsOptional`) query parameter. When provided, the Prisma `where` clause adds `businessCustomerId: query.businessCustomerId`. Existing `from`/`to`/`status` filters are unaffected.
 
-This supports the mobile customer history feature: the frontend fetches past appointments filtered by customer without a separate endpoint.
+This supports the customer history feature: the frontend fetches past appointments filtered by customer without a separate endpoint.
 
 E2E coverage added to `dashboard-appointments.e2e-spec.ts`: `businessCustomerId` filter returns only that customer's appointments (1 result); unknown `businessCustomerId` returns empty list. Suite: 11/11 passing.
 
@@ -479,4 +479,4 @@ E2E coverage added to `dashboard-appointments.e2e-spec.ts`: `businessCustomerId`
 - CI/CD polish and staging deployment (CI already runs unit tests, E2E tests, lint, and build via GitHub Actions).
 - Staging environment.
 - Billing and subscriptions.
-- Frontend (Next.js + React under `apps/web`): mobile MVP CRUD is stable across all five tabs — see `CLAUDE.md` § "Current Mobile Frontend Status". Next frontend focus areas: public booking flow, notifications UI, billing UI.
+- Frontend (Next.js + React under `apps/web`): Business App CRUD is stable across all five tabs — see `CLAUDE.md` § "Current Business App Frontend Status". Next frontend focus areas: public booking flow, notifications UI, billing UI.

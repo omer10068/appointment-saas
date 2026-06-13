@@ -79,11 +79,50 @@ const mockServiceProviderWorkingHour: ServiceProviderWorkingHour = {
   updatedAt: new Date('2024-01-01'),
 };
 
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+function todayDateStr(timezone = 'UTC'): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  return (
+    parts.find((p) => p.type === 'year')!.value +
+    '-' +
+    parts.find((p) => p.type === 'month')!.value +
+    '-' +
+    parts.find((p) => p.type === 'day')!.value
+  );
+}
+
+function futureDateStr(daysFromNow = 30, timezone = 'UTC'): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  return (
+    parts.find((p) => p.type === 'year')!.value +
+    '-' +
+    parts.find((p) => p.type === 'month')!.value +
+    '-' +
+    parts.find((p) => p.type === 'day')!.value
+  );
+}
+
+const FUTURE_DATE_STR = futureDateStr(30);
+const FUTURE_DATE = new Date(`${FUTURE_DATE_STR}T00:00:00.000Z`);
+
 const mockException: AvailabilityException = {
   id: 'exc-1',
   businessId: BUSINESS_ID,
   serviceProviderId: null,
-  date: new Date('2024-06-15'),
+  date: FUTURE_DATE,
   startTime: null,
   endTime: null,
   isClosed: true,
@@ -168,7 +207,7 @@ describe('AvailabilityService', () => {
     mockBookingValidation.checkAvailabilityExceptionDeleteConflict.mockResolvedValue(
       undefined,
     );
-    mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE' });
+    mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE', timezone: 'UTC' });
 
     mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
       const cb = args[0] as (tx: typeof mockPrisma) => Promise<unknown>;
@@ -386,7 +425,7 @@ describe('AvailabilityService', () => {
         USER_ID,
         BUSINESS_ID,
         {
-          date: '2024-06-15',
+          date: FUTURE_DATE_STR,
           isClosed: true,
           reason: 'Holiday',
         },
@@ -418,7 +457,7 @@ describe('AvailabilityService', () => {
         USER_ID,
         BUSINESS_ID,
         {
-          date: '2024-06-15',
+          date: FUTURE_DATE_STR,
           serviceProviderId: STAFF_ID,
           isClosed: true,
         },
@@ -438,7 +477,7 @@ describe('AvailabilityService', () => {
 
       await expect(
         service.createAvailabilityException(USER_ID, BUSINESS_ID, {
-          date: '2024-06-15',
+          date: FUTURE_DATE_STR,
           serviceProviderId: OTHER_STAFF_ID,
           isClosed: true,
         }),
@@ -454,10 +493,40 @@ describe('AvailabilityService', () => {
 
       await expect(
         service.createAvailabilityException(USER_ID, BUSINESS_ID, {
-          date: '2024-06-15',
+          date: FUTURE_DATE_STR,
           isClosed: true,
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects a past date with BadRequestException', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+
+      await expect(
+        service.createAvailabilityException(USER_ID, BUSINESS_ID, {
+          date: '2020-01-01',
+          isClosed: true,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.availabilityException.create).not.toHaveBeenCalled();
+    });
+
+    it('allows today in the business timezone', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.availabilityException.create.mockResolvedValue({
+        ...mockException,
+        date: new Date(`${todayDateStr()}T00:00:00.000Z`),
+      });
+
+      await expect(
+        service.createAvailabilityException(USER_ID, BUSINESS_ID, {
+          date: todayDateStr(),
+          isClosed: true,
+        }),
+      ).resolves.toBeDefined();
+
+      expect(mockPrisma.availabilityException.create).toHaveBeenCalled();
     });
   });
 
@@ -529,6 +598,25 @@ describe('AvailabilityService', () => {
           isClosed: true,
         }),
       ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.availabilityException.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects patch when the exception date is in the past', async () => {
+      const pastException: AvailabilityException = {
+        ...mockException,
+        date: new Date('2020-01-01T00:00:00.000Z'),
+      };
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.availabilityException.findFirst.mockResolvedValue(
+        pastException,
+      );
+
+      await expect(
+        service.updateAvailabilityException(USER_ID, BUSINESS_ID, 'exc-1', {
+          reason: 'Editing a past exception',
+        }),
+      ).rejects.toThrow(BadRequestException);
 
       expect(mockPrisma.availabilityException.update).not.toHaveBeenCalled();
     });

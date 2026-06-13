@@ -64,4 +64,16 @@
 
 body {
   font-family: var(--font-sans);
+  background-color: var(--card);
+}
+
+:root {
+  --safe-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

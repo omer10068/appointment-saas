@@ -92,5 +92,5 @@ Customers can access only businesses that explicitly added them and did not bloc
 - Backend: NestJS + TypeScript
 - Database: PostgreSQL
 - ORM: Prisma 7
-- Frontend later: Next.js + React
+- Frontend: Next.js + React (active, under `apps/web`)
 - Architecture: Modular Monolith

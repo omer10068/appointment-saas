@@ -1,26 +1,11 @@
-import { AdminPageHeader } from './_components/AdminPageHeader';
-import { AdminCard } from './_components/AdminCard';
-import { EmptyState } from './_components/EmptyState';
-
-export default function AdminDashboardPage() {
+export default function AdminPage() {
   return (
-    <>
-      <AdminPageHeader
-        title="Dashboard"
-        description="Platform overview and quick stats."
-      />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <AdminCard title="Total Businesses" />
-        <AdminCard title="Total Users" />
-        <AdminCard title="Appointments Today" />
-        <AdminCard title="Active Issues" />
-      </div>
-
-      <EmptyState
-        title="Dashboard analytics coming soon"
-        description="Real-time stats, recent activity, and platform health will appear here."
-      />
-    </>
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-white gap-3 p-8 text-center">
+      <h1 className="text-2xl font-semibold text-gray-900">פאנל ניהול פנימי</h1>
+      <p className="text-lg text-gray-500">בקרוב</p>
+      <p className="text-sm text-gray-400 max-w-sm">
+        כאן ינוהלו עסקים, בעלי עסקים, אוטומציות ותפעול המערכת.
+      </p>
+    </div>
   );
 }
