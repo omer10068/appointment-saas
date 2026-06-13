@@ -6,7 +6,7 @@ export default function ProviderHoursLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header — matches MobileProviderHoursShell header */}
-      <header className="flex-none px-5 pb-3 pt-9">
+      <header className="flex-none border-b border-border bg-card px-5 pb-3 pt-9">
         <button
           disabled
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground opacity-40"

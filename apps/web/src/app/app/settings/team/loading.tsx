@@ -6,7 +6,7 @@ export default function TeamLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header — matches MobileTeamShell header */}
-      <div className="flex-none px-5 pb-4 pt-9">
+      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
         <button
           disabled
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground opacity-40"

@@ -39,7 +39,7 @@ export function CalendarBottomNav({ activeKey = 'calendar' }: Props) {
   const displayKey = pendingKey ?? activeKey;
 
   return (
-    <nav className="fixed inset-x-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40">
+    <nav className="fixed inset-x-4 bottom-[var(--safe-bottom)] z-40">
       {/*
        * Each <Link> is flex-1 — a stable equal-width slot regardless of active state.
        * The pill lives on the inner <span> with a fixed w-14 width so every tab's

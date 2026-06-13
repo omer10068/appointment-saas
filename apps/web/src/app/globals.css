@@ -64,6 +64,11 @@
 
 body {
   font-family: var(--font-sans);
+  background-color: var(--background);
+}
+
+:root {
+  --safe-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 @media (prefers-reduced-motion: reduce) {
