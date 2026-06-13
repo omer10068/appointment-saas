@@ -4,13 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import type { DashboardCustomerDto } from '@appointment/contracts';
 import { CustomerStatus } from '@appointment/contracts';
-import {
-  ApiError,
-  createDashboardAppointment,
-  fetchAvailableSlots,
-  fetchDashboardCustomers,
-} from '@/lib/api';
+import { ApiError, createDashboardAppointment, fetchAvailableSlots } from '@/lib/api';
 import type { AvailableSlotItem } from '@/lib/api';
+import { useAppCustomers } from '@/app/app/_hooks/useAppCustomers';
 import { isFutureSlot, toLocalDateString } from './calendar.utils';
 import type { ServiceProvider } from './calendar.types';
 
@@ -89,8 +85,8 @@ export function useCreateAppointmentForm(params: {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // ── Customer data ────────────────────────────────────────────────────────────
-  const [customers, setCustomers] = useState<DashboardCustomerDto[]>([]);
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const { customers: allCustomers, loading: isLoadingCustomers } = useAppCustomers(businessId);
+  const customers = allCustomers.filter((c) => c.status === CustomerStatus.ACTIVE);
 
   // ── Slot data ─────────────────────────────────────────────────────────────────
   const [slots, setSlots] = useState<AvailableSlotItem[]>([]);
@@ -116,33 +112,6 @@ export function useCreateAppointmentForm(params: {
         (sp.serviceIds?.includes(selectedServiceId) ?? true),
     );
   }, [serviceProviders, selectedServiceId]);
-
-  // ── Fetch customers once on mount ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!businessId) {
-      setCustomers([]);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoadingCustomers(true);
-
-    fetchDashboardCustomers(businessId, () => getTokenRef.current())
-      .then((dtos) => {
-        if (cancelled) return;
-        setCustomers(dtos.filter((c) => c.status === CustomerStatus.ACTIVE));
-      })
-      .catch(() => {
-        if (!cancelled) setCustomers([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingCustomers(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [businessId]);
 
   // ── Fetch available slots when all upstream selections are ready ──────────────
   useEffect(() => {
