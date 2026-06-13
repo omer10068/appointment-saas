@@ -12,10 +12,10 @@ import type {
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import {
   ApiError,
-  fetchDashboardServiceProviders,
   fetchServiceProviderWorkingHours,
   updateServiceProviderWorkingHours,
 } from '@/lib/api';
+import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
@@ -433,35 +433,20 @@ export function MobileProviderHoursShell() {
 
   const { message: toastMessage, showToast } = useMobileToast();
 
-  const [providers, setProviders] = useState<DashboardServiceProviderDto[]>([]);
-  const [loading, setLoading]     = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [retryKey, setRetryKey]   = useState(0);
+  // Providers via TanStack Query (cache shared with calendar/team/services tabs).
+  const {
+    providers: allProviders,
+    loading,
+    error: loadError,
+    refetch,
+  } = useAppServiceProviders(businessId);
+
+  // Only active providers are shown in the picker.
+  const providers = allProviders.filter((p) => p.isActive);
 
   const [selectedProvider, setSelectedProvider] =
     useState<DashboardServiceProviderDto | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-
-  useEffect(() => {
-    if (!businessId) {
-      setProviders([]);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-    fetchDashboardServiceProviders(businessId, () => getTokenRef.current())
-      .then((data) => {
-        if (!cancelled) setProviders(data.filter((p) => p.isActive));
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('שגיאה בטעינת רשימת הצוות');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [businessId, retryKey]);
 
   const businessName = currentBusiness?.business.name ?? '';
 
@@ -503,7 +488,7 @@ export function MobileProviderHoursShell() {
           <div className="flex flex-col items-center gap-3 py-12">
             <p className="text-sm text-muted-foreground">{loadError}</p>
             <button
-              onClick={() => setRetryKey((k) => k + 1)}
+              onClick={refetch}
               className="text-sm font-medium text-primary"
             >
               נסה שוב
