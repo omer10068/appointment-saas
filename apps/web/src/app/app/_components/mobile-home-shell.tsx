@@ -404,7 +404,7 @@ export function MobileHomeShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="flex-none px-5 pt-9 pb-5">
+      <header className="flex-none bg-card px-5 pt-9 pb-5">
         <div className="flex items-start justify-between">
           {/* Left side (RTL start = physical right): greeting + title + date */}
           <div>

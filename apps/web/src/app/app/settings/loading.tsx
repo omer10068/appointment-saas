@@ -9,7 +9,7 @@ export default function SettingsLoading() {
       <header className="flex-none border-b border-border bg-card px-5 pb-5 pt-9">
         <div className="flex items-start justify-between">
           <div>
-            <div className="h-3.5 w-28 animate-pulse rounded-full bg-primary/20" />
+            <div className="h-5 w-28 animate-pulse rounded-full bg-primary/20" />
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
               ניהול והגדרות
             </h1>
