@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
-import type { DashboardBusinessUserDto, DashboardServiceDto, DashboardServiceProviderDto } from '@appointment/contracts';
+import type { DashboardBusinessUserDto, DashboardServiceProviderDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
-import {
-  fetchDashboardBusinessUsers,
-  fetchDashboardServiceProviders,
-  fetchDashboardServices,
-} from '@/lib/api';
+import { fetchDashboardBusinessUsers } from '@/lib/api';
+import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
+import { useAppServices } from '../_hooks/useAppServices';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ProviderCreateSheet } from './provider-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
@@ -202,50 +200,63 @@ export function MobileTeamShell() {
 
   // ── Data fetch ────────────────────────────────────────────────────────────────
 
-  const [providers, setProviders]           = useState<DashboardServiceProviderDto[]>([]);
-  const [services, setServices]             = useState<DashboardServiceDto[]>([]);
-  const [serviceMap, setServiceMap]         = useState<Record<string, string>>({});
-  const [businessUsers, setBusinessUsers]   = useState<DashboardBusinessUserDto[]>([]);
-  const [loading, setLoading]               = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
-  const [retryKey, setRetryKey]             = useState(0);
+  // Providers + services via TanStack Query (cache shared with calendar/services tabs).
+  const {
+    providers,
+    loading: providersLoading,
+    error: providersError,
+    refetch: refetchProviders,
+  } = useAppServiceProviders(businessId);
 
-  function retry() { setRetryKey((k) => k + 1); }
+  const {
+    services,
+    loading: servicesLoading,
+    error: servicesError,
+    refetch: refetchServices,
+  } = useAppServices(businessId);
+
+  // Build serviceMap from the TanStack-managed services list.
+  const serviceMap: Record<string, string> = {};
+  for (const s of services) {
+    serviceMap[s.id] = s.name;
+  }
+
+  // Business users — stays manual: OWNER-only, no existing TanStack hook.
+  const [businessUsers, setBusinessUsers]   = useState<DashboardBusinessUserDto[]>([]);
+  const [usersLoading, setUsersLoading]     = useState(false);
+  const [usersError, setUsersError]         = useState(false);
+  const [usersRetryKey, setUsersRetryKey]   = useState(0);
 
   useEffect(() => {
-    if (!businessId) return;
+    if (!businessId || !isOwner) {
+      setBusinessUsers([]);
+      return;
+    }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    Promise.all([
-      fetchDashboardServiceProviders(businessId, () => getTokenRef.current()),
-      fetchDashboardServices(businessId, () => getTokenRef.current()),
-      isOwner
-        ? fetchDashboardBusinessUsers(businessId, () => getTokenRef.current())
-        : Promise.resolve<DashboardBusinessUserDto[]>([]),
-    ])
-      .then(([providerDtos, serviceDtos, userDtos]) => {
-        if (cancelled) return;
-        setProviders(providerDtos);
-        const allServices = serviceDtos as DashboardServiceDto[];
-        setServices(allServices);
-        const map: Record<string, string> = {};
-        for (const s of allServices) {
-          map[s.id] = s.name;
-        }
-        setServiceMap(map);
-        setBusinessUsers(userDtos);
+    setUsersLoading(true);
+    setUsersError(false);
+    fetchDashboardBusinessUsers(businessId, () => getTokenRef.current())
+      .then((userDtos) => {
+        if (!cancelled) setBusinessUsers(userDtos);
       })
       .catch(() => {
-        if (!cancelled) setError('שגיאה בטעינת הצוות');
+        if (!cancelled) setUsersError(true);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setUsersLoading(false);
       });
-
     return () => { cancelled = true; };
-  }, [businessId, retryKey, isOwner]);
+  }, [businessId, isOwner, usersRetryKey]);
+
+  // Composed loading / error / retry.
+  const loading = providersLoading || servicesLoading || usersLoading;
+  const error   = providersError ?? servicesError ?? (usersError ? 'שגיאה בטעינת הצוות' : null);
+
+  function retry() {
+    refetchProviders();
+    refetchServices();
+    setUsersRetryKey((k) => k + 1);
+  }
 
   // ── Search ────────────────────────────────────────────────────────────────────
 
