@@ -44,6 +44,8 @@ const E2E_AE_MUT_APT_DEL_OK_ID = 'e2e30000-0000-4000-8000-000000000052';
 const E2E_AE_MUT_APT_PATCH_ID = 'e2e30000-0000-4000-8000-000000000053';
 // Pre-seeded exceptions for conflict check tests
 const E2E_AE_MUT_EXCEPTION_OPEN_ID = 'e2e30000-0000-4000-8000-000000000060'; // 2099-08-08 open
+// Pre-seeded past exception for past-date PATCH rejection test
+const E2E_AE_MUT_PAST_EXCEPTION_ID = 'e2e30000-0000-4000-8000-000000000070';
 const E2E_AE_MUT_DEL_CONFLICT_EXCEPTION_ID =
   'e2e30000-0000-4000-8000-000000000061'; // 2099-09-10
 const E2E_AE_MUT_DEL_OK_EXCEPTION_ID = 'e2e30000-0000-4000-8000-000000000062'; // 2099-09-11 SP-level
@@ -148,6 +150,7 @@ beforeAll(async () => {
       name: 'E2E Availability Exceptions Mutations Business',
       slug: 'e2e-availability-exceptions-mutations-business',
       status: 'ACTIVE',
+      timezone: 'Asia/Jerusalem',
     },
   });
 
@@ -245,6 +248,15 @@ beforeAll(async () => {
       id: E2E_AE_MUT_DELETE_MGR_ID,
       businessId: E2E_AE_MUT_BIZ_ID,
       date: new Date('2099-11-03'),
+      isClosed: true,
+    },
+  });
+  // Past-dated exception — always in the past; used by past-date PATCH rejection test
+  await prisma.availabilityException.create({
+    data: {
+      id: E2E_AE_MUT_PAST_EXCEPTION_ID,
+      businessId: E2E_AE_MUT_BIZ_ID,
+      date: new Date('2020-01-01'),
       isClosed: true,
     },
   });
@@ -993,5 +1005,56 @@ describe('Conflict checks for availability exception mutations', () => {
         `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions/${E2E_AE_MUT_DEL_OK_EXCEPTION_ID}`,
       )
       .expect(204);
+  });
+});
+
+// ─── Past-date validation ─────────────────────────────────────────────────────
+
+function todayInJerusalem(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  return (
+    parts.find((p) => p.type === 'year')!.value +
+    '-' +
+    parts.find((p) => p.type === 'month')!.value +
+    '-' +
+    parts.find((p) => p.type === 'day')!.value
+  );
+}
+
+describe('Past-date validation for availability exceptions', () => {
+  it('POST with a past date → 400', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions`,
+      )
+      .send({ date: '2020-01-01', isClosed: true })
+      .expect(400);
+  });
+
+  it('POST with today in business timezone → 201', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions`,
+      )
+      .send({ date: todayInJerusalem(), isClosed: true })
+      .expect(201);
+  });
+
+  it('PATCH exception whose date is in the past → 400', async () => {
+    // E2E_AE_MUT_PAST_EXCEPTION_ID is seeded with date 2020-01-01 (always in the past).
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_AE_MUT_BIZ_ID}/availability-exceptions/${E2E_AE_MUT_PAST_EXCEPTION_ID}`,
+      )
+      .send({ reason: 'Editing a past exception' })
+      .expect(400);
   });
 });

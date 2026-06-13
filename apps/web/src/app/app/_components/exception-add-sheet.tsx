@@ -74,6 +74,22 @@ function formatDisplayDate(dateStr: string): string {
   return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function todayInTimezone(tz: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  return (
+    parts.find((p) => p.type === 'year')!.value +
+    '-' +
+    parts.find((p) => p.type === 'month')!.value +
+    '-' +
+    parts.find((p) => p.type === 'day')!.value
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -120,10 +136,16 @@ export function AddExceptionSheet({
     setSubmitting(false);
   }, [open]);
 
-  const isValid = !!date;
+  const todayStr = todayInTimezone(timezone);
+  const isPastDate = !!date && date < todayStr;
+  const isValid = !!date && !isPastDate;
 
   async function handleSubmit(triggerClose: () => void) {
     if (!businessId || !isValid || submitting) return;
+    if (isPastDate) {
+      setError('לא ניתן להוסיף חריגה בתאריך עבר');
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -206,6 +228,11 @@ export function AddExceptionSheet({
                     <span>{date ? formatDisplayDate(date) : 'בחר תאריך'}</span>
                     <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
                   </button>
+                  {isPastDate && (
+                    <p className="mt-1.5 text-right text-[12px] text-red-500">
+                      לא ניתן להוסיף חריגה בתאריך עבר
+                    </p>
+                  )}
                 </FormField>
 
                 {/* Provider */}

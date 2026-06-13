@@ -183,6 +183,8 @@ export class AvailabilityService {
     dto: CreateAvailabilityExceptionDto,
   ): Promise<AvailabilityExceptionDto> {
     await this.assertMutationAccess(userId, businessId);
+    const timezone = await this.getBusinessTimezone(businessId);
+    this.assertNotPastDate(dto.date, timezone);
     if (dto.serviceProviderId) {
       await this.assertServiceProviderInBusiness(
         dto.serviceProviderId,
@@ -234,6 +236,9 @@ export class AvailabilityService {
     });
     if (!existing)
       throw new NotFoundException('Availability exception not found');
+
+    const timezone = await this.getBusinessTimezone(businessId);
+    this.assertNotPastDate(existing.date.toISOString().slice(0, 10), timezone);
 
     if (dto.serviceProviderId) {
       await this.assertServiceProviderInBusiness(
@@ -391,6 +396,34 @@ export class AvailabilityService {
     }
     if (endTime <= startTime) {
       throw new BadRequestException('endTime must be after startTime');
+    }
+  }
+
+  private async getBusinessTimezone(businessId: string): Promise<string> {
+    const biz = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { timezone: true },
+    });
+    return biz?.timezone ?? 'UTC';
+  }
+
+  private assertNotPastDate(dateStr: string, timezone: string): void {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const todayStr =
+      parts.find((p) => p.type === 'year')!.value +
+      '-' +
+      parts.find((p) => p.type === 'month')!.value +
+      '-' +
+      parts.find((p) => p.type === 'day')!.value;
+    if (dateStr < todayStr) {
+      throw new BadRequestException(
+        'Cannot create an availability exception for a past date',
+      );
     }
   }
 }
