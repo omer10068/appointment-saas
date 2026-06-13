@@ -1,15 +1,15 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
-import type { DashboardBusinessUserDto, DashboardServiceProviderDto } from '@appointment/contracts';
+import type { DashboardServiceProviderDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
-import { fetchDashboardBusinessUsers } from '@/lib/api';
 import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
 import { useAppServices } from '../_hooks/useAppServices';
+import { useAppBusinessUsers } from '../_hooks/useAppBusinessUsers';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { ProviderCreateSheet } from './provider-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
@@ -221,41 +221,22 @@ export function MobileTeamShell() {
     serviceMap[s.id] = s.name;
   }
 
-  // Business users — stays manual: OWNER-only, no existing TanStack hook.
-  const [businessUsers, setBusinessUsers]   = useState<DashboardBusinessUserDto[]>([]);
-  const [usersLoading, setUsersLoading]     = useState(false);
-  const [usersError, setUsersError]         = useState(false);
-  const [usersRetryKey, setUsersRetryKey]   = useState(0);
-
-  useEffect(() => {
-    if (!businessId || !isOwner) {
-      setBusinessUsers([]);
-      return;
-    }
-    let cancelled = false;
-    setUsersLoading(true);
-    setUsersError(false);
-    fetchDashboardBusinessUsers(businessId, () => getTokenRef.current())
-      .then((userDtos) => {
-        if (!cancelled) setBusinessUsers(userDtos);
-      })
-      .catch(() => {
-        if (!cancelled) setUsersError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setUsersLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [businessId, isOwner, usersRetryKey]);
+  // Business users via TanStack Query — OWNER-only (disabled for non-OWNER roles).
+  const {
+    businessUsers,
+    loading: usersLoading,
+    error: usersError,
+    refetch: refetchUsers,
+  } = useAppBusinessUsers(businessId, isOwner);
 
   // Composed loading / error / retry.
   const loading = providersLoading || servicesLoading || usersLoading;
-  const error   = providersError ?? servicesError ?? (usersError ? 'שגיאה בטעינת הצוות' : null);
+  const error   = providersError ?? servicesError ?? usersError;
 
   function retry() {
     refetchProviders();
     refetchServices();
-    setUsersRetryKey((k) => k + 1);
+    refetchUsers();
   }
 
   // ── Search ────────────────────────────────────────────────────────────────────
