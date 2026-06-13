@@ -1,13 +1,14 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { CalendarOff, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import type { DashboardAvailabilityExceptionDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
-import { deleteAvailabilityException, fetchAvailabilityExceptions } from '@/lib/api';
+import { deleteAvailabilityException } from '@/lib/api';
 import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
+import { useAppExceptions } from '../_hooks/useAppExceptions';
 import { AddExceptionSheet } from './exception-add-sheet';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';
@@ -225,11 +226,13 @@ export function MobileExceptionsShell() {
   // Only active providers are needed for display.
   const providers = allProviders.filter((p) => p.isActive);
 
-  // Exceptions — stays manual: no existing TanStack hook.
-  const [exceptions, setExceptions] = useState<DashboardAvailabilityExceptionDto[]>([]);
-  const [exceptionsLoading, setExceptionsLoading] = useState(false);
-  const [exceptionsError, setExceptionsError]     = useState(false);
-  const [retryKey, setRetryKey]                   = useState(0);
+  // Exceptions via TanStack Query.
+  const {
+    exceptions,
+    loading: exceptionsLoading,
+    error: exceptionsError,
+    refetch: refetchExceptions,
+  } = useAppExceptions(businessId);
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [tab, setTab]                         = useState<Tab>('future');
@@ -237,35 +240,13 @@ export function MobileExceptionsShell() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId]           = useState<string | null>(null);
 
-  // ── Load exceptions ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!businessId) {
-      setExceptions([]);
-      return;
-    }
-    let cancelled = false;
-    setExceptionsLoading(true);
-    setExceptionsError(false);
-    fetchAvailabilityExceptions(businessId, () => getTokenRef.current())
-      .then((excs) => {
-        if (!cancelled) setExceptions(excs);
-      })
-      .catch(() => {
-        if (!cancelled) setExceptionsError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setExceptionsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [businessId, retryKey]);
-
   // Composed loading / error / retry.
   const loading   = providersLoading || exceptionsLoading;
-  const loadError = providersError ?? (exceptionsError ? 'שגיאה בטעינת החריגות' : null);
+  const loadError = providersError ?? exceptionsError;
 
   function retryAll() {
     refetchProviders();
-    setRetryKey((k) => k + 1);
+    refetchExceptions();
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -274,8 +255,8 @@ export function MobileExceptionsShell() {
     setDeletingId(id);
     try {
       await deleteAvailabilityException(businessId, id, () => getTokenRef.current());
-      setExceptions((prev) => prev.filter((e) => e.id !== id));
       setConfirmDeleteId(null);
+      refetchExceptions();
     } catch {
       showToast('שגיאה במחיקת החריגה, נסה שוב', 4000);
     } finally {
