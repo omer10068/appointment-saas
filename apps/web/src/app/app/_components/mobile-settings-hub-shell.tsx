@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { CalendarOff, ChevronLeft, Clock, Settings, UserCog, Users } from 'lucide-react';
+import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 
@@ -38,15 +39,22 @@ const ITEMS = [
 
 export function MobileSettingsHubShell() {
   const router = useRouter();
+  const { currentBusiness } = useBusiness();
+  const businessName = currentBusiness?.business.name;
 
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none px-5 pb-3 pt-9">
+      <header className="flex-none border-b border-border bg-card px-5 pb-5 pt-9">
         <div className="flex items-start justify-between">
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-            ניהול והגדרות
-          </h1>
+          <div>
+            {businessName && (
+              <p className="text-sm font-semibold text-primary">{businessName}</p>
+            )}
+            <h1 className={`${businessName ? 'mt-1' : ''} text-2xl font-extrabold tracking-tight text-foreground`}>
+              ניהול והגדרות
+            </h1>
+          </div>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
             <Settings className="size-5" />
           </div>

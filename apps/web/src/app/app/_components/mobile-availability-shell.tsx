@@ -256,25 +256,23 @@ export function MobileBusinessHoursShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none px-5 pt-9 pb-5">
-        <div className="flex items-start justify-between">
+      <header className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+        <button
+          onClick={() => router.push('/app/settings')}
+          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
+          aria-label="חזרה"
+        >
+          <ChevronRight className="size-4" />
+          <span>חזרה</span>
+        </button>
+        <div className="mt-2 flex items-start justify-between">
           <div>
-            <button
-              onClick={() => router.push('/app/settings')}
-              className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-              aria-label="חזרה"
-            >
-              <ChevronRight className="size-4" />
-              <span>חזרה</span>
-            </button>
+            {businessName && (
+              <p className="text-sm font-semibold text-primary">{businessName}</p>
+            )}
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
               שעות פעילות
             </h1>
-            {businessName && (
-              <p className="mt-1 text-xs font-medium text-muted-foreground">
-                {businessName}
-              </p>
-            )}
           </div>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
             <Clock className="size-5" />

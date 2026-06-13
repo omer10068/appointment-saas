@@ -287,7 +287,7 @@ export function MobileTeamShell() {
         <div className="mt-2 flex items-start justify-between">
           <div>
             {businessName && (
-              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+              <p className="text-sm font-semibold text-primary">
                 {businessName}
               </p>
             )}

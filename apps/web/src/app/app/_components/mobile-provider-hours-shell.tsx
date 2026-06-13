@@ -157,7 +157,7 @@ function ProvidersSkeleton() {
   return (
     <div className="space-y-3 pt-1">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-[72px] animate-pulse rounded-2xl bg-muted" />
+        <div key={i} className="h-18 animate-pulse rounded-2xl bg-muted" />
       ))}
     </div>
   );
@@ -468,31 +468,29 @@ export function MobileProviderHoursShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none px-5 pb-3 pt-9">
-        <div className="flex items-start justify-between">
+      <header className="flex-none border-b border-border bg-card px-5 pb-3 pt-9">
+        <button
+          onClick={() => router.push('/app/settings')}
+          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
+          aria-label="חזרה"
+        >
+          <ChevronRight className="size-4" />
+          <span>חזרה</span>
+        </button>
+        <div className="mt-2 flex items-start justify-between">
           <div>
-            <button
-              onClick={() => router.push('/app/settings')}
-              className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-              aria-label="חזרה"
-            >
-              <ChevronRight className="size-4" />
-              <span>חזרה</span>
-            </button>
+            {businessName && (
+              <p className="text-sm font-semibold text-primary">{businessName}</p>
+            )}
             <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
               שעות צוות
             </h1>
-            {businessName && (
-              <p className="mt-1 text-xs font-medium text-muted-foreground">
-                {businessName}
-              </p>
-            )}
           </div>
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
             <Users className="size-5" />
           </div>
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        <p className="relative mt-3 text-sm leading-relaxed text-muted-foreground">
           הגדרת שעות עבודה אישיות לכל נותן שירות, בנוסף לשעות הכלליות של העסק.
         </p>
       </header>
@@ -523,7 +521,7 @@ export function MobileProviderHoursShell() {
             <p className="text-sm font-medium text-muted-foreground">
               אין נותני שירות פעילים
             </p>
-            <p className="max-w-[200px] text-center text-xs text-muted-foreground">
+            <p className="max-w-50 text-center text-xs text-muted-foreground">
               הוסף נותני שירות בלשונית הצוות כדי להגדיר שעות עבודה אישיות
             </p>
           </div>

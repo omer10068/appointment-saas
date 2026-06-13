@@ -166,11 +166,11 @@ export function MobileCalendarShell() {
     // Remove the md: classes when a proper desktop layout is designed.
     <MobilePhoneFrame dir="rtl">
       {/* Page header */}
-      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+      <header className="flex-none border-b border-border bg-card px-5 pb-5 pt-9">
         <div className="flex items-start justify-between">
           <div>
             {businessName && (
-              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+              <p className="text-sm font-semibold text-primary">
                 {businessName}
               </p>
             )}
@@ -185,7 +185,7 @@ export function MobileCalendarShell() {
             <Calendar className="size-5" />
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Week strip: nav row + day picker share one card section */}
       <div className="flex-none border-b border-border bg-card px-3 pb-3 pt-2">

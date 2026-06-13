@@ -236,11 +236,11 @@ export function MobileServicesShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header */}
-      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+      <header className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
         <div className="flex items-start justify-between">
           <div>
             {businessName && (
-              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+              <p className="text-sm font-semibold text-primary">
                 {businessName}
               </p>
             )}
@@ -276,7 +276,7 @@ export function MobileServicesShell() {
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Scrollable content */}
       <div
