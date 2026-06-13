@@ -64,7 +64,7 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--background);
+  background-color: var(--card);
 }
 
 :root {
