@@ -92,6 +92,11 @@ export function MobileCalendarShell() {
     });
   }, [serviceProviders, currentBusiness]);
 
+  const filterLabel =
+    selectedServiceProviderId === 'all'
+      ? 'כל הצוות'
+      : (sortedServiceProviders.find((sp) => sp.id === selectedServiceProviderId)?.name.split(' ')[0] ?? 'כל הצוות');
+
   // All appointments for the selected day (used by the timeline)
   const allDayAppointments = useMemo(
     () => appointments.filter((a) => isSameDay(a.startTime, selectedDate)),
@@ -204,6 +209,7 @@ export function MobileCalendarShell() {
           onToday={handleToday}
           onOpenCalendar={() => setShowMonthPicker(true)}
           onFilterPress={() => setShowProviderFilter(true)}
+          filterLabel={filterLabel}
         />
         <CalendarDayPicker
           selectedDate={selectedDate}

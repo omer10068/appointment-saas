@@ -34,16 +34,17 @@ interface Props {
   onToday: () => void;
   onOpenCalendar: () => void;
   onFilterPress: () => void;
+  /** Current provider filter label shown on the pill, e.g. "כל הצוות" or "יובל". */
+  filterLabel: string;
 }
 
-export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilterPress }: Props) {
+export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilterPress, filterLabel }: Props) {
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
-    // Three-slot justify-between keeps the date title exactly centered:
-    //   DOM: [היום w-12] [title] [spacer w-12]
-    //   RTL visual: [spacer] [title] [היום]
-    <div className="flex items-center justify-between px-1 pb-2.5">
+    // Title is absolutely centered so it stays fixed regardless of side-element widths.
+    // Side elements (היום, filter pill) sit at flex edges via justify-between.
+    <div className="relative flex items-center justify-between px-1 pb-2.5">
 
       {/* Right in RTL — today ghost pill */}
       <button
@@ -60,16 +61,21 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
         היום
       </button>
 
-      {/* Center — selected-day title (taps to open date picker) */}
-      <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
+      {/* Center — absolutely overlaid so side elements never shift it */}
+      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
+        <div className="pointer-events-auto">
+          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
+        </div>
+      </div>
 
-      {/* Left in RTL — team/provider filter, balances היום on the opposite side */}
+      {/* Left in RTL — provider filter pill showing current selection */}
       <button
         onClick={onFilterPress}
-        aria-label="סינון לפי איש צוות"
-        className="flex h-7 w-12 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:opacity-70"
+        aria-label="בחירת איש צוות"
+        className="flex h-7 max-w-[6.5rem] shrink-0 items-center gap-1 rounded-full border border-border/40 px-2.5 text-muted-foreground/70 transition active:scale-95 active:opacity-70"
       >
-        <Users className="size-3.5" />
+        <Users className="size-3 shrink-0" />
+        <span className="truncate text-[11px] font-medium">{filterLabel}</span>
       </button>
     </div>
   );
