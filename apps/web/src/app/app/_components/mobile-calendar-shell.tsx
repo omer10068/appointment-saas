@@ -92,10 +92,15 @@ export function MobileCalendarShell() {
     });
   }, [serviceProviders, currentBusiness]);
 
-  const filterLabel =
-    selectedServiceProviderId === 'all'
-      ? 'כל הצוות'
-      : (sortedServiceProviders.find((sp) => sp.id === selectedServiceProviderId)?.name.split(' ')[0] ?? 'כל הצוות');
+  const canFilterProviders = sortedServiceProviders.length > 1;
+
+  const filterLabel = (() => {
+    if (sortedServiceProviders.length === 1) {
+      return sortedServiceProviders[0]?.name.split(' ')[0] ?? 'כל הצוות';
+    }
+    if (selectedServiceProviderId === 'all') return 'כל הצוות';
+    return sortedServiceProviders.find((sp) => sp.id === selectedServiceProviderId)?.name.split(' ')[0] ?? 'כל הצוות';
+  })();
 
   // All appointments for the selected day (used by the timeline)
   const allDayAppointments = useMemo(
@@ -210,6 +215,7 @@ export function MobileCalendarShell() {
           onOpenCalendar={() => setShowMonthPicker(true)}
           onFilterPress={() => setShowProviderFilter(true)}
           filterLabel={filterLabel}
+          canFilter={canFilterProviders}
         />
         <CalendarDayPicker
           selectedDate={selectedDate}

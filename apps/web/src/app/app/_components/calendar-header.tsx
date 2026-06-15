@@ -36,9 +36,11 @@ interface Props {
   onFilterPress: () => void;
   /** Current provider filter label shown on the pill, e.g. "כל הצוות" or "יובל". */
   filterLabel: string;
+  /** False when only one provider exists — pill becomes a passive status indicator. */
+  canFilter: boolean;
 }
 
-export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilterPress, filterLabel }: Props) {
+export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilterPress, filterLabel, canFilter }: Props) {
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
@@ -68,11 +70,17 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
         </div>
       </div>
 
-      {/* Left in RTL — provider filter pill showing current selection */}
+      {/* Left in RTL — provider filter pill (passive status when only one provider) */}
       <button
-        onClick={onFilterPress}
+        onClick={canFilter ? onFilterPress : undefined}
+        disabled={!canFilter}
         aria-label="בחירת איש צוות"
-        className="flex h-7 max-w-[6.5rem] shrink-0 items-center gap-1 rounded-full border border-border/40 px-2.5 text-muted-foreground/70 transition active:scale-95 active:opacity-70"
+        className={[
+          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-2.5 transition',
+          canFilter
+            ? 'border-border/40 text-muted-foreground/70 active:scale-95 active:opacity-70'
+            : 'cursor-default border-border/20 text-muted-foreground/40',
+        ].join(' ')}
       >
         <Users className="size-3 shrink-0" />
         <span className="truncate text-[11px] font-medium">{filterLabel}</span>
