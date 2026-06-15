@@ -1,26 +1,26 @@
 'use client';
 
-import { ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
-import { formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
+import { HEBREW_DAY_ABBR, formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
 
-// ─── Date control ──────────────────────────────────────────────────────────────
+// ─── Selected-day title ────────────────────────────────────────────────────────
 
 interface DateControlProps {
   selectedDate: Date;
   onClick: () => void;
 }
 
-function CalendarDateControl({ selectedDate, onClick }: DateControlProps) {
-  const label = formatNumericDate(selectedDate);
+function CalendarSelectedDayTitle({ selectedDate, onClick }: DateControlProps) {
+  const weekday = HEBREW_DAY_ABBR[selectedDate.getDay()];
+  const numeric = formatNumericDate(selectedDate);
   return (
     <button
       onClick={onClick}
-      aria-label={`לוח שנה — ${label}`}
-      className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 transition active:scale-95 active:opacity-75"
+      aria-label={`לוח שנה — ${weekday} ${numeric}`}
+      className="flex flex-col items-center gap-0.5 px-2 py-1 transition active:opacity-75"
     >
-      <CalendarDays className="size-3.5 shrink-0 text-primary" />
-      <span dir="ltr" className="text-xs font-bold tabular-nums text-foreground">
-        {label}
+      <span className="font-bold text-xs leading-none text-foreground">{weekday}</span>
+      <span dir="ltr" className="text-[11px] font-medium tabular-nums leading-none text-muted-foreground">
+        {numeric}
       </span>
     </button>
   );
@@ -30,20 +30,17 @@ function CalendarDateControl({ selectedDate, onClick }: DateControlProps) {
 
 interface Props {
   selectedDate: Date;
-  onPrevWeek: () => void;
-  onNextWeek: () => void;
   onToday: () => void;
   onOpenCalendar: () => void;
 }
 
-export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, onOpenCalendar }: Props) {
+export function CalendarHeader({ selectedDate, onToday, onOpenCalendar }: Props) {
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
-    // dir="rtl" inherited.
-    // Three-slot justify-between keeps the nav group exactly centered:
-    //   DOM: [היום w-12] [‹ date ›] [spacer w-12]
-    //   RTL visual: [spacer] [‹ date ›] [היום]
+    // Three-slot justify-between keeps the date title exactly centered:
+    //   DOM: [היום w-12] [title] [spacer w-12]
+    //   RTL visual: [spacer] [title] [היום]
     <div className="flex items-center justify-between px-1 pb-2.5">
 
       {/* Right in RTL — today ghost pill */}
@@ -61,26 +58,8 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, 
         היום
       </button>
 
-      {/* Center — prev + date control + next, grouped as one navigation unit */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onPrevWeek}
-          aria-label="שבוע קודם"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-95 active:bg-muted"
-        >
-          <ChevronRight className="size-4" />
-        </button>
-
-        <CalendarDateControl selectedDate={selectedDate} onClick={onOpenCalendar} />
-
-        <button
-          onClick={onNextWeek}
-          aria-label="שבוע הבא"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-95 active:bg-muted"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-      </div>
+      {/* Center — selected-day title (taps to open date picker) */}
+      <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
 
       {/* Left in RTL — invisible balance spacer matching today button width */}
       <div className="w-12 shrink-0" aria-hidden="true" />

@@ -200,8 +200,6 @@ export function MobileCalendarShell() {
       <div className="flex-none border-b border-border bg-card px-3 pb-3 pt-2">
         <CalendarHeader
           selectedDate={selectedDate}
-          onPrevWeek={handlePrevWeek}
-          onNextWeek={handleNextWeek}
           onToday={handleToday}
           onOpenCalendar={() => setShowMonthPicker(true)}
         />
@@ -209,6 +207,8 @@ export function MobileCalendarShell() {
           selectedDate={selectedDate}
           today={today}
           onSelect={setSelectedDate}
+          onPrevWeek={handlePrevWeek}
+          onNextWeek={handleNextWeek}
         />
       </div>
 
