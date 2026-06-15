@@ -40,46 +40,50 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, 
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
-    // dir="rtl" inherited — DOM order maps to visual RTL positions:
-    // [היום] [›] [date control] [‹]  →  visual: [‹] [date control] [›] [היום]
-    <div className="flex items-center gap-1 px-1 pb-2.5">
-      {/* Far right in RTL — today shortcut */}
+    // dir="rtl" inherited.
+    // Three-slot justify-between keeps the nav group exactly centered:
+    //   DOM: [היום w-12] [‹ date ›] [spacer w-12]
+    //   RTL visual: [spacer] [‹ date ›] [היום]
+    <div className="flex items-center justify-between px-1 pb-2.5">
+
+      {/* Right in RTL — today ghost pill */}
       <button
         onClick={onCurrentWeek ? undefined : onToday}
         disabled={onCurrentWeek}
         aria-label="חזור להיום"
         className={[
-          'flex h-7 items-center rounded-full px-2 text-[11px] font-semibold transition',
+          'flex h-7 w-12 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition',
           onCurrentWeek
-            ? 'cursor-default text-muted-foreground/30'
-            : 'text-primary active:opacity-70',
+            ? 'cursor-default border-muted-foreground/20 text-muted-foreground/30'
+            : 'border-primary/40 text-primary active:scale-95 active:opacity-70',
         ].join(' ')}
       >
         היום
       </button>
 
-      {/* Previous week */}
-      <button
-        onClick={onPrevWeek}
-        aria-label="שבוע קודם"
-        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
-      >
-        <ChevronRight className="size-4" />
-      </button>
+      {/* Center — prev + date control + next, grouped as one navigation unit */}
+      <div className="flex items-center gap-0.5">
+        <button
+          onClick={onPrevWeek}
+          aria-label="שבוע קודם"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 active:bg-muted"
+        >
+          <ChevronRight className="size-4" />
+        </button>
 
-      {/* Unified date + calendar picker — centered */}
-      <div className="flex flex-1 justify-center">
         <CalendarDateControl selectedDate={selectedDate} onClick={onOpenCalendar} />
+
+        <button
+          onClick={onNextWeek}
+          aria-label="שבוע הבא"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 active:bg-muted"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
       </div>
 
-      {/* Next week */}
-      <button
-        onClick={onNextWeek}
-        aria-label="שבוע הבא"
-        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
-      >
-        <ChevronLeft className="size-4" />
-      </button>
+      {/* Left in RTL — invisible balance spacer matching today button width */}
+      <div className="w-12 shrink-0" aria-hidden="true" />
     </div>
   );
 }
