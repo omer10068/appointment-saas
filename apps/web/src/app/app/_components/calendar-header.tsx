@@ -1,7 +1,32 @@
 'use client';
 
 import { ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
-import { formatWeekRange, isCurrentWeek } from '../_lib/calendar.utils';
+import { formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
+
+// ─── Date control ──────────────────────────────────────────────────────────────
+
+interface DateControlProps {
+  selectedDate: Date;
+  onClick: () => void;
+}
+
+function CalendarDateControl({ selectedDate, onClick }: DateControlProps) {
+  const label = formatNumericDate(selectedDate);
+  return (
+    <button
+      onClick={onClick}
+      aria-label={`לוח שנה — ${label}`}
+      className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 transition active:scale-95 active:opacity-75"
+    >
+      <CalendarDays className="size-3.5 shrink-0 text-primary" />
+      <span dir="ltr" className="text-xs font-bold tabular-nums text-foreground">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+// ─── Header ────────────────────────────────────────────────────────────────────
 
 interface Props {
   selectedDate: Date;
@@ -16,7 +41,7 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, 
 
   return (
     // dir="rtl" inherited — DOM order maps to visual RTL positions:
-    // [היום] [›] [range] [‹] [🗓]  →  visual: [🗓] [‹] [range] [›] [היום]
+    // [היום] [›] [date control] [‹]  →  visual: [‹] [date control] [›] [היום]
     <div className="flex items-center gap-1 px-1 pb-2.5">
       {/* Far right in RTL — today shortcut */}
       <button
@@ -42,11 +67,9 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, 
         <ChevronRight className="size-4" />
       </button>
 
-      {/* Week range — centered */}
-      <div className="flex-1 text-center">
-        <span className="text-xs font-bold text-foreground">
-          {formatWeekRange(selectedDate)}
-        </span>
+      {/* Unified date + calendar picker — centered */}
+      <div className="flex flex-1 justify-center">
+        <CalendarDateControl selectedDate={selectedDate} onClick={onOpenCalendar} />
       </div>
 
       {/* Next week */}
@@ -56,15 +79,6 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, 
         className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
       >
         <ChevronLeft className="size-4" />
-      </button>
-
-      {/* Far left in RTL — full calendar picker */}
-      <button
-        onClick={onOpenCalendar}
-        aria-label="לוח שנה מלא"
-        className="flex size-7 items-center justify-center rounded-full text-primary transition active:scale-90 active:opacity-70"
-      >
-        <CalendarDays className="size-4" />
       </button>
     </div>
   );

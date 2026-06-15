@@ -135,6 +135,19 @@ export function formatWeekRange(date: Date): string {
   return `${last.getDate()}-${first.getDate()} ${HEBREW_MONTHS[em]} ${ey}`;
 }
 
+/** Returns the selected day as "D בחודש", e.g. "14 ביוני". */
+export function formatSelectedDay(date: Date): string {
+  return `${date.getDate()} ב${HEBREW_MONTHS[date.getMonth()]}`;
+}
+
+/** Returns the date as "dd.MM.yy", e.g. "04.07.26". */
+export function formatNumericDate(date: Date): string {
+  const day   = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year  = String(date.getFullYear()).slice(2);
+  return `${day}.${month}.${year}`;
+}
+
 // ─── Calendar date utilities ─────────────────────────────────────────────────
 
 /**

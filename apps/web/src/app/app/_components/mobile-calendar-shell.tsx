@@ -9,7 +9,7 @@ import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { appKeys } from '../_lib/query-keys';
-import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';
+import { addDays, formatMonthYear, isSameDay, startOfWeek } from '../_lib/calendar.utils';
 import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
@@ -130,11 +130,11 @@ export function MobileCalendarShell() {
   );
 
   function handlePrevWeek() {
-    setSelectedDate((d) => addDays(d, -7));
+    setSelectedDate((d) => startOfWeek(addDays(d, -7)));
   }
 
   function handleNextWeek() {
-    setSelectedDate((d) => addDays(d, 7));
+    setSelectedDate((d) => startOfWeek(addDays(d, 7)));
   }
 
   function handleToday() {
