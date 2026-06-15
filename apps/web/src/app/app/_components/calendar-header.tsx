@@ -62,11 +62,11 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, 
       </button>
 
       {/* Center — prev + date control + next, grouped as one navigation unit */}
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1">
         <button
           onClick={onPrevWeek}
           aria-label="שבוע קודם"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 active:bg-muted"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-95 active:bg-muted"
         >
           <ChevronRight className="size-4" />
         </button>
@@ -76,7 +76,7 @@ export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, 
         <button
           onClick={onNextWeek}
           aria-label="שבוע הבא"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-90 active:bg-muted"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition active:scale-95 active:bg-muted"
         >
           <ChevronLeft className="size-4" />
         </button>
