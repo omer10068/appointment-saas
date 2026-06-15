@@ -4,11 +4,13 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Clock3, ChevronLeft, Home } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { appKeys } from '../_lib/query-keys';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
@@ -343,6 +345,14 @@ export function MobileHomeShell() {
   const serviceProviders = rawProviders.map(mapDtoToServiceProvider);
   const services = rawServices.filter((d) => d.isActive).map(mapDtoToService);
 
+  const queryClient = useQueryClient();
+
+  function invalidateAppointments() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.todayAppointments(businessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.weekAppointmentsAll(businessId) });
+  }
+
   // ── Today's appointments ──────────────────────────────────────────────────────
 
   const { appointments, loading, error, retry } = useTodayAppointments(businessId, timezone);
@@ -396,7 +406,7 @@ export function MobileHomeShell() {
     await updateDashboardAppointmentStatus(
       businessId, appointmentId, { status: newStatus }, () => getTokenRef.current(),
     );
-    retry();
+    invalidateAppointments();
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -483,7 +493,7 @@ export function MobileHomeShell() {
         <CalendarCreateSheet
           open={showCreateSheet}
           onClosed={() => setShowCreateSheet(false)}
-          onCreated={() => { retry(); showToast('התור נוסף בהצלחה'); }}
+          onCreated={() => { invalidateAppointments(); showToast('התור נוסף בהצלחה'); }}
           businessId={businessId}
           timezone={tz}
           initialDate={new Date()}

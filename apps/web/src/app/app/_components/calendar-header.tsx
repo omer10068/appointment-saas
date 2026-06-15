@@ -1,70 +1,89 @@
 'use client';
 
-import { ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
-import { formatWeekRange, isCurrentWeek } from '../_lib/calendar.utils';
+import { Users } from 'lucide-react';
+import { HEBREW_DAY_ABBR, formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
+
+// ─── Selected-day title ────────────────────────────────────────────────────────
+
+interface DateControlProps {
+  selectedDate: Date;
+  onClick: () => void;
+}
+
+function CalendarSelectedDayTitle({ selectedDate, onClick }: DateControlProps) {
+  const weekday = HEBREW_DAY_ABBR[selectedDate.getDay()];
+  const numeric = formatNumericDate(selectedDate);
+  return (
+    <button
+      onClick={onClick}
+      aria-label={`לוח שנה — ${weekday} ${numeric}`}
+      className="flex flex-col items-center gap-0.5 px-2 py-1 transition active:opacity-75"
+    >
+      <span className="font-bold text-xs leading-none text-foreground">{weekday}</span>
+      <span dir="ltr" className="text-[11px] font-medium tabular-nums leading-none text-muted-foreground">
+        {numeric}
+      </span>
+    </button>
+  );
+}
+
+// ─── Header ────────────────────────────────────────────────────────────────────
 
 interface Props {
   selectedDate: Date;
-  onPrevWeek: () => void;
-  onNextWeek: () => void;
   onToday: () => void;
   onOpenCalendar: () => void;
+  onFilterPress: () => void;
+  /** Current provider filter label shown on the pill, e.g. "כל הצוות" or "יובל". */
+  filterLabel: string;
+  /** False when only one provider exists — pill becomes a passive status indicator. */
+  canFilter: boolean;
 }
 
-export function CalendarHeader({ selectedDate, onPrevWeek, onNextWeek, onToday, onOpenCalendar }: Props) {
+export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilterPress, filterLabel, canFilter }: Props) {
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
-    // dir="rtl" inherited — DOM order maps to visual RTL positions:
-    // [היום] [›] [range] [‹] [🗓]  →  visual: [🗓] [‹] [range] [›] [היום]
-    <div className="flex items-center gap-1 px-1 pb-2.5">
-      {/* Far right in RTL — today shortcut */}
+    // Title is absolutely centered so it stays fixed regardless of side-element widths.
+    // Side elements (היום, filter pill) sit at flex edges via justify-between.
+    <div className="relative flex items-center justify-between px-1 pb-2.5">
+
+      {/* Right in RTL — today ghost pill */}
       <button
         onClick={onCurrentWeek ? undefined : onToday}
         disabled={onCurrentWeek}
         aria-label="חזור להיום"
         className={[
-          'flex h-7 items-center rounded-full px-2 text-[11px] font-semibold transition',
+          'flex h-7 w-12 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition',
           onCurrentWeek
-            ? 'cursor-default text-muted-foreground/30'
-            : 'text-primary active:opacity-70',
+            ? 'cursor-default border-muted-foreground/20 text-muted-foreground/30'
+            : 'border-primary/40 text-primary active:scale-95 active:opacity-70',
         ].join(' ')}
       >
         היום
       </button>
 
-      {/* Previous week */}
-      <button
-        onClick={onPrevWeek}
-        aria-label="שבוע קודם"
-        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
-      >
-        <ChevronRight className="size-4" />
-      </button>
-
-      {/* Week range — centered */}
-      <div className="flex-1 text-center">
-        <span className="text-xs font-bold text-foreground">
-          {formatWeekRange(selectedDate)}
-        </span>
+      {/* Center — absolutely overlaid so side elements never shift it */}
+      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
+        <div className="pointer-events-auto">
+          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
+        </div>
       </div>
 
-      {/* Next week */}
+      {/* Left in RTL — provider filter pill (passive status when only one provider) */}
       <button
-        onClick={onNextWeek}
-        aria-label="שבוע הבא"
-        className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition active:scale-90"
+        onClick={canFilter ? onFilterPress : undefined}
+        disabled={!canFilter}
+        aria-label="בחירת איש צוות"
+        className={[
+          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-2.5 transition',
+          canFilter
+            ? 'border-border/40 text-muted-foreground/70 active:scale-95 active:opacity-70'
+            : 'cursor-default border-border/20 text-muted-foreground/40',
+        ].join(' ')}
       >
-        <ChevronLeft className="size-4" />
-      </button>
-
-      {/* Far left in RTL — full calendar picker */}
-      <button
-        onClick={onOpenCalendar}
-        aria-label="לוח שנה מלא"
-        className="flex size-7 items-center justify-center rounded-full text-primary transition active:scale-90 active:opacity-70"
-      >
-        <CalendarDays className="size-4" />
+        <Users className="size-3 shrink-0" />
+        <span className="truncate text-[11px] font-medium">{filterLabel}</span>
       </button>
     </div>
   );

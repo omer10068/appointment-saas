@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import type { DashboardCustomerDto } from '@appointment/contracts';
 import { fetchDashboardCustomers } from '@/lib/api';
+import { appKeys } from '../_lib/query-keys';
 
 interface UseAppCustomersResult {
   customers: DashboardCustomerDto[];
@@ -16,7 +17,7 @@ export function useAppCustomers(businessId: string | null): UseAppCustomersResul
   const { getToken } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['app', 'customers', businessId] as const,
+    queryKey: appKeys.customers(businessId!),
     queryFn: () => fetchDashboardCustomers(businessId!, getToken),
     enabled: !!businessId,
     staleTime: 60_000,

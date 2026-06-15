@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { MobileFab } from './mobile-fab';
 import type { DashboardServiceProviderDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
@@ -16,6 +17,7 @@ import { MobilePhoneFrame } from './mobile-phone-frame';
 import { ProviderEditSheet } from './provider-edit-sheet';
 import { BottomSheet } from './primitives/bottom-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
+import { appKeys } from '../_lib/query-keys';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -233,6 +235,19 @@ export function MobileTeamShell() {
   const loading = providersLoading || servicesLoading || usersLoading;
   const error   = providersError ?? servicesError ?? usersError;
 
+  const queryClient = useQueryClient();
+
+  function invalidateAfterProviderCreate() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.serviceProviders(businessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.businessUsers(businessId) });
+  }
+
+  function invalidateAfterProviderEdit() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.serviceProviders(businessId) });
+  }
+
   function retry() {
     refetchProviders();
     refetchServices();
@@ -386,7 +401,7 @@ export function MobileTeamShell() {
           businessId={businessId}
           getToken={() => getTokenRef.current()}
           onClosed={() => setSelectedProvider(null)}
-          onSaved={retry}
+          onSaved={invalidateAfterProviderEdit}
         />
       )}
 
@@ -399,7 +414,7 @@ export function MobileTeamShell() {
           businessId={businessId}
           getToken={() => getTokenRef.current()}
           onClosed={() => setShowCreateSheet(false)}
-          onCreated={retry}
+          onCreated={invalidateAfterProviderCreate}
         />
       )}
     </MobilePhoneFrame>

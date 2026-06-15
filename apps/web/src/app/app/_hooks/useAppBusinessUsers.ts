@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import type { DashboardBusinessUserDto } from '@appointment/contracts';
 import { fetchDashboardBusinessUsers } from '@/lib/api';
+import { appKeys } from '../_lib/query-keys';
 
 interface UseAppBusinessUsersResult {
   businessUsers: DashboardBusinessUserDto[];
@@ -19,7 +20,7 @@ export function useAppBusinessUsers(
   const { getToken } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['app', 'businessUsers', businessId] as const,
+    queryKey: appKeys.businessUsers(businessId!),
     queryFn: () => fetchDashboardBusinessUsers(businessId!, getToken),
     enabled: !!businessId && isOwner,
     staleTime: 5 * 60_000,

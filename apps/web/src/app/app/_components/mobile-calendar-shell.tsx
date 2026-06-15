@@ -2,17 +2,18 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useQueryClient } from '@tanstack/react-query';
 import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
-import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';
+import { appKeys } from '../_lib/query-keys';
+import { addDays, formatMonthYear, isSameDay, startOfWeek } from '../_lib/calendar.utils';
 import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
 import { CalendarDayPicker } from './calendar-day-picker';
-import { CalendarServiceProviderFilter } from './calendar-service-provider-filter';
 import { CalendarTimeline } from './calendar-timeline';
 import { MobileFab } from './mobile-fab';
 import { CalendarBottomNav } from './calendar-bottom-nav';
@@ -22,6 +23,7 @@ import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
+import { CalendarProviderFilterSheet } from './calendar-provider-filter-sheet';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -48,12 +50,21 @@ export function MobileCalendarShell() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showProviderFilter, setShowProviderFilter] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
 
   // ── Toast ─────────────────────────────────────────────────────────────────────
   const { message: toastMessage, showToast } = useMobileToast();
 
-  const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
+  const queryClient = useQueryClient();
+
+  function invalidateAppointments() {
+    if (!currentBusinessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.todayAppointments(currentBusinessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.weekAppointmentsAll(currentBusinessId) });
+  }
+
+  const { serviceProviders, services, appointments, isLoading, error } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
   // Provider selection — two-variable pattern avoids a useEffect-driven jump:
@@ -80,6 +91,16 @@ export function MobileCalendarShell() {
       return 0;
     });
   }, [serviceProviders, currentBusiness]);
+
+  const canFilterProviders = sortedServiceProviders.length > 1;
+
+  const filterLabel = (() => {
+    if (sortedServiceProviders.length === 1) {
+      return sortedServiceProviders[0]?.name.split(' ')[0] ?? 'כל הצוות';
+    }
+    if (selectedServiceProviderId === 'all') return 'כל הצוות';
+    return sortedServiceProviders.find((sp) => sp.id === selectedServiceProviderId)?.name.split(' ')[0] ?? 'כל הצוות';
+  })();
 
   // All appointments for the selected day (used by the timeline)
   const allDayAppointments = useMemo(
@@ -120,11 +141,11 @@ export function MobileCalendarShell() {
   );
 
   function handlePrevWeek() {
-    setSelectedDate((d) => addDays(d, -7));
+    setSelectedDate((d) => startOfWeek(addDays(d, -7)));
   }
 
   function handleNextWeek() {
-    setSelectedDate((d) => addDays(d, 7));
+    setSelectedDate((d) => startOfWeek(addDays(d, 7)));
   }
 
   function handleToday() {
@@ -147,8 +168,7 @@ export function MobileCalendarShell() {
       { status: newStatus },
       () => getTokenRef.current(),
     );
-    // Refresh only the appointments — providers/services are unaffected by a status change.
-    refreshWeek();
+    invalidateAppointments();
   }
 
   function handleReschedule() {
@@ -188,18 +208,21 @@ export function MobileCalendarShell() {
       </header>
 
       {/* Week strip: nav row + day picker share one card section */}
-      <div className="flex-none border-b border-border bg-card px-3 pb-3 pt-2">
+      <div className="flex-none bg-card px-3 pb-3 pt-2">
         <CalendarHeader
           selectedDate={selectedDate}
-          onPrevWeek={handlePrevWeek}
-          onNextWeek={handleNextWeek}
           onToday={handleToday}
           onOpenCalendar={() => setShowMonthPicker(true)}
+          onFilterPress={() => setShowProviderFilter(true)}
+          filterLabel={filterLabel}
+          canFilter={canFilterProviders}
         />
         <CalendarDayPicker
           selectedDate={selectedDate}
           today={today}
           onSelect={setSelectedDate}
+          onPrevWeek={handlePrevWeek}
+          onNextWeek={handleNextWeek}
         />
       </div>
 
@@ -227,23 +250,17 @@ export function MobileCalendarShell() {
         </div>
       ) : (
         <>
-          {sortedServiceProviders.length >= 2 && (
-            <CalendarServiceProviderFilter
-              serviceProviders={sortedServiceProviders}
-              selectedServiceProviderId={selectedServiceProviderId}
-              onSelectServiceProvider={(id) => setManualProviderId(id)}
-              appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
-              totalAppointmentsCount={countableDayAppointments.length}
-            />
-          )}
-
           <CalendarTimeline
             key={todayResetKey}
             selectedDate={selectedDate}
             appointments={timelineAppointments}
             timezone={timezone}
             onSelectAppointment={setSelectedAppointment}
-            serviceProviders={selectedServiceProviderId === 'all' ? sortedServiceProviders : undefined}
+            serviceProviders={
+              selectedServiceProviderId === 'all'
+                ? sortedServiceProviders
+                : sortedServiceProviders.filter((sp) => sp.id === selectedServiceProviderId)
+            }
           />
         </>
       )}
@@ -279,12 +296,10 @@ export function MobileCalendarShell() {
         timezone={timezone}
         onSuccess={(newStartsAt) => {
           // Navigate to the week containing the rescheduled appointment.
-          // If the new date is in the same week, setSelectedDate is a no-op for navigation
-          // but useMobileCalendarData still refetches because refreshWeek() bumps its key.
           const newDate = new Date(newStartsAt);
           setSelectedDate(newDate);
           setSelectedAppointment(null);
-          refreshWeek();
+          invalidateAppointments();
           showToast('התור עודכן בהצלחה');
         }}
         onClosed={() => setRescheduleTarget(null)}
@@ -294,10 +309,9 @@ export function MobileCalendarShell() {
         open={showCreateSheet}
         onClosed={() => setShowCreateSheet(false)}
         onCreated={(appointmentDate) => {
-          // Navigate the main calendar to the week of the new appointment,
-          // then refresh so it appears in the timeline immediately.
+          // Navigate the main calendar to the week of the new appointment.
           setSelectedDate(appointmentDate);
-          refreshWeek();
+          invalidateAppointments();
           showToast('התור נוסף בהצלחה');
         }}
         businessId={currentBusinessId}
@@ -306,6 +320,16 @@ export function MobileCalendarShell() {
         services={services}
         serviceProviders={serviceProviders}
         currentBusinessUserId={currentBusiness?.id}
+      />
+
+      <CalendarProviderFilterSheet
+        open={showProviderFilter}
+        serviceProviders={sortedServiceProviders}
+        selectedServiceProviderId={selectedServiceProviderId}
+        appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
+        totalAppointmentsCount={countableDayAppointments.length}
+        onSelect={(id) => setManualProviderId(id)}
+        onClosed={() => setShowProviderFilter(false)}
       />
     </MobilePhoneFrame>
   );

@@ -20,7 +20,7 @@ export function MobileToast({ message }: Props) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-4 top-4 z-[70] flex items-center gap-2.5 rounded-2xl bg-foreground px-4 py-3 shadow-lg shadow-foreground/20"
+      className="fixed inset-x-4 top-4 z-70 flex items-center gap-2.5 rounded-2xl bg-foreground px-4 py-3 shadow-lg shadow-foreground/20"
     >
       <Check
         size={16}

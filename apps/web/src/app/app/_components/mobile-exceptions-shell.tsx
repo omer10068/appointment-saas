@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+import { useQueryClient } from '@tanstack/react-query';
 import { CalendarOff, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import type { DashboardAvailabilityExceptionDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
@@ -14,6 +15,7 @@ import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
+import { appKeys } from '../_lib/query-keys';
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -213,6 +215,13 @@ export function MobileExceptionsShell() {
 
   const { message: toastMessage, showToast } = useMobileToast();
 
+  const queryClient = useQueryClient();
+
+  function invalidateExceptions() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.exceptions(businessId) });
+  }
+
   // ── Data state ─────────────────────────────────────────────────────────────
 
   // Providers via TanStack Query (cache shared with calendar/team/services tabs).
@@ -240,7 +249,8 @@ export function MobileExceptionsShell() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId]           = useState<string | null>(null);
 
-  // Composed loading / error / retry.
+  // Composed loading / error / retry — used by the error-state "נסה שוב" button
+  // to recover from initial load failure (refetches both providers and exceptions).
   const loading   = providersLoading || exceptionsLoading;
   const loadError = providersError ?? exceptionsError;
 
@@ -256,7 +266,7 @@ export function MobileExceptionsShell() {
     try {
       await deleteAvailabilityException(businessId, id, () => getTokenRef.current());
       setConfirmDeleteId(null);
-      refetchExceptions();
+      invalidateExceptions();
     } catch {
       showToast('שגיאה במחיקת החריגה, נסה שוב', 4000);
     } finally {
@@ -423,7 +433,7 @@ export function MobileExceptionsShell() {
         getToken={() => getTokenRef.current()}
         onClosed={() => setAddSheetOpen(false)}
         onCreated={() => {
-          retryAll();
+          invalidateExceptions();
           setTab('future');
         }}
       />

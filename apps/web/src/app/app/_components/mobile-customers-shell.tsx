@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useQueryClient } from '@tanstack/react-query';
 import { Search, Users, X, Phone, Mail, AlignLeft, Ban } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus, CustomerStatus, DashboardCustomerDto } from '@appointment/contracts';
@@ -19,6 +20,7 @@ import { formatIsraeliPhone } from '../_lib/calendar.utils';
 import { LAYOUT } from '../_lib/calendar.design';
 import { mapDtoToAppointment } from '../_lib/calendar.mappers';
 import type { Appointment } from '../_lib/calendar.types';
+import { appKeys } from '../_lib/query-keys';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -253,6 +255,19 @@ export function MobileCustomersShell() {
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
 
+  const queryClient = useQueryClient();
+
+  function invalidateCustomers() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.customers(businessId) });
+  }
+
+  function invalidateAppointments() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.todayAppointments(businessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.weekAppointmentsAll(businessId) });
+  }
+
   // ── Customers fetch ──────────────────────────────────────────────────────────
 
   const { customers, loading, error, refetch: retry } = useAppCustomers(businessId);
@@ -312,6 +327,7 @@ export function MobileCustomersShell() {
       () => getTokenRef.current(),
     );
     setHistoryRefreshKey((k) => k + 1);
+    invalidateAppointments();
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -444,7 +460,7 @@ export function MobileCustomersShell() {
           businessId={businessId}
           getToken={() => getTokenRef.current()}
           onClosed={() => setIsEditing(false)}
-          onSaved={retry}
+          onSaved={invalidateCustomers}
         />
       )}
 
@@ -455,7 +471,7 @@ export function MobileCustomersShell() {
           businessId={businessId}
           getToken={() => getTokenRef.current()}
           onClosed={() => setShowCreateSheet(false)}
-          onCreated={retry}
+          onCreated={invalidateCustomers}
         />
       )}
     </MobilePhoneFrame>

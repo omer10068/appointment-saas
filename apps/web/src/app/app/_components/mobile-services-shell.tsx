@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlignLeft, Clock3, Scissors, Search, Tag, X } from 'lucide-react';
 import { MobileFab } from './mobile-fab';
 import type { DashboardServiceDto } from '@appointment/contracts';
@@ -13,6 +14,7 @@ import { MobilePhoneFrame } from './mobile-phone-frame';
 import { ServiceEditSheet } from './service-edit-sheet';
 import { BottomSheet } from './primitives/bottom-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
+import { appKeys } from '../_lib/query-keys';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -212,6 +214,13 @@ export function MobileServicesShell() {
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
 
+  const queryClient = useQueryClient();
+
+  function invalidateServices() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.services(businessId) });
+  }
+
   // ── Services fetch ────────────────────────────────────────────────────────────
 
   const { services, loading, error, refetch: retry } = useAppServices(businessId);
@@ -344,7 +353,7 @@ export function MobileServicesShell() {
           businessId={businessId}
           getToken={() => getTokenRef.current()}
           onClosed={() => setSelectedService(null)}
-          onSaved={retry}
+          onSaved={invalidateServices}
         />
       )}
 
@@ -355,7 +364,7 @@ export function MobileServicesShell() {
           businessId={businessId}
           getToken={() => getTokenRef.current()}
           onClosed={() => setShowCreateSheet(false)}
-          onCreated={retry}
+          onCreated={invalidateServices}
         />
       )}
     </MobilePhoneFrame>

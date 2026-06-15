@@ -199,7 +199,8 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
         </div>
       )}
 
-    <div
+
+<div
       ref={scrollRef}
       className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
       style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 104 }}
