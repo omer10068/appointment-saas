@@ -7,6 +7,7 @@ import { fetchDashboardAppointments } from '@/lib/api';
 import { mapDtoToAppointment } from '../_lib/calendar.mappers';
 import type { Appointment, Service } from '../_lib/calendar.types';
 import { businessDayRange } from '../_lib/calendar.utils';
+import { appKeys } from '../_lib/query-keys';
 
 export interface TodaySummary {
   totalToday: number;
@@ -43,7 +44,7 @@ export function useTodayAppointments(
   const { getToken } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['app', 'appointments', 'today', businessId] as const,
+    queryKey: appKeys.todayAppointments(businessId!),
     queryFn: async () => {
       const tz = timezone ?? 'UTC';
       const { from, to } = businessDayRange(tz);

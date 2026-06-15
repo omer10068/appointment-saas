@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import type { DashboardAppointmentDto } from '@appointment/contracts';
 import { fetchDashboardAppointments } from '@/lib/api';
+import { appKeys } from '../_lib/query-keys';
 
 interface UseWeekAppointmentsResult {
   rawAppointments: DashboardAppointmentDto[];
@@ -19,7 +20,7 @@ export function useWeekAppointments(
   const { getToken } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['app', 'appointments', 'week', businessId, weekStartISO] as const,
+    queryKey: appKeys.weekAppointments(businessId!, weekStartISO),
     queryFn: () => {
       // Reconstruct the Date from the ISO string so local-time arithmetic
       // (setDate / setHours) produces the same week window as the original hook.

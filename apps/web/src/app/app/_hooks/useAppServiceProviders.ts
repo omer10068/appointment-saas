@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import type { DashboardServiceProviderDto } from '@appointment/contracts';
 import { fetchDashboardServiceProviders } from '@/lib/api';
+import { appKeys } from '../_lib/query-keys';
 
 interface UseAppServiceProvidersResult {
   providers: DashboardServiceProviderDto[];
@@ -18,7 +19,7 @@ export function useAppServiceProviders(
   const { getToken } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['app', 'serviceProviders', businessId] as const,
+    queryKey: appKeys.serviceProviders(businessId!),
     queryFn: () => fetchDashboardServiceProviders(businessId!, getToken),
     enabled: !!businessId,
     staleTime: 5 * 60_000,
