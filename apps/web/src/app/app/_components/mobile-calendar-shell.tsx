@@ -14,7 +14,6 @@ import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
 import { CalendarDayPicker } from './calendar-day-picker';
-import { CalendarServiceProviderFilter } from './calendar-service-provider-filter';
 import { CalendarTimeline } from './calendar-timeline';
 import { MobileFab } from './mobile-fab';
 import { CalendarBottomNav } from './calendar-bottom-nav';
@@ -199,7 +198,7 @@ export function MobileCalendarShell() {
       </header>
 
       {/* Week strip: nav row + day picker share one card section */}
-      <div className="flex-none border-b border-border bg-card px-3 pb-3 pt-2">
+      <div className="flex-none bg-card px-3 pb-3 pt-2">
         <CalendarHeader
           selectedDate={selectedDate}
           onToday={handleToday}
@@ -239,23 +238,17 @@ export function MobileCalendarShell() {
         </div>
       ) : (
         <>
-          {sortedServiceProviders.length >= 2 && (
-            <CalendarServiceProviderFilter
-              serviceProviders={sortedServiceProviders}
-              selectedServiceProviderId={selectedServiceProviderId}
-              onSelectServiceProvider={(id) => setManualProviderId(id)}
-              appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
-              totalAppointmentsCount={countableDayAppointments.length}
-            />
-          )}
-
           <CalendarTimeline
             key={todayResetKey}
             selectedDate={selectedDate}
             appointments={timelineAppointments}
             timezone={timezone}
             onSelectAppointment={setSelectedAppointment}
-            serviceProviders={selectedServiceProviderId === 'all' ? sortedServiceProviders : undefined}
+            serviceProviders={
+              selectedServiceProviderId === 'all'
+                ? sortedServiceProviders
+                : sortedServiceProviders.filter((sp) => sp.id === selectedServiceProviderId)
+            }
           />
         </>
       )}

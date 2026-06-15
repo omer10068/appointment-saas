@@ -123,6 +123,7 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
   const [containerWidth, setContainerWidth] = useState(0);
   const dayAppointments = appointments.filter((a) => isSameDay(a.startTime, selectedDate));
   const laneProviders = serviceProviders && serviceProviders.length > 1 ? serviceProviders : null;
+  const singleProvider = serviceProviders && serviceProviders.length === 1 ? serviceProviders[0] : null;
 
   // Tracks whether we've already scrolled for the current date.
   // Prevents re-scrolling on status refreshes after the user has scrolled manually.
@@ -196,6 +197,19 @@ export function CalendarTimeline({ selectedDate, appointments, timezone, onSelec
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {singleProvider && (
+        <div
+          className="flex-none flex bg-card"
+          style={{ paddingRight: TIME_LABEL_WIDTH }}
+        >
+          <div className="flex flex-1 items-center justify-center py-2">
+            <span className="truncate px-1 text-[11px] font-semibold leading-none text-muted-foreground/80">
+              {singleProvider.name}
+            </span>
+          </div>
         </div>
       )}
 
