@@ -2,11 +2,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useQueryClient } from '@tanstack/react-query';
 import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
+import { appKeys } from '../_lib/query-keys';
 import { addDays, formatMonthYear, isSameDay } from '../_lib/calendar.utils';
 import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
@@ -53,7 +55,15 @@ export function MobileCalendarShell() {
   // ── Toast ─────────────────────────────────────────────────────────────────────
   const { message: toastMessage, showToast } = useMobileToast();
 
-  const { serviceProviders, services, appointments, isLoading, error, refreshWeek } =
+  const queryClient = useQueryClient();
+
+  function invalidateAppointments() {
+    if (!currentBusinessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.todayAppointments(currentBusinessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.weekAppointmentsAll(currentBusinessId) });
+  }
+
+  const { serviceProviders, services, appointments, isLoading, error } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
   // Provider selection — two-variable pattern avoids a useEffect-driven jump:
@@ -147,8 +157,7 @@ export function MobileCalendarShell() {
       { status: newStatus },
       () => getTokenRef.current(),
     );
-    // Refresh only the appointments — providers/services are unaffected by a status change.
-    refreshWeek();
+    invalidateAppointments();
   }
 
   function handleReschedule() {
@@ -279,12 +288,10 @@ export function MobileCalendarShell() {
         timezone={timezone}
         onSuccess={(newStartsAt) => {
           // Navigate to the week containing the rescheduled appointment.
-          // If the new date is in the same week, setSelectedDate is a no-op for navigation
-          // but useMobileCalendarData still refetches because refreshWeek() bumps its key.
           const newDate = new Date(newStartsAt);
           setSelectedDate(newDate);
           setSelectedAppointment(null);
-          refreshWeek();
+          invalidateAppointments();
           showToast('התור עודכן בהצלחה');
         }}
         onClosed={() => setRescheduleTarget(null)}
@@ -294,10 +301,9 @@ export function MobileCalendarShell() {
         open={showCreateSheet}
         onClosed={() => setShowCreateSheet(false)}
         onCreated={(appointmentDate) => {
-          // Navigate the main calendar to the week of the new appointment,
-          // then refresh so it appears in the timeline immediately.
+          // Navigate the main calendar to the week of the new appointment.
           setSelectedDate(appointmentDate);
-          refreshWeek();
+          invalidateAppointments();
           showToast('התור נוסף בהצלחה');
         }}
         businessId={currentBusinessId}

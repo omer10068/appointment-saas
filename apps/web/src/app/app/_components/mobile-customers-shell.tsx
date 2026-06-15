@@ -262,6 +262,12 @@ export function MobileCustomersShell() {
     void queryClient.invalidateQueries({ queryKey: appKeys.customers(businessId) });
   }
 
+  function invalidateAppointments() {
+    if (!businessId) return;
+    void queryClient.invalidateQueries({ queryKey: appKeys.todayAppointments(businessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.weekAppointmentsAll(businessId) });
+  }
+
   // ── Customers fetch ──────────────────────────────────────────────────────────
 
   const { customers, loading, error, refetch: retry } = useAppCustomers(businessId);
@@ -321,6 +327,7 @@ export function MobileCustomersShell() {
       () => getTokenRef.current(),
     );
     setHistoryRefreshKey((k) => k + 1);
+    invalidateAppointments();
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
