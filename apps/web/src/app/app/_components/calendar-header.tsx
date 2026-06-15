@@ -1,5 +1,6 @@
 'use client';
 
+import { Users } from 'lucide-react';
 import { HEBREW_DAY_ABBR, formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
 
 // ─── Selected-day title ────────────────────────────────────────────────────────
@@ -32,9 +33,10 @@ interface Props {
   selectedDate: Date;
   onToday: () => void;
   onOpenCalendar: () => void;
+  onFilterPress: () => void;
 }
 
-export function CalendarHeader({ selectedDate, onToday, onOpenCalendar }: Props) {
+export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilterPress }: Props) {
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
@@ -61,8 +63,14 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar }: Props)
       {/* Center — selected-day title (taps to open date picker) */}
       <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
 
-      {/* Left in RTL — invisible balance spacer matching today button width */}
-      <div className="w-12 shrink-0" aria-hidden="true" />
+      {/* Left in RTL — team/provider filter, balances היום on the opposite side */}
+      <button
+        onClick={onFilterPress}
+        aria-label="סינון לפי איש צוות"
+        className="flex h-7 w-12 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:opacity-70"
+      >
+        <Users className="size-3.5" />
+      </button>
     </div>
   );
 }

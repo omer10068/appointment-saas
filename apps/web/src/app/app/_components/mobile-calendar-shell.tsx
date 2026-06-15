@@ -24,6 +24,7 @@ import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
+import { CalendarProviderFilterSheet } from './calendar-provider-filter-sheet';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -50,6 +51,7 @@ export function MobileCalendarShell() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showProviderFilter, setShowProviderFilter] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
 
   // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -202,6 +204,7 @@ export function MobileCalendarShell() {
           selectedDate={selectedDate}
           onToday={handleToday}
           onOpenCalendar={() => setShowMonthPicker(true)}
+          onFilterPress={() => setShowProviderFilter(true)}
         />
         <CalendarDayPicker
           selectedDate={selectedDate}
@@ -312,6 +315,16 @@ export function MobileCalendarShell() {
         services={services}
         serviceProviders={serviceProviders}
         currentBusinessUserId={currentBusiness?.id}
+      />
+
+      <CalendarProviderFilterSheet
+        open={showProviderFilter}
+        serviceProviders={sortedServiceProviders}
+        selectedServiceProviderId={selectedServiceProviderId}
+        appointmentCountsByServiceProviderId={appointmentCountsByServiceProviderId}
+        totalAppointmentsCount={countableDayAppointments.length}
+        onSelect={(id) => setManualProviderId(id)}
+        onClosed={() => setShowProviderFilter(false)}
       />
     </MobilePhoneFrame>
   );
