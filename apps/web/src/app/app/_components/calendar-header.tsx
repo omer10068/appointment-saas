@@ -59,14 +59,14 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
         disabled={!canFilter}
         aria-label="בחירת איש צוות"
         className={[
-          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-2.5 transition',
+          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-3 transition',
           canFilter
-            ? 'border-border/40 text-muted-foreground/70 active:scale-95 active:opacity-70'
+            ? 'border-border/50 bg-muted/30 text-foreground/70 active:scale-95 active:bg-muted/60'
             : 'cursor-default border-border/20 text-muted-foreground/40',
         ].join(' ')}
       >
-        <span className="truncate text-[11px] font-medium">{filterLabel}</span>
-        {canFilter && <ChevronDown className="size-3 shrink-0 opacity-60" />}
+        <span className="truncate text-[11px] font-semibold">{filterLabel}</span>
+        {canFilter && <ChevronDown className="size-3.5 shrink-0 opacity-70" />}
       </button>
 
       {/* Center — absolutely overlaid so side elements never shift it */}
