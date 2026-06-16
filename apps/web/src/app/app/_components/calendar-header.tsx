@@ -19,7 +19,7 @@ function CalendarSelectedDayTitle({ selectedDate, onClick }: DateControlProps) {
       aria-label={`לוח שנה — ${weekday} ${numeric}`}
       className="flex flex-col items-center gap-0.5 px-2 py-1 transition active:opacity-75"
     >
-      <span className="font-bold text-xs leading-none text-foreground">{weekday}</span>
+      <span className="font-bold text-[11px] leading-none text-foreground">יום {weekday}</span>
       <span dir="ltr" className="text-[11px] font-medium tabular-nums leading-none text-muted-foreground">
         {numeric}
       </span>
