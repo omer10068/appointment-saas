@@ -6,7 +6,7 @@ export default function ProviderHoursLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header — matches MobileProviderHoursShell header */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-3 pt-9">
+      <header className="flex-none bg-background px-5 pb-4 pt-9">
         <button
           disabled
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground opacity-40"
@@ -27,8 +27,8 @@ export default function ProviderHoursLoading() {
       </header>
 
       {/* Provider card skeletons */}
-      <div className="flex-1 overflow-y-auto px-5 pb-32">
-        <div className="animate-pulse space-y-3 pt-1">
+      <div className="flex-1 overflow-y-auto px-5 pb-32 pt-4">
+        <div className="animate-pulse space-y-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-18 rounded-2xl bg-muted" />
           ))}

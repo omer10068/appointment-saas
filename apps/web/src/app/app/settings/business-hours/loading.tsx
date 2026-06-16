@@ -6,7 +6,7 @@ export default function BusinessHoursLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header — matches MobileBusinessHoursShell header */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+      <header className="flex-none bg-background px-5 pb-4 pt-9">
         <button
           disabled
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground opacity-40"
@@ -26,7 +26,7 @@ export default function BusinessHoursLoading() {
       </header>
 
       {/* Section label */}
-      <div className="flex-none px-5 pb-2">
+      <div className="flex-none px-5 pb-2 pt-4">
         <div className="h-3 w-32 animate-pulse rounded bg-muted" />
       </div>
 
