@@ -307,7 +307,7 @@ export function MobileExceptionsShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-3 pt-9">
+      <header className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
         <button
           onClick={() => router.push('/app/settings')}
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"

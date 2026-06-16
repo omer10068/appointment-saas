@@ -123,26 +123,26 @@ function DayRow({ row, onChange, canMutate }: DayRowProps) {
       </div>
 
       {isOpen && (
-        <div className="flex items-end gap-2.5 pt-1">
-          <div className="flex flex-1 flex-col gap-1">
+        <div className="flex flex-col gap-1 pt-1">
+          <div className="flex justify-between">
             <span className="text-xs text-muted-foreground">פתיחה</span>
+            <span className="text-xs text-muted-foreground">סגירה</span>
+          </div>
+          <div className="flex items-center gap-2.5">
             <input
               type="time"
               value={row.startTime}
               onChange={(e) => onChange({ startTime: e.target.value })}
               disabled={!canMutate}
-              className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
             />
-          </div>
-          <span className="pb-2.5 text-sm text-muted-foreground">—</span>
-          <div className="flex flex-1 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">סגירה</span>
+            <span className="shrink-0 text-sm text-muted-foreground">—</span>
             <input
               type="time"
               value={row.endTime}
               onChange={(e) => onChange({ endTime: e.target.value })}
               disabled={!canMutate}
-              className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
             />
           </div>
         </div>
@@ -453,7 +453,7 @@ export function MobileProviderHoursShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-3 pt-9">
+      <header className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
         <button
           onClick={() => router.push('/app/settings')}
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
