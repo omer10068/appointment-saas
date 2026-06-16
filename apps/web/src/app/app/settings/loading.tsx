@@ -6,7 +6,7 @@ export default function SettingsLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header — matches MobileSettingsHubShell header */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-5 pt-9">
+      <header className="flex-none bg-background px-5 pb-5 pt-9">
         <div className="flex items-start justify-between">
           <div>
             <div className="h-5 w-28 animate-pulse rounded-full bg-primary/20" />

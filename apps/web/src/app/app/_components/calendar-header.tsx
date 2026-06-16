@@ -1,6 +1,6 @@
 'use client';
 
-import { Users } from 'lucide-react';
+import { ChevronDown, CalendarDays } from 'lucide-react';
 import { HEBREW_DAY_ABBR, formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
 
 // ─── Selected-day title ────────────────────────────────────────────────────────
@@ -16,12 +16,17 @@ function CalendarSelectedDayTitle({ selectedDate, onClick }: DateControlProps) {
   return (
     <button
       onClick={onClick}
-      aria-label={`לוח שנה — ${weekday} ${numeric}`}
-      className="flex flex-col items-center gap-0.5 px-2 py-1 transition active:opacity-75"
+      aria-label="פתיחת לוח שנה חודשי"
+      className="flex flex-col items-center gap-0.5 px-3 py-2 transition active:opacity-75"
     >
-      <span className="font-bold text-xs leading-none text-foreground">{weekday}</span>
-      <span dir="ltr" className="text-[11px] font-medium tabular-nums leading-none text-muted-foreground">
-        {numeric}
+      {/* Plain weekday title — no chip background */}
+      <span className="text-[10px] font-bold leading-none text-foreground">יום {weekday}</span>
+      {/* Date chip — the visual date-picker affordance */}
+      <span dir="ltr" className="flex items-center gap-1 rounded-full border border-border/30 bg-muted/50 px-2 py-0.5">
+        <span className="text-[12px] font-medium tabular-nums leading-none text-muted-foreground">
+          {numeric}
+        </span>
+        <CalendarDays className="size-3 shrink-0 text-muted-foreground/60" />
       </span>
     </button>
   );
@@ -34,7 +39,7 @@ interface Props {
   onToday: () => void;
   onOpenCalendar: () => void;
   onFilterPress: () => void;
-  /** Current provider filter label shown on the pill, e.g. "כל הצוות" or "יובל". */
+  /** Current provider filter label, e.g. "כל הצוות" or "יובל". */
   filterLabel: string;
   /** False when only one provider exists — pill becomes a passive status indicator. */
   canFilter: boolean;
@@ -45,10 +50,33 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
 
   return (
     // Title is absolutely centered so it stays fixed regardless of side-element widths.
-    // Side elements (היום, filter pill) sit at flex edges via justify-between.
+    // DOM order: [filter (visual right in RTL)] ... [היום (visual left in RTL)]
     <div className="relative flex items-center justify-between px-1 pb-2.5">
 
-      {/* Right in RTL — today ghost pill */}
+      {/* DOM first = visual right in RTL — provider filter pill */}
+      <button
+        onClick={canFilter ? onFilterPress : undefined}
+        disabled={!canFilter}
+        aria-label="בחירת איש צוות"
+        className={[
+          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-3 transition',
+          canFilter
+            ? 'border-border/50 bg-muted/30 text-foreground/70 active:scale-95 active:bg-muted/60'
+            : 'cursor-default border-border/20 text-muted-foreground/40',
+        ].join(' ')}
+      >
+        <span className="truncate text-[11px] font-semibold">{filterLabel}</span>
+        {canFilter && <ChevronDown className="size-3.5 shrink-0 opacity-70" />}
+      </button>
+
+      {/* Center — absolutely overlaid so side elements never shift it */}
+      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
+        <div className="pointer-events-auto">
+          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
+        </div>
+      </div>
+
+      {/* DOM last = visual left in RTL — today ghost pill */}
       <button
         onClick={onCurrentWeek ? undefined : onToday}
         disabled={onCurrentWeek}
@@ -61,29 +89,6 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
         ].join(' ')}
       >
         היום
-      </button>
-
-      {/* Center — absolutely overlaid so side elements never shift it */}
-      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
-        <div className="pointer-events-auto">
-          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
-        </div>
-      </div>
-
-      {/* Left in RTL — provider filter pill (passive status when only one provider) */}
-      <button
-        onClick={canFilter ? onFilterPress : undefined}
-        disabled={!canFilter}
-        aria-label="בחירת איש צוות"
-        className={[
-          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-2.5 transition',
-          canFilter
-            ? 'border-border/40 text-muted-foreground/70 active:scale-95 active:opacity-70'
-            : 'cursor-default border-border/20 text-muted-foreground/40',
-        ].join(' ')}
-      >
-        <Users className="size-3 shrink-0" />
-        <span className="truncate text-[11px] font-medium">{filterLabel}</span>
       </button>
     </div>
   );

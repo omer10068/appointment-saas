@@ -14,7 +14,7 @@ function CardSkeleton() {
 export default function HomeLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
-      <header className="flex-none bg-card px-5 pt-9 pb-5">
+      <header className="flex-none bg-background px-5 pt-9 pb-5">
         <div className="flex items-start justify-between">
           <div>
             <div className="h-3.5 w-20 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />

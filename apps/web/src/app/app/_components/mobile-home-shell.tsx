@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { Clock3, ChevronLeft, Home } from 'lucide-react';
+import { Clock3, ChevronLeft, Home, CalendarDays } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { MobileFab } from './mobile-fab';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
@@ -135,6 +135,36 @@ function NextAppointmentCard({ appointment, tz, onClick }: NextCardProps) {
         </div>
       </div>
     </button>
+  );
+}
+
+// ─── Empty day card ───────────────────────────────────────────────────────────
+// Shown when there are zero appointments for today.
+
+interface EmptyDayCardProps {
+  memberWithNoProvider: boolean;
+  onOpenCalendar?: () => void;
+}
+
+function EmptyDayCard({ memberWithNoProvider, onOpenCalendar }: EmptyDayCardProps) {
+  return (
+    <div className="rounded-3xl border border-border bg-card px-6 py-8 text-center shadow-sm shadow-foreground/5">
+      <CalendarDays className="mx-auto mb-3 size-8 text-muted-foreground/30" aria-hidden="true" />
+      <p className="text-base font-semibold text-foreground">
+        {memberWithNoProvider ? 'אין תורים מיוחסים אליך' : 'אין תורים להיום'}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {memberWithNoProvider ? 'לא נקבעו תורים עבורך ליום זה.' : 'היום פנוי מתורים.'}
+      </p>
+      {onOpenCalendar && (
+        <button
+          onClick={onOpenCalendar}
+          className="mt-5 rounded-2xl bg-[#1a2035] px-5 py-2.5 text-sm font-bold text-white transition active:opacity-75 dark:bg-gray-800"
+        >
+          פתח יומן
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -414,7 +444,7 @@ export function MobileHomeShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="flex-none bg-card px-5 pt-9 pb-5">
+      <header className="flex-none bg-background px-5 pt-9 pb-5">
         <div className="flex items-start justify-between">
           {/* Left side (RTL start = physical right): greeting + title + date */}
           <div>
@@ -451,19 +481,10 @@ export function MobileHomeShell() {
             </button>
           </div>
         ) : relevantAppointments.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 py-12">
-            <p className="text-sm font-medium text-muted-foreground text-center">
-              {memberWithNoProvider ? 'אין תורים מיוחסים אליך היום' : 'אין תורים היום'}
-            </p>
-            {!canMutate && (
-              <button
-                onClick={openCalendar}
-                className="rounded-2xl bg-[#1a2035] px-5 py-2.5 text-sm font-bold text-white transition active:opacity-75 dark:bg-gray-800"
-              >
-                פתח יומן
-              </button>
-            )}
-          </div>
+          <EmptyDayCard
+            memberWithNoProvider={memberWithNoProvider}
+            onOpenCalendar={!canMutate ? openCalendar : undefined}
+          />
         ) : (
           <HomeContent
             appointments={relevantAppointments}

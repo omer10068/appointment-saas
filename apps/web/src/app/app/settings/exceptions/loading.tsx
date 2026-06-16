@@ -6,7 +6,7 @@ export default function ExceptionsLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header — matches MobileExceptionsShell header */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-3 pt-9">
+      <header className="flex-none bg-background px-5 pb-4 pt-9">
         <button
           disabled
           className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground opacity-40"
@@ -27,7 +27,7 @@ export default function ExceptionsLoading() {
       </header>
 
       {/* Filter tabs skeleton */}
-      <div className="flex-none border-b border-border px-5 pb-3 pt-1">
+      <div className="flex-none px-5 pb-3 pt-4">
         <div className="flex gap-2">
           <div className="h-8 w-20 animate-pulse rounded-full bg-muted" />
           <div className="h-8 w-20 animate-pulse rounded-full bg-muted" />

@@ -19,7 +19,7 @@ export default function ServicesLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header — matches shell chrome exactly */}
-      <div className="flex-none border-b border-border bg-card px-5 pb-4 pt-9">
+      <div className="flex-none bg-background px-5 pb-4 pt-9">
         <div className="flex items-start justify-between">
           <div>
             <div className="h-3 w-24 rounded bg-muted animate-pulse" />
