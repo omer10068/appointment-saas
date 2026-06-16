@@ -71,7 +71,7 @@ function FilterTabs({
   onChange: (t: Tab) => void;
 }) {
   return (
-    <div className="flex-none px-5 pb-3">
+    <div className="flex-none px-5 pb-3 pt-4">
       <div className="flex rounded-2xl bg-muted p-1">
         {(['future', 'past'] as Tab[]).map((t) => (
           <button

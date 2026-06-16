@@ -282,7 +282,7 @@ export function MobileBusinessHoursShell() {
 
       {/* ── Section title — flex-none, does not scroll ───────────────────── */}
       {!loading && !loadError && currentBusiness && (
-        <div className="flex-none px-5 pb-2">
+        <div className="flex-none px-5 pb-2 pt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             שעות פתיחה שבועיות
           </p>
