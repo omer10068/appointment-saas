@@ -45,7 +45,7 @@ export function MobileSettingsHubShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-5 pt-9">
+      <header className="flex-none bg-background px-5 pb-5 pt-9">
         <div className="flex items-start justify-between">
           <div>
             {businessName && (
