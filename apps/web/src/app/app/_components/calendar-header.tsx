@@ -1,6 +1,6 @@
 'use client';
 
-import { Users } from 'lucide-react';
+import { ChevronDown, CalendarDays } from 'lucide-react';
 import { HEBREW_DAY_ABBR, formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
 
 // ─── Selected-day title ────────────────────────────────────────────────────────
@@ -20,8 +20,12 @@ function CalendarSelectedDayTitle({ selectedDate, onClick }: DateControlProps) {
       className="flex flex-col items-center gap-0.5 px-2 py-1 transition active:opacity-75"
     >
       <span className="font-bold text-[11px] leading-none text-foreground">יום {weekday}</span>
-      <span dir="ltr" className="text-[11px] font-medium tabular-nums leading-none text-muted-foreground">
-        {numeric}
+      {/* dir="ltr" keeps the calendar icon visually to the left of the numeric date */}
+      <span dir="ltr" className="flex items-center gap-1">
+        <CalendarDays className="size-3 shrink-0 text-muted-foreground/40" />
+        <span className="text-[11px] font-medium tabular-nums leading-none text-muted-foreground">
+          {numeric}
+        </span>
       </span>
     </button>
   );
@@ -34,7 +38,7 @@ interface Props {
   onToday: () => void;
   onOpenCalendar: () => void;
   onFilterPress: () => void;
-  /** Current provider filter label shown on the pill, e.g. "כל הצוות" or "יובל". */
+  /** Current provider filter label, e.g. "כל הצוות" or "יובל". */
   filterLabel: string;
   /** False when only one provider exists — pill becomes a passive status indicator. */
   canFilter: boolean;
@@ -45,10 +49,33 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
 
   return (
     // Title is absolutely centered so it stays fixed regardless of side-element widths.
-    // Side elements (היום, filter pill) sit at flex edges via justify-between.
+    // DOM order: [filter (visual right in RTL)] ... [היום (visual left in RTL)]
     <div className="relative flex items-center justify-between px-1 pb-2.5">
 
-      {/* Right in RTL — today ghost pill */}
+      {/* DOM first = visual right in RTL — provider filter pill */}
+      <button
+        onClick={canFilter ? onFilterPress : undefined}
+        disabled={!canFilter}
+        aria-label="בחירת איש צוות"
+        className={[
+          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-2.5 transition',
+          canFilter
+            ? 'border-border/40 text-muted-foreground/70 active:scale-95 active:opacity-70'
+            : 'cursor-default border-border/20 text-muted-foreground/40',
+        ].join(' ')}
+      >
+        <span className="truncate text-[11px] font-medium">{filterLabel}</span>
+        {canFilter && <ChevronDown className="size-3 shrink-0 opacity-60" />}
+      </button>
+
+      {/* Center — absolutely overlaid so side elements never shift it */}
+      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
+        <div className="pointer-events-auto">
+          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
+        </div>
+      </div>
+
+      {/* DOM last = visual left in RTL — today ghost pill */}
       <button
         onClick={onCurrentWeek ? undefined : onToday}
         disabled={onCurrentWeek}
@@ -61,29 +88,6 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
         ].join(' ')}
       >
         היום
-      </button>
-
-      {/* Center — absolutely overlaid so side elements never shift it */}
-      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
-        <div className="pointer-events-auto">
-          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
-        </div>
-      </div>
-
-      {/* Left in RTL — provider filter pill (passive status when only one provider) */}
-      <button
-        onClick={canFilter ? onFilterPress : undefined}
-        disabled={!canFilter}
-        aria-label="בחירת איש צוות"
-        className={[
-          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-2.5 transition',
-          canFilter
-            ? 'border-border/40 text-muted-foreground/70 active:scale-95 active:opacity-70'
-            : 'cursor-default border-border/20 text-muted-foreground/40',
-        ].join(' ')}
-      >
-        <Users className="size-3 shrink-0" />
-        <span className="truncate text-[11px] font-medium">{filterLabel}</span>
       </button>
     </div>
   );
