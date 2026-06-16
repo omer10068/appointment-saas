@@ -17,13 +17,13 @@ function CalendarSelectedDayTitle({ selectedDate, onClick }: DateControlProps) {
     <button
       onClick={onClick}
       aria-label="פתיחת לוח שנה חודשי"
-      className="flex flex-col items-center gap-1 px-3 py-2 transition active:opacity-75"
+      className="flex flex-col items-center gap-0.5 px-3 py-2 transition active:opacity-75"
     >
       {/* Plain weekday title — no chip background */}
-      <span className="text-xs font-bold leading-none text-foreground">יום {weekday}</span>
+      <span className="text-[10px] font-bold leading-none text-foreground">יום {weekday}</span>
       {/* Date chip — the visual date-picker affordance */}
       <span dir="ltr" className="flex items-center gap-1 rounded-full border border-border/30 bg-muted/50 px-2 py-0.5">
-        <span className="text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
+        <span className="text-[12px] font-medium tabular-nums leading-none text-muted-foreground">
           {numeric}
         </span>
         <CalendarDays className="size-3 shrink-0 text-muted-foreground/60" />
