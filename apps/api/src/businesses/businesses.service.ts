@@ -1,5 +1,9 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { Business, BusinessUser } from '../generated/prisma/client';
+import {
+  Business,
+  BusinessStatus,
+  BusinessUser,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 
@@ -9,7 +13,9 @@ export class BusinessesService {
 
   async create(dto: CreateBusinessDto): Promise<Business> {
     try {
-      return await this.prisma.business.create({ data: dto });
+      return await this.prisma.business.create({
+        data: { ...dto, status: BusinessStatus.DRAFT },
+      });
     } catch (err: unknown) {
       if (
         typeof err === 'object' &&

@@ -9,6 +9,7 @@ import { PrismaModule } from '../../src/prisma/prisma.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { User } from '../../src/generated/prisma/client';
 import {
+  BusinessStatus,
   BusinessUserRole,
   BusinessUserStatus,
 } from '../../src/generated/prisma/client';
@@ -227,5 +228,78 @@ describe('POST /admin/businesses/:businessId/owner', () => {
       .post(`/admin/businesses/${E2E_ADMIN_OWNED_BIZ_ID}/owner`)
       .send({ phone: '+19990002024', email: 'x@example.com' })
       .expect(409);
+  });
+});
+
+// ─── POST /admin/businesses ───────────────────────────────────────────────────
+
+describe('POST /admin/businesses', () => {
+  const CREATE_SLUG = 'e2e-admin-biz-create-test';
+
+  beforeEach(async () => {
+    await prisma.business.deleteMany({ where: { slug: CREATE_SLUG } });
+  });
+
+  afterEach(async () => {
+    await prisma.business.deleteMany({ where: { slug: CREATE_SLUG } });
+  });
+
+  it('admin + valid body with timezone → 201, status DRAFT, publicBookingEnabled false, timezone persisted', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post('/admin/businesses')
+      .send({
+        name: 'Test Create Business',
+        slug: CREATE_SLUG,
+        timezone: 'Asia/Jerusalem',
+      })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      name: 'Test Create Business',
+      slug: CREATE_SLUG,
+      timezone: 'Asia/Jerusalem',
+      status: BusinessStatus.DRAFT,
+      publicBookingEnabled: false,
+    });
+  });
+
+  it('missing timezone → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post('/admin/businesses')
+      .send({ name: 'Test Create Business', slug: CREATE_SLUG })
+      .expect(400);
+  });
+
+  it('empty timezone → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post('/admin/businesses')
+      .send({ name: 'Test Create Business', slug: CREATE_SLUG, timezone: '' })
+      .expect(400);
+  });
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .post('/admin/businesses')
+      .send({
+        name: 'Test Create Business',
+        slug: CREATE_SLUG,
+        timezone: 'Asia/Jerusalem',
+      })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .post('/admin/businesses')
+      .send({
+        name: 'Test Create Business',
+        slug: CREATE_SLUG,
+        timezone: 'Asia/Jerusalem',
+      })
+      .expect(401);
   });
 });

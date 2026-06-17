@@ -403,6 +403,7 @@ To share slot computation between the authenticated dashboard and the public sur
 ### Access rules (all four endpoints)
 
 - Business `status` not `ACTIVE` or `TRIAL` → 404 (same response as unknown slug — callers cannot distinguish).
+- Business `publicBookingEnabled` is `false` → 404 (same 404 — callers cannot distinguish from unknown slug or wrong status).
 - Unknown slug → 404.
 - Inactive service passed as `serviceId` to available-slots → 400.
 - Inactive SP passed as `serviceProviderId` to available-slots → 400.
@@ -471,6 +472,80 @@ E2E coverage added to `dashboard-appointments.e2e-spec.ts`: appointment create w
 This supports the customer history feature: the frontend fetches past appointments filtered by customer without a separate endpoint.
 
 E2E coverage added to `dashboard-appointments.e2e-spec.ts`: `businessCustomerId` filter returns only that customer's appointments (1 result); unknown `businessCustomerId` returns empty list. Suite: 11/11 passing.
+
+## Completed — Phase 6: Admin/Ops Business Lifecycle (Step 1)
+
+### What was implemented
+
+**Schema additions** (`20260617015541_add_draft_status_and_public_booking_enabled`):
+
+- `DRAFT` added to `BusinessStatus` enum. Additive migration — zero data loss for existing rows.
+- `publicBookingEnabled Boolean @default(false)` added to `Business` table.
+
+**Schema default vs service-layer enforcement:**
+
+The Prisma schema default for `Business.status` stays `TRIAL` (not `DRAFT`). All 20+ e2e test suites seed businesses with explicit `status` values — none rely on the schema default. Keeping the default as `TRIAL` avoids any test breakage. The enforcement point is the service layer only.
+
+**Invariants introduced:**
+
+| Invariant | Enforced in |
+| --- | --- |
+| Admin-created businesses start as `DRAFT` | `BusinessesService.create` — `data: { ...dto, status: BusinessStatus.DRAFT }` |
+| `publicBookingEnabled` starts as `false` | Schema `@default(false)` — not settable via `CreateBusinessDto` |
+| Public booking gate: `status IN [ACTIVE, TRIAL]` **AND** `publicBookingEnabled = true` | `PublicBusinessesService.findActiveBusinessBySlug` |
+| `CreateBusinessDto` requires `timezone` | `@IsString @IsNotEmpty @MaxLength(100)` validator |
+| Dashboard access (`assertAccess`) still allows only `ACTIVE` or `TRIAL` | Unchanged — DRAFT businesses return 403 to all dashboard users |
+
+**Why `publicBookingEnabled` is not in `CreateBusinessDto`:**
+
+The field starts `false` and can only be enabled via a future admin activation endpoint (Phase B). Excluding it from the DTO prevents any caller from bypassing the onboarding gate.
+
+**DRAFT blocks dashboard access:** Phase B (activation endpoint) is required before a newly created DRAFT business is usable. Until then, all `assertAccess` / `assertMutationAccess` / `assertOwnerAccess` calls on a DRAFT business return 403.
+
+### E2E coverage added
+
+**`admin-businesses.e2e-spec.ts`** — +5 tests (total: 12):
+
+| Test | Result |
+| --- | --- |
+| Valid body with timezone → 201, status `DRAFT`, `publicBookingEnabled: false`, timezone persisted | 201 |
+| Missing timezone → 400 | 400 |
+| Empty timezone → 400 | 400 |
+| Non-admin → 403 | 403 |
+| Missing auth → 401 | 401 |
+
+**`public-businesses.e2e-spec.ts`** — +6 tests (total: 20), all visibility gate combinations:
+
+| status | publicBookingEnabled | Expected |
+| --- | --- | --- |
+| `DRAFT` | `false` | 404 |
+| `DRAFT` | `true` | 404 |
+| `TRIAL` | `false` | 404 |
+| `ACTIVE` | `false` | 404 |
+| `TRIAL` | `true` | 200 |
+| `ACTIVE` | `true` | 200 (reuses existing fixture) |
+
+All four public endpoints call `findActiveBusinessBySlug` as their first step, so the gate covers all of them.
+
+### Key files touched
+
+| File | Change |
+| --- | --- |
+| `apps/api/prisma/schema.prisma` | Added `DRAFT` to enum; added `publicBookingEnabled` field |
+| `apps/api/prisma/migrations/20260617…/migration.sql` | `ALTER TYPE … ADD VALUE 'DRAFT'`; `ALTER TABLE … ADD COLUMN publicBookingEnabled` |
+| `apps/api/src/businesses/dto/create-business.dto.ts` | Added required `timezone` field |
+| `apps/api/src/businesses/businesses.service.ts` | `create` forces `status: BusinessStatus.DRAFT` |
+| `apps/api/src/public/public-businesses.service.ts` | `findActiveBusinessBySlug` adds `publicBookingEnabled` gate |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | +5 create-business tests |
+| `apps/api/test/e2e/public-businesses.e2e-spec.ts` | +6 visibility gate tests; existing fixture seeded with `publicBookingEnabled: true` |
+
+### Deferred (Phase B — do not implement without explicit instruction)
+
+- Activation endpoint (`PATCH /admin/businesses/:businessId/status` or equivalent) to move a business from `DRAFT` to `ACTIVE`/`TRIAL`.
+- Owner `BusinessUserStatus` fix: `createOwnerForBusiness` currently creates owners as `INVITED`. They cannot access the dashboard until their status becomes `ACTIVE`. Resolving this requires either auto-activating at creation or a separate onboarding flow.
+- Readiness check (`GET /admin/businesses/:businessId/readiness` or equivalent).
+- Admin endpoints for seeding services, service providers, and working hours during onboarding.
+- `ServiceProvider.businessUserId` nullable (for unlinked providers).
 
 ## Later — Phase 3 and Beyond
 

@@ -207,7 +207,10 @@ describe('AvailabilityService', () => {
     mockBookingValidation.checkAvailabilityExceptionDeleteConflict.mockResolvedValue(
       undefined,
     );
-    mockPrisma.business.findUnique.mockResolvedValue({ status: 'ACTIVE', timezone: 'UTC' });
+    mockPrisma.business.findUnique.mockResolvedValue({
+      status: 'ACTIVE',
+      timezone: 'UTC',
+    });
 
     mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
       const cb = args[0] as (tx: typeof mockPrisma) => Promise<unknown>;

@@ -148,8 +148,17 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `updateServiceProvider` enforces the inactive-service invariant even when `serviceIds` are absent from the payload (checks existing links before activation).
   - `createAppointment` rejects a non-ACTIVE `BusinessCustomer` with `BadRequestException('Customer is not active')`.
   - E2E coverage added for SP inactive-service activation/update paths and customer-activity check on appointment creation.
-- Approximate test counts: 22+ E2E suites / 400+ tests, 17+ unit suites / 285+ unit tests.
-- Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- Admin/Ops business lifecycle (Step 1 — Phase A):
+  - `BusinessStatus.DRAFT` added to the enum. Schema default remains `TRIAL` to avoid breaking test seeds; service layer enforces `DRAFT` explicitly.
+  - `publicBookingEnabled Boolean @default(false)` added to the `Business` table.
+  - `BusinessesService.create` always forces `status: BusinessStatus.DRAFT` — this is the single enforcement point for admin-created businesses.
+  - `publicBookingEnabled` is intentionally not in `CreateBusinessDto`; it starts `false` and requires a separate admin activation step (Phase B, not yet built).
+  - `CreateBusinessDto` now requires `timezone` (`@IsString @IsNotEmpty @MaxLength(100)`); missing or empty timezone → 400.
+  - Public booking gate (`findActiveBusinessBySlug`) now requires both `status IN [ACTIVE, TRIAL]` **and** `publicBookingEnabled = true`. DRAFT status or `publicBookingEnabled: false` → 404 (indistinguishable from unknown slug).
+  - `assertAccess` (dashboard) still allows only `ACTIVE | TRIAL` — a DRAFT business returns 403 to all dashboard users until it is activated (Phase B).
+  - E2E coverage: `admin-businesses.e2e-spec.ts` +5 tests (201 with DRAFT/false defaults, timezone validation, non-admin 403, missing auth 401); `public-businesses.e2e-spec.ts` +6 tests (all visibility gate combinations: DRAFT×false, DRAFT×true, TRIAL×false, ACTIVE×false → 404; TRIAL×true → 200; ACTIVE×true → 200).
+- Approximate test counts: 22+ E2E suites / 411+ tests, 17+ unit suites / 285+ unit tests.
+- Next backend focus areas: Phase B (activation endpoint, owner ACTIVE fix), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

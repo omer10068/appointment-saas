@@ -13,4 +13,9 @@ export class CreateBusinessDto {
     message: 'slug must be lowercase and URL-safe (e.g. my-business)',
   })
   slug!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  timezone!: string;
 }
