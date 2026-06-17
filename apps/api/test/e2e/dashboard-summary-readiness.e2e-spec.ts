@@ -35,10 +35,22 @@ type SummaryDto = {
   activeCustomersCount: number;
 };
 
+type BusinessReadinessChecks = {
+  hasActiveOwner: boolean;
+  hasActiveService: boolean;
+  hasActiveServiceProvider: boolean;
+  hasBusinessWorkingHours: boolean;
+  allActiveProvidersHaveWorkingHours: boolean;
+  allActiveProvidersHaveActiveServiceAssignment: boolean;
+  allActiveServicesHaveActiveProviderAssignment: boolean;
+};
+
 type BusinessReadinessDto = {
   hasActiveServiceProviders: boolean;
   hasActiveService: boolean;
   isReady: boolean;
+  checks: BusinessReadinessChecks;
+  blockingReasons: string[];
 };
 
 // ─── Shared module-level setup ────────────────────────────────────────────────
@@ -69,9 +81,13 @@ beforeAll(async () => {
   prisma = module.get(PrismaService);
 
   // ── Idempotent pre-cleanup ─────────────────────────────────────────────────
-  // ServiceProvider (cascades ServiceProviderService) → Service → BusinessCustomer
-  // → CustomerProfile → BusinessUser → Business → User
+  await prisma.serviceProviderWorkingHour.deleteMany({
+    where: { businessId: E2E_SR_BIZ_ID },
+  });
   await prisma.serviceProvider.deleteMany({
+    where: { businessId: E2E_SR_BIZ_ID },
+  });
+  await prisma.businessWorkingHour.deleteMany({
     where: { businessId: E2E_SR_BIZ_ID },
   });
   await prisma.service.deleteMany({ where: { businessId: E2E_SR_BIZ_ID } });
@@ -229,9 +245,9 @@ beforeAll(async () => {
     },
   });
 
-  // One active ServiceProvider linked to the active service →
-  // hasActiveServiceProviders=true, hasActiveService=true, isReady=true
-  await prisma.serviceProvider.create({
+  // One active ServiceProvider linked to the active service.
+  // Business working hours + SP working hours added so all 7 readiness checks pass.
+  const sp = await prisma.serviceProvider.create({
     data: {
       businessId: E2E_SR_BIZ_ID,
       businessUserId: ownerBU.id,
@@ -242,12 +258,37 @@ beforeAll(async () => {
       },
     },
   });
+
+  await prisma.businessWorkingHour.create({
+    data: {
+      businessId: E2E_SR_BIZ_ID,
+      dayOfWeek: 1,
+      startTime: '09:00',
+      endTime: '18:00',
+      isClosed: false,
+    },
+  });
+
+  await prisma.serviceProviderWorkingHour.create({
+    data: {
+      businessId: E2E_SR_BIZ_ID,
+      serviceProviderId: sp.id,
+      dayOfWeek: 1,
+      startTime: '09:00',
+      endTime: '18:00',
+      isClosed: false,
+    },
+  });
 });
 
 afterAll(async () => {
-  // FK-safe order: ServiceProvider (cascades ServiceProviderService) → Service
-  // → BusinessCustomer → CustomerProfile → BusinessUser → Business → User
+  await prisma.serviceProviderWorkingHour.deleteMany({
+    where: { businessId: E2E_SR_BIZ_ID },
+  });
   await prisma.serviceProvider.deleteMany({
+    where: { businessId: E2E_SR_BIZ_ID },
+  });
+  await prisma.businessWorkingHour.deleteMany({
     where: { businessId: E2E_SR_BIZ_ID },
   });
   await prisma.service.deleteMany({ where: { businessId: E2E_SR_BIZ_ID } });
@@ -346,11 +387,20 @@ describe('GET /dashboard/businesses/:businessId/readiness', () => {
       .get(`/dashboard/businesses/${E2E_SR_BIZ_ID}/readiness`)
       .expect(200);
 
-    // One active ServiceProvider + one active Service → isReady: true
     expect(res.body).toMatchObject<BusinessReadinessDto>({
       hasActiveServiceProviders: true,
       hasActiveService: true,
       isReady: true,
+      checks: {
+        hasActiveOwner: true,
+        hasActiveService: true,
+        hasActiveServiceProvider: true,
+        hasBusinessWorkingHours: true,
+        allActiveProvidersHaveWorkingHours: true,
+        allActiveProvidersHaveActiveServiceAssignment: true,
+        allActiveServicesHaveActiveProviderAssignment: true,
+      },
+      blockingReasons: [],
     });
   });
 
@@ -361,9 +411,10 @@ describe('GET /dashboard/businesses/:businessId/readiness', () => {
       .expect(200);
 
     const body = res.body as BusinessReadinessDto;
-    expect(body.hasActiveServiceProviders).toBe(true);
-    expect(body.hasActiveService).toBe(true);
     expect(body.isReady).toBe(true);
+    expect(body.blockingReasons).toHaveLength(0);
+    expect(body.checks.hasActiveOwner).toBe(true);
+    expect(body.checks.hasActiveServiceProvider).toBe(true);
   });
 
   it('member returns 200', async () => {

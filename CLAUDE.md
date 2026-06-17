@@ -172,8 +172,14 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `assertAccess` (dashboard) already allows `TRIAL` businesses, so no dashboard code changed.
   - E2E coverage: `admin-businesses.e2e-spec.ts` +9 tests (200 with TRIAL status; publicBookingEnabled remains false; owner can access dashboard; public booking still 404; 403/401/404/400/409 guards).
 - ServiceProvider creation boundary (Step 2.6): Dashboard `POST .../service-providers` throws 403 for all callers. Admin-only `POST /admin/businesses/:businessId/service-providers` endpoint added. Frontend FAB and `ProviderCreateSheet` removed from team tab.
-- Approximate test counts: 22+ E2E suites / 433+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: readiness check, ACTIVE activation (TRIAL→ACTIVE with readiness gate), publicBookingEnabled toggle, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- Admin/Ops business lifecycle (Step 3 — detailed readiness check):
+  - `GET /dashboard/businesses/:businessId/readiness` extended with 7-check structured response + `blockingReasons` array. Legacy fields (`hasActiveServiceProviders`, `hasActiveService`, `isReady`) preserved.
+  - `GET /admin/businesses/:businessId/readiness` added (platform admin only; 404 if business not found).
+  - Readiness computed by shared `computeBusinessReadiness(prisma, businessId)` in `readiness.utils.ts`.
+  - 7 checks: `hasActiveOwner`, `hasActiveService`, `hasActiveServiceProvider`, `hasBusinessWorkingHours`, `allActiveProvidersHaveWorkingHours`, `allActiveProvidersHaveActiveServiceAssignment`, `allActiveServicesHaveActiveProviderAssignment`.
+  - E2E: `dashboard-readiness.e2e-spec.ts` (10 scenario tests); `admin-businesses.e2e-spec.ts` +5 tests. Existing `dashboard-summary-readiness.e2e-spec.ts` updated with working hours in fixture and new field assertions.
+- Approximate test counts: 23+ E2E suites / 448+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: ACTIVE activation (TRIAL→ACTIVE with readiness gate), publicBookingEnabled toggle, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

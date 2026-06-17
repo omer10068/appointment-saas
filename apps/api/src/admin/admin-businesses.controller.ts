@@ -55,4 +55,9 @@ export class AdminBusinessesController {
   ) {
     return this.adminBusinessesService.createServiceProvider(businessId, dto);
   }
+
+  @Get(':businessId/readiness')
+  getBusinessReadiness(@Param('businessId') businessId: string) {
+    return this.adminBusinessesService.getBusinessReadiness(businessId);
+  }
 }

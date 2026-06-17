@@ -25,6 +25,13 @@ import type { UpdateBusinessUserStatusDto } from './dto/update-business-user-sta
 import type { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import type { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
 import type { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
+import { computeBusinessReadiness } from './readiness.utils';
+import type { BusinessReadinessDto } from './readiness.utils';
+
+export type {
+  BusinessReadinessChecks,
+  BusinessReadinessDto,
+} from './readiness.utils';
 
 export interface BusinessSettingsDto {
   id: string;
@@ -86,12 +93,6 @@ export interface BusinessUserCreatedDto {
   phoneNormalized: string;
   email: string | null;
   serviceProviderId: string | null;
-}
-
-export interface BusinessReadinessDto {
-  hasActiveServiceProviders: boolean;
-  hasActiveService: boolean;
-  isReady: boolean;
 }
 
 export interface SummaryDto {
@@ -443,19 +444,7 @@ export class DashboardDataService {
     businessId: string,
   ): Promise<BusinessReadinessDto> {
     await this.assertAccess(userId, businessId);
-    const [activeServiceProviderCount, activeServiceCount] = await Promise.all([
-      this.prisma.serviceProvider.count({
-        where: { businessId, isActive: true },
-      }),
-      this.prisma.service.count({ where: { businessId, isActive: true } }),
-    ]);
-    const hasActiveServiceProviders = activeServiceProviderCount > 0;
-    const hasActiveService = activeServiceCount > 0;
-    return {
-      hasActiveServiceProviders,
-      hasActiveService,
-      isReady: hasActiveServiceProviders && hasActiveService,
-    };
+    return computeBusinessReadiness(this.prisma, businessId);
   }
 
   // ─── Service mutations ────────────────────────────────────────────────────────

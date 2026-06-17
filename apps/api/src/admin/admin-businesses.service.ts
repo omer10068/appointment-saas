@@ -16,6 +16,8 @@ import { BusinessUsersService } from '../business-users/business-users.service';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 import type { ServiceProviderDto } from '../dashboard/dashboard-data.service';
+import { computeBusinessReadiness } from '../dashboard/readiness.utils';
+import type { BusinessReadinessDto } from '../dashboard/readiness.utils';
 
 @Injectable()
 export class AdminBusinessesService {
@@ -122,5 +124,18 @@ export class AdminBusinessesService {
         updatedAt: sp.updatedAt,
       };
     });
+  }
+
+  async getBusinessReadiness(
+    businessId: string,
+  ): Promise<BusinessReadinessDto> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+    return computeBusinessReadiness(this.prisma, businessId);
   }
 }

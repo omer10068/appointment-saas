@@ -42,6 +42,10 @@ const E2E_ADMIN_SP_INACT_SVC_USER_ID = 'e2e20000-0000-4000-8000-000000000013';
 const E2E_ADMIN_SP_ACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000014';
 const E2E_ADMIN_SP_INACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000015';
 
+// Admin readiness tests
+const E2E_ADMIN_RDN_BIZ_ID = 'e2e20000-0000-4000-8000-000000000016';
+const E2E_ADMIN_RDN_OWN_USER_ID = 'e2e20000-0000-4000-8000-000000000017';
+
 const ADMIN_PHONE = '+19990002001';
 const REG_PHONE = '+19990002002';
 const EXISTING_OWNER_PHONE = '+19990002003';
@@ -50,6 +54,7 @@ const ADMIN_SP_OWNER_PHONE = '+19990002030';
 const ADMIN_SP_MEMBER_PHONE = '+19990002031';
 const ADMIN_SP_DUP_PHONE = '+19990002032';
 const ADMIN_SP_INACT_SVC_PHONE = '+19990002033';
+const ADMIN_RDN_OWNER_PHONE = '+19990002041';
 // Created by POST success test — must be cleaned up
 const CREATED_OWNER_PHONE = '+19990002010';
 // Created by regression test — must be cleaned up
@@ -878,5 +883,99 @@ describe('POST /admin/businesses/:businessId/service-providers', () => {
         isActive: true,
       })
       .expect(400);
+  });
+});
+
+// ─── GET /admin/businesses/:businessId/readiness ──────────────────────────────
+
+describe('GET /admin/businesses/:businessId/readiness', () => {
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_RDN_BIZ_ID },
+    });
+    await prisma.business.deleteMany({ where: { id: E2E_ADMIN_RDN_BIZ_ID } });
+    await prisma.user.deleteMany({ where: { id: E2E_ADMIN_RDN_OWN_USER_ID } });
+
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_RDN_BIZ_ID,
+        name: 'E2E Admin Readiness Business',
+        slug: 'e2e-admin-readiness-business',
+        status: 'TRIAL',
+      },
+    });
+    await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_RDN_OWN_USER_ID,
+        phoneNormalized: ADMIN_RDN_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_RDN_BIZ_ID,
+        userId: E2E_ADMIN_RDN_OWN_USER_ID,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    // No services seeded — hasActiveService will be false
+  });
+
+  afterAll(async () => {
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_RDN_BIZ_ID },
+    });
+    await prisma.business.deleteMany({ where: { id: E2E_ADMIN_RDN_BIZ_ID } });
+    await prisma.user.deleteMany({ where: { id: E2E_ADMIN_RDN_OWN_USER_ID } });
+  });
+
+  it('admin → 200 with correct readiness shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_RDN_BIZ_ID}/readiness`)
+      .expect(200);
+
+    const body = res.body as Record<string, unknown>;
+    expect(typeof body.isReady).toBe('boolean');
+    expect(Array.isArray(body.blockingReasons)).toBe(true);
+    expect(body.checks).toBeDefined();
+    expect(typeof (body.checks as Record<string, unknown>).hasActiveOwner).toBe(
+      'boolean',
+    );
+  });
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_RDN_BIZ_ID}/readiness`)
+      .expect(403);
+  });
+
+  it('unauthenticated → 401', async () => {
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_RDN_BIZ_ID}/readiness`)
+      .expect(401);
+  });
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .get('/admin/businesses/00000000-0000-4000-8000-000000000000/readiness')
+      .expect(404);
+  });
+
+  it('readiness reflects actual state: no active services → hasActiveService false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_RDN_BIZ_ID}/readiness`)
+      .expect(200);
+
+    const checks = (res.body as { checks: Record<string, boolean> }).checks;
+    expect(checks.hasActiveOwner).toBe(true);
+    expect(checks.hasActiveService).toBe(false);
+    expect((res.body as { isReady: boolean }).isReady).toBe(false);
   });
 });

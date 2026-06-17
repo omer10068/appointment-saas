@@ -77,8 +77,24 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 **Readiness** (`GET …/readiness`):
 
 ```json
-{ "hasActiveServiceProviders": true, "hasActiveService": true, "isReady": true }
+{
+  "hasActiveServiceProviders": true,
+  "hasActiveService": true,
+  "isReady": true,
+  "checks": {
+    "hasActiveOwner": true,
+    "hasActiveService": true,
+    "hasActiveServiceProvider": true,
+    "hasBusinessWorkingHours": true,
+    "allActiveProvidersHaveWorkingHours": true,
+    "allActiveProvidersHaveActiveServiceAssignment": true,
+    "allActiveServicesHaveActiveProviderAssignment": true
+  },
+  "blockingReasons": []
+}
 ```
+
+Legacy fields (`hasActiveServiceProviders`, `hasActiveService`, `isReady`) are preserved for backward compatibility.
 
 **Appointment** (`GET …/appointments` items):
 
@@ -676,11 +692,48 @@ Edit and view functionality (OWNER/MANAGER can edit existing providers; MEMBER s
 | `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | New SP creation describe block with 9 tests |
 | `apps/web/src/app/app/_components/mobile-team-shell.tsx` | Removed FAB, ProviderCreateSheet, useAppBusinessUsers |
 
+### Step 3: Detailed business readiness check
+
+**Endpoints:**
+
+- `GET /dashboard/businesses/:businessId/readiness` — extended with 7-check structured response. Guarded by `assertAccess`.
+- `GET /admin/businesses/:businessId/readiness` — admin-only (no access check needed beyond `PlatformAdminGuard`). 404 if business not found.
+
+**Seven readiness checks:**
+
+| Check | Rule |
+| --- | --- |
+| `hasActiveOwner` | ≥1 `BusinessUser` with `role=OWNER` and `status=ACTIVE` |
+| `hasActiveService` | ≥1 `Service` with `isActive=true` |
+| `hasActiveServiceProvider` | ≥1 `ServiceProvider` with `isActive=true` |
+| `hasBusinessWorkingHours` | ≥1 `BusinessWorkingHour` record |
+| `allActiveProvidersHaveWorkingHours` | Every active SP has ≥1 `ServiceProviderWorkingHour` record |
+| `allActiveProvidersHaveActiveServiceAssignment` | Every active SP has ≥1 `ServiceProviderService` link where the service is active |
+| `allActiveServicesHaveActiveProviderAssignment` | Every active service has ≥1 `ServiceProviderService` link where the SP is active |
+
+`isReady = true` iff all 7 checks pass. `blockingReasons` lists human-readable descriptions of each failing check. Vacuous-truth rule: checks over an empty set (e.g., no active SPs) evaluate to `true`; `isReady` still fails on the count-based check.
+
+**Key files:**
+
+| File | Role |
+| --- | --- |
+| `src/dashboard/readiness.utils.ts` | `computeBusinessReadiness(prisma, businessId)` — shared pure function; exports `BusinessReadinessChecks`, `BusinessReadinessDto` |
+| `src/dashboard/dashboard-data.service.ts` | `getBusinessReadiness` delegates to `computeBusinessReadiness` after `assertAccess`; re-exports interfaces |
+| `src/admin/admin-businesses.service.ts` | `getBusinessReadiness(businessId)` — 404 guard + `computeBusinessReadiness` |
+| `src/admin/admin-businesses.controller.ts` | `GET :businessId/readiness` route |
+| `test/e2e/dashboard-summary-readiness.e2e-spec.ts` | Updated to include working hours in fixture + new `checks`/`blockingReasons` assertions |
+| `test/e2e/dashboard-readiness.e2e-spec.ts` | 10 scenario-based tests (1 per check failure mode + single/multi-provider happy paths) |
+| `test/e2e/admin-businesses.e2e-spec.ts` | +5 admin readiness tests in new describe block |
+
+**E2E coverage added:**
+
+- `dashboard-readiness.e2e-spec.ts`: 10 tests (UUID prefix `e2e9100X`).
+- `admin-businesses.e2e-spec.ts`: +5 tests (UUID prefix `e2e20000-…-00000016/17`).
+
 **Deferred (Phase B — do not implement without explicit instruction):**
 
-- Readiness check (`GET /admin/businesses/:businessId/readiness` or equivalent).
-- Full activation endpoint (TRIAL → ACTIVE) with readiness gate.
 - `publicBookingEnabled` toggle endpoint — separate admin activation step.
+- Full activation endpoint (TRIAL → ACTIVE) with readiness gate.
 - Admin endpoints for seeding services and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).
 
