@@ -43,7 +43,7 @@ export class AdminBusinessesController {
   @Patch(':businessId/status')
   setStatus(
     @Param('businessId') businessId: string,
-    @Body() dto: SetBusinessTrialDto,
+    @Body() _dto: SetBusinessTrialDto,
   ) {
     return this.adminBusinessesService.moveDraftToTrial(businessId);
   }

@@ -75,7 +75,11 @@ describe('BusinessesService', () => {
   });
 
   describe('create', () => {
-    const dto: CreateBusinessDto = { name: 'Acme Corp', slug: 'acme-corp', timezone: 'Asia/Jerusalem' };
+    const dto: CreateBusinessDto = {
+      name: 'Acme Corp',
+      slug: 'acme-corp',
+      timezone: 'Asia/Jerusalem',
+    };
 
     it('creates and returns a DRAFT business when the slug is available', async () => {
       mockPrisma.business.create.mockResolvedValue(mockBusiness);

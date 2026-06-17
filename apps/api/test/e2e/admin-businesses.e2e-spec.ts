@@ -93,7 +93,9 @@ beforeAll(async () => {
     },
   });
   await prisma.user.deleteMany({
-    where: { phoneNormalized: { in: [CREATED_OWNER_PHONE, REGRESSION_OWNER_PHONE] } },
+    where: {
+      phoneNormalized: { in: [CREATED_OWNER_PHONE, REGRESSION_OWNER_PHONE] },
+    },
   });
   await prisma.business.deleteMany({
     where: {
@@ -229,7 +231,9 @@ afterAll(async () => {
     },
   });
   await prisma.user.deleteMany({
-    where: { phoneNormalized: { in: [CREATED_OWNER_PHONE, REGRESSION_OWNER_PHONE] } },
+    where: {
+      phoneNormalized: { in: [CREATED_OWNER_PHONE, REGRESSION_OWNER_PHONE] },
+    },
   });
   await prisma.business.deleteMany({
     where: {
@@ -432,7 +436,9 @@ describe('PATCH /admin/businesses/:businessId/status', () => {
       .send({ status: 'TRIAL' })
       .expect(200);
 
-    expect(res.body.publicBookingEnabled).toBe(false);
+    expect(
+      (res.body as { publicBookingEnabled: boolean }).publicBookingEnabled,
+    ).toBe(false);
   });
 
   it('owner can access dashboard after DRAFT → TRIAL → 200', async () => {
@@ -535,7 +541,10 @@ describe('admin-created owner status and dashboard access', () => {
     MockClerkAuthGuard.currentUser = adminUser;
     const res = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/owner`)
-      .send({ phone: REGRESSION_OWNER_PHONE, email: 'regression-owner@example.com' })
+      .send({
+        phone: REGRESSION_OWNER_PHONE,
+        email: 'regression-owner@example.com',
+      })
       .expect(201);
 
     expect(res.body).toMatchObject({
@@ -549,7 +558,10 @@ describe('admin-created owner status and dashboard access', () => {
     MockClerkAuthGuard.currentUser = adminUser;
     await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/owner`)
-      .send({ phone: REGRESSION_OWNER_PHONE, email: 'regression-owner@example.com' })
+      .send({
+        phone: REGRESSION_OWNER_PHONE,
+        email: 'regression-owner@example.com',
+      })
       .expect(201);
 
     const ownerUser = await prisma.user.findUnique({

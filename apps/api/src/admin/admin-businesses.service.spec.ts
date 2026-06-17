@@ -64,7 +64,11 @@ describe('AdminBusinessesService', () => {
 
   describe('create', () => {
     it('delegates to BusinessesService.create', async () => {
-      const dto: CreateBusinessDto = { name: 'Acme Corp', slug: 'acme-corp', timezone: 'Asia/Jerusalem' };
+      const dto: CreateBusinessDto = {
+        name: 'Acme Corp',
+        slug: 'acme-corp',
+        timezone: 'Asia/Jerusalem',
+      };
       mockBusinessesService.create.mockResolvedValue(mockBusiness);
 
       const result = await service.create(dto);
