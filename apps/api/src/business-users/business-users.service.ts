@@ -65,7 +65,7 @@ export class BusinessUsersService {
             businessId,
             userId: user.id,
             role: BusinessUserRole.OWNER,
-            status: BusinessUserStatus.INVITED,
+            status: BusinessUserStatus.ACTIVE,
           },
         });
       } catch (err: unknown) {

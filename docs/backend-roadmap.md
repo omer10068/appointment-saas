@@ -539,10 +539,42 @@ All four public endpoints call `findActiveBusinessBySlug` as their first step, s
 | `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | +5 create-business tests |
 | `apps/api/test/e2e/public-businesses.e2e-spec.ts` | +6 visibility gate tests; existing fixture seeded with `publicBookingEnabled: true` |
 
+### Step 2: Admin-created owner starts as ACTIVE
+
+**Problem:** `createOwnerForBusiness` was creating the `BusinessUser` with `status: INVITED`. Since `assertAccess` requires `BusinessUser.status = ACTIVE`, admin-created owners received 403 on every dashboard endpoint — a complete deadlock.
+
+**Fix:** Changed `BusinessUserStatus.INVITED` → `BusinessUserStatus.ACTIVE` in the `businessUser.create` call inside `createOwnerForBusiness` (`business-users.service.ts`).
+
+**Scope boundary:**
+
+| Path | Status | Rationale |
+| --- | --- | --- |
+| Admin `createOwnerForBusiness` — `BusinessUser.status` | **ACTIVE** | Owner must access dashboard immediately |
+| Admin `createOwnerForBusiness` — `User.status` | `INVITED` unchanged | Identity verification is separate from business membership |
+| Dashboard `POST .../users` invite flow | `INVITED` unchanged | Dashboard invites require a separate accept/activate step |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`)** — +2 tests (total: 14):
+
+| Test | Result |
+| --- | --- |
+| Admin creates owner → `BusinessUser` has `role: OWNER`, `status: ACTIVE` | 201 + assertion |
+| Admin creates owner → owner can call dashboard endpoint → 200 | 200 |
+
+Regression test uses a TRIAL-status business fixture (seeded directly) because the DRAFT → ACTIVE activation endpoint is not yet built, and `assertAccess` requires `ACTIVE` or `TRIAL`.
+
+**Key files touched:**
+
+| File | Change |
+| --- | --- |
+| `apps/api/src/business-users/business-users.service.ts` | `status: BusinessUserStatus.ACTIVE` in `businessUser.create` |
+| `apps/api/src/business-users/business-users.service.spec.ts` | Updated fixture status; updated `businessUser.create` call assertions; added `publicBookingEnabled` to Business fixture |
+| `apps/api/src/businesses/businesses.service.spec.ts` | Added `publicBookingEnabled` to Business fixtures; added `timezone` to DTO; updated `create` assertion to expect `status: 'DRAFT'` |
+| `apps/api/src/admin/admin-businesses.service.spec.ts` | Added `publicBookingEnabled` to Business fixture; updated BusinessUser fixture status; added `timezone` to DTO |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | Updated existing owner-status assertion; added regression describe block; added `DashboardModule` import |
+
 ### Deferred (Phase B — do not implement without explicit instruction)
 
 - Activation endpoint (`PATCH /admin/businesses/:businessId/status` or equivalent) to move a business from `DRAFT` to `ACTIVE`/`TRIAL`.
-- Owner `BusinessUserStatus` fix: `createOwnerForBusiness` currently creates owners as `INVITED`. They cannot access the dashboard until their status becomes `ACTIVE`. Resolving this requires either auto-activating at creation or a separate onboarding flow.
 - Readiness check (`GET /admin/businesses/:businessId/readiness` or equivalent).
 - Admin endpoints for seeding services, service providers, and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).

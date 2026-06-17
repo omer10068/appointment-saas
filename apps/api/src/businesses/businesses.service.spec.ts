@@ -14,6 +14,7 @@ const mockBusiness: Business = {
   timezone: 'Asia/Jerusalem',
   locale: 'he-IL',
   currency: 'ILS',
+  publicBookingEnabled: false,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -37,6 +38,7 @@ const mockOtherBusiness: Business = {
   timezone: 'Asia/Jerusalem',
   locale: 'he-IL',
   currency: 'ILS',
+  publicBookingEnabled: false,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -73,14 +75,16 @@ describe('BusinessesService', () => {
   });
 
   describe('create', () => {
-    const dto: CreateBusinessDto = { name: 'Acme Corp', slug: 'acme-corp' };
+    const dto: CreateBusinessDto = { name: 'Acme Corp', slug: 'acme-corp', timezone: 'Asia/Jerusalem' };
 
-    it('creates and returns a business when the slug is available', async () => {
+    it('creates and returns a DRAFT business when the slug is available', async () => {
       mockPrisma.business.create.mockResolvedValue(mockBusiness);
 
       const result = await service.create(dto);
 
-      expect(mockPrisma.business.create).toHaveBeenCalledWith({ data: dto });
+      expect(mockPrisma.business.create).toHaveBeenCalledWith({
+        data: { ...dto, status: 'DRAFT' },
+      });
       expect(result).toEqual(mockBusiness);
     });
 

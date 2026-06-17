@@ -5,6 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { ClerkAuthGuard } from '../../src/auth/guards/clerk-auth.guard';
 import { AdminModule } from '../../src/admin/admin.module';
+import { DashboardModule } from '../../src/dashboard/dashboard.module';
 import { PrismaModule } from '../../src/prisma/prisma.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { User } from '../../src/generated/prisma/client';
@@ -25,12 +26,16 @@ const E2E_ADMIN_OWNED_BIZ_ID = 'e2e20000-0000-4000-8000-000000000002';
 const E2E_ADMIN_USER_ID = 'e2e20000-0000-4000-8000-000000000003';
 const E2E_ADMIN_REG_USER_ID = 'e2e20000-0000-4000-8000-000000000004';
 const E2E_ADMIN_EXISTING_OWNER_USER_ID = 'e2e20000-0000-4000-8000-000000000005';
+// Regression: owner ACTIVE + dashboard access
+const E2E_ADMIN_REGRESSION_BIZ_ID = 'e2e20000-0000-4000-8000-000000000006';
 
 const ADMIN_PHONE = '+19990002001';
 const REG_PHONE = '+19990002002';
 const EXISTING_OWNER_PHONE = '+19990002003';
 // Created by POST success test — must be cleaned up
 const CREATED_OWNER_PHONE = '+19990002010';
+// Created by regression test — must be cleaned up
+const REGRESSION_OWNER_PHONE = '+19990002011';
 
 // ─── Shared module-level setup ────────────────────────────────────────────────
 
@@ -45,6 +50,7 @@ beforeAll(async () => {
       ConfigModule.forRoot({ ignoreEnvFile: true, isGlobal: true }),
       PrismaModule,
       AdminModule,
+      DashboardModule,
     ],
   })
     .overrideGuard(ClerkAuthGuard)
@@ -57,14 +63,18 @@ beforeAll(async () => {
   // ── Idempotent pre-cleanup ─────────────────────────────────────────────────
   await prisma.businessUser.deleteMany({
     where: {
-      businessId: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID] },
+      businessId: {
+        in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID],
+      },
     },
   });
   await prisma.user.deleteMany({
-    where: { phoneNormalized: { in: [CREATED_OWNER_PHONE] } },
+    where: { phoneNormalized: { in: [CREATED_OWNER_PHONE, REGRESSION_OWNER_PHONE] } },
   });
   await prisma.business.deleteMany({
-    where: { id: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID] } },
+    where: {
+      id: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID] },
+    },
   });
   await prisma.user.deleteMany({
     where: {
@@ -125,6 +135,16 @@ beforeAll(async () => {
     },
   });
 
+  // Regression: TRIAL so assertAccess allows dashboard reads once owner has ACTIVE status
+  await prisma.business.create({
+    data: {
+      id: E2E_ADMIN_REGRESSION_BIZ_ID,
+      name: 'E2E Admin Regression Business',
+      slug: 'e2e-admin-regression-business',
+      status: 'TRIAL',
+    },
+  });
+
   await prisma.businessUser.create({
     data: {
       businessId: E2E_ADMIN_OWNED_BIZ_ID,
@@ -138,14 +158,18 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.businessUser.deleteMany({
     where: {
-      businessId: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID] },
+      businessId: {
+        in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID],
+      },
     },
   });
   await prisma.user.deleteMany({
-    where: { phoneNormalized: { in: [CREATED_OWNER_PHONE] } },
+    where: { phoneNormalized: { in: [CREATED_OWNER_PHONE, REGRESSION_OWNER_PHONE] } },
   });
   await prisma.business.deleteMany({
-    where: { id: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID] } },
+    where: {
+      id: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID] },
+    },
   });
   await prisma.user.deleteMany({
     where: {
@@ -179,7 +203,7 @@ describe('POST /admin/businesses/:businessId/owner', () => {
       id: expect.any(String) as string,
       businessId: E2E_ADMIN_BIZ_ID,
       role: BusinessUserRole.OWNER,
-      status: BusinessUserStatus.INVITED,
+      status: BusinessUserStatus.ACTIVE,
     });
   });
 
@@ -301,5 +325,59 @@ describe('POST /admin/businesses', () => {
         timezone: 'Asia/Jerusalem',
       })
       .expect(401);
+  });
+});
+
+// ─── Regression: admin-created owner can access dashboard ─────────────────────
+
+describe('admin-created owner status and dashboard access', () => {
+  beforeEach(async () => {
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_REGRESSION_BIZ_ID },
+    });
+    await prisma.user.deleteMany({
+      where: { phoneNormalized: REGRESSION_OWNER_PHONE },
+    });
+  });
+
+  afterEach(async () => {
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_REGRESSION_BIZ_ID },
+    });
+    await prisma.user.deleteMany({
+      where: { phoneNormalized: REGRESSION_OWNER_PHONE },
+    });
+  });
+
+  it('admin-created owner has role OWNER and status ACTIVE', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/owner`)
+      .send({ phone: REGRESSION_OWNER_PHONE, email: 'regression-owner@example.com' })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      businessId: E2E_ADMIN_REGRESSION_BIZ_ID,
+      role: BusinessUserRole.OWNER,
+      status: BusinessUserStatus.ACTIVE,
+    });
+  });
+
+  it('admin-created owner can access dashboard → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/owner`)
+      .send({ phone: REGRESSION_OWNER_PHONE, email: 'regression-owner@example.com' })
+      .expect(201);
+
+    const ownerUser = await prisma.user.findUnique({
+      where: { phoneNormalized: REGRESSION_OWNER_PHONE },
+    });
+    expect(ownerUser).not.toBeNull();
+
+    MockClerkAuthGuard.currentUser = ownerUser!;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/services`)
+      .expect(200);
   });
 });

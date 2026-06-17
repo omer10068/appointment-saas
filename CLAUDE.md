@@ -157,8 +157,14 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - Public booking gate (`findActiveBusinessBySlug`) now requires both `status IN [ACTIVE, TRIAL]` **and** `publicBookingEnabled = true`. DRAFT status or `publicBookingEnabled: false` → 404 (indistinguishable from unknown slug).
   - `assertAccess` (dashboard) still allows only `ACTIVE | TRIAL` — a DRAFT business returns 403 to all dashboard users until it is activated (Phase B).
   - E2E coverage: `admin-businesses.e2e-spec.ts` +5 tests (201 with DRAFT/false defaults, timezone validation, non-admin 403, missing auth 401); `public-businesses.e2e-spec.ts` +6 tests (all visibility gate combinations: DRAFT×false, DRAFT×true, TRIAL×false, ACTIVE×false → 404; TRIAL×true → 200; ACTIVE×true → 200).
-- Approximate test counts: 22+ E2E suites / 411+ tests, 17+ unit suites / 285+ unit tests.
-- Next backend focus areas: Phase B (activation endpoint, owner ACTIVE fix), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- Admin/Ops business lifecycle (Step 2 — owner ACTIVE fix):
+  - `createOwnerForBusiness` now creates the `BusinessUser` with `status: BusinessUserStatus.ACTIVE` instead of `INVITED`.
+  - The underlying `User` record is still created with `status: UserStatus.INVITED` (identity verification state is separate from business membership state).
+  - Dashboard-invited users (created via `POST /dashboard/businesses/:businessId/users`) remain `INVITED` — that path is unchanged.
+  - This eliminates the deadlock where admin-created owners could not access the dashboard because `assertAccess` requires `BusinessUser.status = ACTIVE`.
+  - E2E coverage: `admin-businesses.e2e-spec.ts` +2 regression tests (owner status ACTIVE assertion; owner can call dashboard endpoint → 200).
+- Approximate test counts: 22+ E2E suites / 415+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: activation endpoint (DRAFT → ACTIVE/TRIAL), readiness, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

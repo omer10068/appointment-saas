@@ -18,6 +18,7 @@ const mockBusiness: Business = {
   timezone: 'Asia/Jerusalem',
   locale: 'he-IL',
   currency: 'ILS',
+  publicBookingEnabled: false,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -39,7 +40,7 @@ const mockBusinessUser: BusinessUser = {
   businessId: 'biz-1',
   userId: 'user-1',
   role: 'OWNER',
-  status: 'INVITED',
+  status: 'ACTIVE',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -89,7 +90,7 @@ describe('BusinessUsersService', () => {
       email: 'owner@example.com',
     };
 
-    it('creates an invited user and owner membership when user does not exist', async () => {
+    it('creates an invited user and ACTIVE owner membership when user does not exist', async () => {
       mockTx.business.findUnique.mockResolvedValue(mockBusiness);
       mockTx.businessUser.findFirst.mockResolvedValue(null);
       mockTx.user.findUnique.mockResolvedValue(null);
@@ -110,13 +111,13 @@ describe('BusinessUsersService', () => {
           businessId: 'biz-1',
           userId: mockUser.id,
           role: 'OWNER',
-          status: 'INVITED',
+          status: 'ACTIVE',
         },
       });
       expect(result).toEqual(mockBusinessUser);
     });
 
-    it('reuses an existing user found by phone and creates owner membership', async () => {
+    it('reuses an existing user found by phone and creates ACTIVE owner membership', async () => {
       mockTx.business.findUnique.mockResolvedValue(mockBusiness);
       mockTx.businessUser.findFirst.mockResolvedValue(null);
       mockTx.user.findUnique.mockResolvedValue(mockUser);
@@ -130,7 +131,7 @@ describe('BusinessUsersService', () => {
           businessId: 'biz-1',
           userId: mockUser.id,
           role: 'OWNER',
-          status: 'INVITED',
+          status: 'ACTIVE',
         },
       });
       expect(result).toEqual(mockBusinessUser);
