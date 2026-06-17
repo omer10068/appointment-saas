@@ -13,6 +13,7 @@ import { AdminBusinessesService } from './admin-businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { SetBusinessStatusDto } from './dto/set-business-trial.dto';
+import { SetBusinessPublicBookingDto } from './dto/set-business-public-booking.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 
 @UseGuards(ClerkAuthGuard, PlatformAdminGuard)
@@ -48,6 +49,17 @@ export class AdminBusinessesController {
     return this.adminBusinessesService.setBusinessStatus(
       businessId,
       dto.status,
+    );
+  }
+
+  @Patch(':businessId/public-booking')
+  setPublicBooking(
+    @Param('businessId') businessId: string,
+    @Body() dto: SetBusinessPublicBookingDto,
+  ) {
+    return this.adminBusinessesService.setPublicBookingEnabled(
+      businessId,
+      dto.publicBookingEnabled,
     );
   }
 

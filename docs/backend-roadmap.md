@@ -768,9 +768,55 @@ Edit and view functionality (OWNER/MANAGER can edit existing providers; MEMBER s
 
 Total in `admin-businesses.e2e-spec.ts`: 44 tests.
 
-**Deferred (Phase B — do not implement without explicit instruction):**
+### Step 5: Admin publicBookingEnabled toggle
 
-- `publicBookingEnabled` toggle endpoint — separate admin activation step.
+**Endpoint:** `PATCH /admin/businesses/:businessId/public-booking`
+
+**Request body:** `{ "publicBookingEnabled": boolean }` (validated with `@IsBoolean`).
+
+**Rules:**
+
+| Operation | Condition | Result |
+| --- | --- | --- |
+| Disable (`false`) | Any status | 200 — no readiness check required |
+| Enable (`true`) | `status = DRAFT / SUSPENDED / CANCELLED` | 409 |
+| Enable (`true`) | `status = TRIAL / ACTIVE`, readiness fails | 400 with blocking reasons |
+| Enable (`true`) | `status = TRIAL / ACTIVE`, readiness passes | 200, `publicBookingEnabled = true` |
+
+- `business.status` is **not** changed in either direction.
+- Public booking is live only when `status IN [TRIAL, ACTIVE]` **AND** `publicBookingEnabled = true`. ACTIVE alone is not enough.
+- Disabling does not require readiness — allows admins to take a business offline without meeting configuration thresholds.
+
+**Key files:**
+
+| File | Change |
+| --- | --- |
+| `src/admin/dto/set-business-public-booking.dto.ts` | New. `SetBusinessPublicBookingDto` with `@IsBoolean publicBookingEnabled`. |
+| `src/admin/admin-businesses.service.ts` | `setPublicBookingEnabled(businessId, enabled)` added. |
+| `src/admin/admin-businesses.controller.ts` | `PATCH :businessId/public-booking` route added. |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`, +17 tests, 61 total):**
+
+- Admin enables PB for TRIAL ready → 200, publicBookingEnabled=true
+- Public booking 200 after TRIAL + readiness + publicBookingEnabled=true
+- Admin enables PB for ACTIVE ready → 200, publicBookingEnabled=true
+- Public booking 200 after ACTIVE + readiness + publicBookingEnabled=true
+- Enable PB for DRAFT → 409
+- Enable PB for TRIAL failing readiness → 400
+- Enable PB for ACTIVE failing readiness → 400
+- Disable PB for ACTIVE → 200, publicBookingEnabled=false
+- Public booking 404 after disabling
+- Disable PB for DRAFT → 200 (no readiness required)
+- Disable PB for TRIAL no-ready → 200 (no readiness required)
+- Enable does not change status (TRIAL remains TRIAL)
+- Disable does not change status (ACTIVE remains ACTIVE)
+- Non-admin → 403
+- Missing auth → 401
+- Non-existent business → 404
+- Invalid/missing body → 400
+
+**Deferred (do not implement without explicit instruction):**
+
 - Admin endpoints for seeding services and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).
 

@@ -187,8 +187,17 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `setBusinessStatus(businessId, targetStatus)` replaces `moveDraftToTrial` in `AdminBusinessesService`.
   - DTO class renamed `SetBusinessStatusDto` (backward-compat alias `SetBusinessTrialDto` kept).
   - E2E: `admin-businesses.e2e-spec.ts` +8 tests (44 total); activation describe block seeds a fully configured TRIAL business and resets to TRIAL in `beforeEach`.
-- Approximate test counts: 23+ E2E suites / 456+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: publicBookingEnabled toggle, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- Admin/Ops business lifecycle (Step 5 — publicBookingEnabled toggle):
+  - `PATCH /admin/businesses/:businessId/public-booking` added (platform admin only).
+  - Disabling (`publicBookingEnabled: false`): always allowed for any business status, no readiness check.
+  - Enabling (`publicBookingEnabled: true`): requires `business.status` to be `TRIAL` or `ACTIVE` (DRAFT → 409) AND `computeBusinessReadiness` returns `isReady === true` (otherwise → 400).
+  - Does not change `business.status` in either direction.
+  - Public booking is live only when `status IN [TRIAL, ACTIVE]` AND `publicBookingEnabled = true`. ACTIVE alone is not enough.
+  - `setPublicBookingEnabled(businessId, enabled)` added to `AdminBusinessesService`.
+  - `SetBusinessPublicBookingDto` (`@IsBoolean publicBookingEnabled`) added in `src/admin/dto/`.
+  - E2E: `admin-businesses.e2e-spec.ts` +17 tests (61 total).
+- Approximate test counts: 23+ E2E suites / 473+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

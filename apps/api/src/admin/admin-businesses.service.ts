@@ -172,6 +172,45 @@ export class AdminBusinessesService {
     });
   }
 
+  async setPublicBookingEnabled(
+    businessId: string,
+    enabled: boolean,
+  ): Promise<Business> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true, status: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    if (!enabled) {
+      return this.prisma.business.update({
+        where: { id: businessId },
+        data: { publicBookingEnabled: false },
+      });
+    }
+
+    if (
+      business.status !== BusinessStatus.TRIAL &&
+      business.status !== BusinessStatus.ACTIVE
+    ) {
+      throw new ConflictException(
+        'Public booking can only be enabled for TRIAL or ACTIVE businesses',
+      );
+    }
+
+    const readiness = await computeBusinessReadiness(this.prisma, businessId);
+    if (!readiness.isReady) {
+      throw new BadRequestException(
+        `Business is not ready for public booking: ${readiness.blockingReasons.join('; ')}`,
+      );
+    }
+
+    return this.prisma.business.update({
+      where: { id: businessId },
+      data: { publicBookingEnabled: true },
+    });
+  }
+
   async getBusinessReadiness(
     businessId: string,
   ): Promise<BusinessReadinessDto> {

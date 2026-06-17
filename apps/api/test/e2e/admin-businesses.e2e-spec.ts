@@ -50,6 +50,19 @@ const E2E_ADMIN_ACTIVE_BIZ_ID = 'e2e20000-0000-4000-8000-000000000018';
 const E2E_ADMIN_ACTIVE_BIZ_SLUG = 'e2e-admin-activation-biz';
 const E2E_ADMIN_ACTIVE_OWN_USER_ID = 'e2e20000-0000-4000-8000-000000000019';
 const E2E_ADMIN_ACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000020';
+// Admin publicBookingEnabled toggle tests
+const E2E_ADMIN_PB_TRIAL_BIZ_ID = 'e2e20000-0000-4000-8000-000000000021';
+const E2E_ADMIN_PB_TRIAL_SLUG = 'e2e-admin-pb-trial-biz';
+const E2E_ADMIN_PB_ACTIVE_BIZ_ID = 'e2e20000-0000-4000-8000-000000000022';
+const E2E_ADMIN_PB_ACTIVE_SLUG = 'e2e-admin-pb-active-biz';
+const E2E_ADMIN_PB_DRAFT_BIZ_ID = 'e2e20000-0000-4000-8000-000000000023';
+const E2E_ADMIN_PB_NOREADY_TRIAL_BIZ_ID =
+  'e2e20000-0000-4000-8000-000000000024';
+const E2E_ADMIN_PB_NOREADY_ACTIVE_BIZ_ID =
+  'e2e20000-0000-4000-8000-000000000025';
+const E2E_ADMIN_PB_OWNER_USER_ID = 'e2e20000-0000-4000-8000-000000000026';
+const E2E_ADMIN_PB_TRIAL_SVC_ID = 'e2e20000-0000-4000-8000-000000000027';
+const E2E_ADMIN_PB_ACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000028';
 
 const ADMIN_PHONE = '+19990002001';
 const REG_PHONE = '+19990002002';
@@ -61,6 +74,7 @@ const ADMIN_SP_DUP_PHONE = '+19990002032';
 const ADMIN_SP_INACT_SVC_PHONE = '+19990002033';
 const ADMIN_RDN_OWNER_PHONE = '+19990002041';
 const ADMIN_ACTIVE_OWNER_PHONE = '+19990002042';
+const ADMIN_PB_OWNER_PHONE = '+19990002050';
 // Created by POST success test — must be cleaned up
 const CREATED_OWNER_PHONE = '+19990002010';
 // Created by regression test — must be cleaned up
@@ -1196,5 +1210,446 @@ describe('PATCH status: TRIAL → ACTIVE (activation)', () => {
       .patch(`/admin/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/status`)
       .send({ status: 'ACTIVE' })
       .expect(409);
+  });
+});
+
+// ─── PATCH /admin/businesses/:businessId/public-booking ───────────────────────
+
+describe('PATCH /admin/businesses/:businessId/public-booking', () => {
+  const ALL_PB_BIZ_IDS = [
+    E2E_ADMIN_PB_TRIAL_BIZ_ID,
+    E2E_ADMIN_PB_ACTIVE_BIZ_ID,
+    E2E_ADMIN_PB_DRAFT_BIZ_ID,
+    E2E_ADMIN_PB_NOREADY_TRIAL_BIZ_ID,
+    E2E_ADMIN_PB_NOREADY_ACTIVE_BIZ_ID,
+  ];
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_PB_TRIAL_SVC_ID, E2E_ADMIN_PB_ACTIVE_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.business.deleteMany({
+      where: { id: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.user.deleteMany({ where: { id: E2E_ADMIN_PB_OWNER_USER_ID } });
+
+    // Shared owner user
+    const pbOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_PB_OWNER_USER_ID,
+        phoneNormalized: ADMIN_PB_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    // ── TRIAL fully-configured ────────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PB_TRIAL_BIZ_ID,
+        name: 'E2E PB Trial Business',
+        slug: E2E_ADMIN_PB_TRIAL_SLUG,
+        status: 'TRIAL',
+        publicBookingEnabled: false,
+      },
+    });
+    const trialOwnerBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PB_TRIAL_BIZ_ID,
+        userId: pbOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PB_TRIAL_SVC_ID,
+        businessId: E2E_ADMIN_PB_TRIAL_BIZ_ID,
+        name: 'PB Trial Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    await prisma.businessWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_PB_TRIAL_BIZ_ID,
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '18:00',
+        isClosed: false,
+      },
+    });
+    const trialSp = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PB_TRIAL_BIZ_ID,
+        businessUserId: trialOwnerBU.id,
+        displayName: 'PB Trial Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_PB_TRIAL_SVC_ID }] },
+      },
+    });
+    await prisma.serviceProviderWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_PB_TRIAL_BIZ_ID,
+        serviceProviderId: trialSp.id,
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '18:00',
+        isClosed: false,
+      },
+    });
+
+    // ── ACTIVE fully-configured ───────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PB_ACTIVE_BIZ_ID,
+        name: 'E2E PB Active Business',
+        slug: E2E_ADMIN_PB_ACTIVE_SLUG,
+        status: 'ACTIVE',
+        publicBookingEnabled: false,
+      },
+    });
+    const activeOwnerBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PB_ACTIVE_BIZ_ID,
+        userId: pbOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PB_ACTIVE_SVC_ID,
+        businessId: E2E_ADMIN_PB_ACTIVE_BIZ_ID,
+        name: 'PB Active Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    await prisma.businessWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_PB_ACTIVE_BIZ_ID,
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '18:00',
+        isClosed: false,
+      },
+    });
+    const activeSp = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PB_ACTIVE_BIZ_ID,
+        businessUserId: activeOwnerBU.id,
+        displayName: 'PB Active Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_PB_ACTIVE_SVC_ID }] },
+      },
+    });
+    await prisma.serviceProviderWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_PB_ACTIVE_BIZ_ID,
+        serviceProviderId: activeSp.id,
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '18:00',
+        isClosed: false,
+      },
+    });
+
+    // ── DRAFT (no configuration required) ────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PB_DRAFT_BIZ_ID,
+        name: 'E2E PB Draft Business',
+        slug: 'e2e-admin-pb-draft-biz',
+        status: 'DRAFT',
+        publicBookingEnabled: false,
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PB_DRAFT_BIZ_ID,
+        userId: pbOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // ── TRIAL with failing readiness (no services / SPs / hours) ─────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PB_NOREADY_TRIAL_BIZ_ID,
+        name: 'E2E PB No-Ready Trial Business',
+        slug: 'e2e-admin-pb-noready-trial-biz',
+        status: 'TRIAL',
+        publicBookingEnabled: false,
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PB_NOREADY_TRIAL_BIZ_ID,
+        userId: pbOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // ── ACTIVE with failing readiness (no services / SPs / hours) ────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PB_NOREADY_ACTIVE_BIZ_ID,
+        name: 'E2E PB No-Ready Active Business',
+        slug: 'e2e-admin-pb-noready-active-biz',
+        status: 'ACTIVE',
+        publicBookingEnabled: false,
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PB_NOREADY_ACTIVE_BIZ_ID,
+        userId: pbOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_PB_TRIAL_SVC_ID, E2E_ADMIN_PB_ACTIVE_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: { businessId: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.business.deleteMany({
+      where: { id: { in: ALL_PB_BIZ_IDS } },
+    });
+    await prisma.user.deleteMany({ where: { id: E2E_ADMIN_PB_OWNER_USER_ID } });
+  });
+
+  beforeEach(async () => {
+    // Reset publicBookingEnabled for all PB fixtures before each test
+    await prisma.business.updateMany({
+      where: { id: { in: ALL_PB_BIZ_IDS } },
+      data: { publicBookingEnabled: false },
+    });
+  });
+
+  it('admin enables PB for TRIAL business with passing readiness → 200, publicBookingEnabled=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(200);
+
+    expect(
+      (res.body as { publicBookingEnabled: boolean }).publicBookingEnabled,
+    ).toBe(true);
+  });
+
+  it('public booking returns 200 after TRIAL + readiness + publicBookingEnabled=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/public/businesses/${E2E_ADMIN_PB_TRIAL_SLUG}`)
+      .expect(200);
+  });
+
+  it('admin enables PB for ACTIVE business with passing readiness → 200, publicBookingEnabled=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_ACTIVE_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(200);
+
+    expect(
+      (res.body as { publicBookingEnabled: boolean }).publicBookingEnabled,
+    ).toBe(true);
+  });
+
+  it('public booking returns 200 after ACTIVE + readiness + publicBookingEnabled=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_ACTIVE_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/public/businesses/${E2E_ADMIN_PB_ACTIVE_SLUG}`)
+      .expect(200);
+  });
+
+  it('admin tries to enable PB for DRAFT business → 409', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_DRAFT_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(409);
+  });
+
+  it('admin tries to enable PB for TRIAL business with failing readiness → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/admin/businesses/${E2E_ADMIN_PB_NOREADY_TRIAL_BIZ_ID}/public-booking`,
+      )
+      .send({ publicBookingEnabled: true })
+      .expect(400);
+  });
+
+  it('admin tries to enable PB for ACTIVE business with failing readiness → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/admin/businesses/${E2E_ADMIN_PB_NOREADY_ACTIVE_BIZ_ID}/public-booking`,
+      )
+      .send({ publicBookingEnabled: true })
+      .expect(400);
+  });
+
+  it('admin disables PB for ACTIVE business → 200, publicBookingEnabled=false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    // Enable first so there is something to disable
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_ACTIVE_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(200);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_ACTIVE_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: false })
+      .expect(200);
+
+    expect(
+      (res.body as { publicBookingEnabled: boolean }).publicBookingEnabled,
+    ).toBe(false);
+  });
+
+  it('public booking returns 404 after disabling publicBookingEnabled', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_ACTIVE_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_ACTIVE_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: false })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/public/businesses/${E2E_ADMIN_PB_ACTIVE_SLUG}`)
+      .expect(404);
+  });
+
+  it('admin disables PB for DRAFT business → 200, publicBookingEnabled=false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_DRAFT_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: false })
+      .expect(200);
+
+    expect(
+      (res.body as { publicBookingEnabled: boolean }).publicBookingEnabled,
+    ).toBe(false);
+  });
+
+  it('disabling PB does not require readiness (TRIAL no-ready → 200)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(
+        `/admin/businesses/${E2E_ADMIN_PB_NOREADY_TRIAL_BIZ_ID}/public-booking`,
+      )
+      .send({ publicBookingEnabled: false })
+      .expect(200);
+
+    expect(
+      (res.body as { publicBookingEnabled: boolean }).publicBookingEnabled,
+    ).toBe(false);
+  });
+
+  it('enabling PB does not change business.status (TRIAL remains TRIAL)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(200);
+
+    expect((res.body as { status: string }).status).toBe(BusinessStatus.TRIAL);
+  });
+
+  it('disabling PB does not change business.status (ACTIVE remains ACTIVE)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_ACTIVE_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: false })
+      .expect(200);
+
+    expect((res.body as { status: string }).status).toBe(BusinessStatus.ACTIVE);
+  });
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
+      .send({ publicBookingEnabled: true })
+      .expect(401);
+  });
+
+  it('non-existent business → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(
+        '/admin/businesses/00000000-0000-4000-8000-000000000000/public-booking',
+      )
+      .send({ publicBookingEnabled: true })
+      .expect(404);
+  });
+
+  it('invalid body / missing publicBookingEnabled → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
+      .send({})
+      .expect(400);
   });
 });
