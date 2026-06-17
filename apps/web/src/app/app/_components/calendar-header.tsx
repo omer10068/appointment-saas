@@ -38,7 +38,7 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
 
   return (
     // dir="ltr" so flex item order is physical (today=left, filter=right) regardless of parent RTL context
-    <div dir="ltr" className="relative flex items-center pb-2 px-2">
+    <div dir="ltr" className="relative flex items-center pb-2 px-3">
 
       {/* Physical LEFT — today button */}
       <button
