@@ -163,8 +163,16 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - Dashboard-invited users (created via `POST /dashboard/businesses/:businessId/users`) remain `INVITED` — that path is unchanged.
   - This eliminates the deadlock where admin-created owners could not access the dashboard because `assertAccess` requires `BusinessUser.status = ACTIVE`.
   - E2E coverage: `admin-businesses.e2e-spec.ts` +2 regression tests (owner status ACTIVE assertion; owner can call dashboard endpoint → 200).
-- Approximate test counts: 22+ E2E suites / 415+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: activation endpoint (DRAFT → ACTIVE/TRIAL), readiness, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- Admin/Ops business lifecycle (Step 2.5 — DRAFT → TRIAL transition):
+  - `DRAFT` is the admin-only shell state: no dashboard access for anyone, business not publicly visible.
+  - `TRIAL` is the onboarding state: dashboard access unlocked for ACTIVE business users; public booking still blocked because `publicBookingEnabled` remains `false`.
+  - `PATCH /admin/businesses/:businessId/status` with `{ "status": "TRIAL" }` moves a DRAFT business to TRIAL.
+  - Only `TRIAL` is accepted; `ACTIVE`, `SUSPENDED`, `CANCELLED` → 400 (DTO-level enum validation). Attempting this on a non-DRAFT business → 409.
+  - `publicBookingEnabled` is not touched by this endpoint — it remains `false`.
+  - `assertAccess` (dashboard) already allows `TRIAL` businesses, so no dashboard code changed.
+  - E2E coverage: `admin-businesses.e2e-spec.ts` +9 tests (200 with TRIAL status; publicBookingEnabled remains false; owner can access dashboard; public booking still 404; 403/401/404/400/409 guards).
+- Approximate test counts: 22+ E2E suites / 424+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: ServiceProvider creation boundary, readiness check, ACTIVE activation, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

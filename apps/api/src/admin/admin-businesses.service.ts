@@ -26,4 +26,8 @@ export class AdminBusinessesService {
   ): Promise<BusinessUser> {
     return this.businessUsersService.createOwnerForBusiness(businessId, dto);
   }
+
+  moveDraftToTrial(businessId: string): Promise<Business> {
+    return this.businessesService.moveDraftToTrial(businessId);
+  }
 }

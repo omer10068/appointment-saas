@@ -6,6 +6,7 @@ import { App } from 'supertest/types';
 import { ClerkAuthGuard } from '../../src/auth/guards/clerk-auth.guard';
 import { AdminModule } from '../../src/admin/admin.module';
 import { DashboardModule } from '../../src/dashboard/dashboard.module';
+import { PublicModule } from '../../src/public/public.module';
 import { PrismaModule } from '../../src/prisma/prisma.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { User } from '../../src/generated/prisma/client';
@@ -28,10 +29,15 @@ const E2E_ADMIN_REG_USER_ID = 'e2e20000-0000-4000-8000-000000000004';
 const E2E_ADMIN_EXISTING_OWNER_USER_ID = 'e2e20000-0000-4000-8000-000000000005';
 // Regression: owner ACTIVE + dashboard access
 const E2E_ADMIN_REGRESSION_BIZ_ID = 'e2e20000-0000-4000-8000-000000000006';
+// DRAFT → TRIAL status transition tests
+const E2E_ADMIN_DRAFT_BIZ_ID = 'e2e20000-0000-4000-8000-000000000007';
+const E2E_ADMIN_DRAFT_BIZ_SLUG = 'e2e-admin-draft-trial-biz';
+const E2E_ADMIN_DRAFT_OWNER_ID = 'e2e20000-0000-4000-8000-000000000008';
 
 const ADMIN_PHONE = '+19990002001';
 const REG_PHONE = '+19990002002';
 const EXISTING_OWNER_PHONE = '+19990002003';
+const DRAFT_OWNER_PHONE = '+19990002004';
 // Created by POST success test — must be cleaned up
 const CREATED_OWNER_PHONE = '+19990002010';
 // Created by regression test — must be cleaned up
@@ -51,6 +57,7 @@ beforeAll(async () => {
       PrismaModule,
       AdminModule,
       DashboardModule,
+      PublicModule,
     ],
   })
     .overrideGuard(ClerkAuthGuard)
@@ -64,7 +71,12 @@ beforeAll(async () => {
   await prisma.businessUser.deleteMany({
     where: {
       businessId: {
-        in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID],
+        in: [
+          E2E_ADMIN_BIZ_ID,
+          E2E_ADMIN_OWNED_BIZ_ID,
+          E2E_ADMIN_REGRESSION_BIZ_ID,
+          E2E_ADMIN_DRAFT_BIZ_ID,
+        ],
       },
     },
   });
@@ -73,7 +85,14 @@ beforeAll(async () => {
   });
   await prisma.business.deleteMany({
     where: {
-      id: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID] },
+      id: {
+        in: [
+          E2E_ADMIN_BIZ_ID,
+          E2E_ADMIN_OWNED_BIZ_ID,
+          E2E_ADMIN_REGRESSION_BIZ_ID,
+          E2E_ADMIN_DRAFT_BIZ_ID,
+        ],
+      },
     },
   });
   await prisma.user.deleteMany({
@@ -83,6 +102,7 @@ beforeAll(async () => {
           E2E_ADMIN_USER_ID,
           E2E_ADMIN_REG_USER_ID,
           E2E_ADMIN_EXISTING_OWNER_USER_ID,
+          E2E_ADMIN_DRAFT_OWNER_ID,
         ],
       },
     },
@@ -145,6 +165,34 @@ beforeAll(async () => {
     },
   });
 
+  // DRAFT → TRIAL status transition tests
+  await prisma.business.create({
+    data: {
+      id: E2E_ADMIN_DRAFT_BIZ_ID,
+      name: 'E2E Admin Draft Business',
+      slug: E2E_ADMIN_DRAFT_BIZ_SLUG,
+      status: 'DRAFT',
+    },
+  });
+
+  const draftOwnerUser = await prisma.user.create({
+    data: {
+      id: E2E_ADMIN_DRAFT_OWNER_ID,
+      phoneNormalized: DRAFT_OWNER_PHONE,
+      status: 'ACTIVE',
+      platformRole: 'USER',
+    },
+  });
+
+  await prisma.businessUser.create({
+    data: {
+      businessId: E2E_ADMIN_DRAFT_BIZ_ID,
+      userId: draftOwnerUser.id,
+      role: BusinessUserRole.OWNER,
+      status: BusinessUserStatus.ACTIVE,
+    },
+  });
+
   await prisma.businessUser.create({
     data: {
       businessId: E2E_ADMIN_OWNED_BIZ_ID,
@@ -159,7 +207,12 @@ afterAll(async () => {
   await prisma.businessUser.deleteMany({
     where: {
       businessId: {
-        in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID],
+        in: [
+          E2E_ADMIN_BIZ_ID,
+          E2E_ADMIN_OWNED_BIZ_ID,
+          E2E_ADMIN_REGRESSION_BIZ_ID,
+          E2E_ADMIN_DRAFT_BIZ_ID,
+        ],
       },
     },
   });
@@ -168,7 +221,14 @@ afterAll(async () => {
   });
   await prisma.business.deleteMany({
     where: {
-      id: { in: [E2E_ADMIN_BIZ_ID, E2E_ADMIN_OWNED_BIZ_ID, E2E_ADMIN_REGRESSION_BIZ_ID] },
+      id: {
+        in: [
+          E2E_ADMIN_BIZ_ID,
+          E2E_ADMIN_OWNED_BIZ_ID,
+          E2E_ADMIN_REGRESSION_BIZ_ID,
+          E2E_ADMIN_DRAFT_BIZ_ID,
+        ],
+      },
     },
   });
   await prisma.user.deleteMany({
@@ -178,6 +238,7 @@ afterAll(async () => {
           E2E_ADMIN_USER_ID,
           E2E_ADMIN_REG_USER_ID,
           E2E_ADMIN_EXISTING_OWNER_USER_ID,
+          E2E_ADMIN_DRAFT_OWNER_ID,
         ],
       },
     },
@@ -325,6 +386,115 @@ describe('POST /admin/businesses', () => {
         timezone: 'Asia/Jerusalem',
       })
       .expect(401);
+  });
+});
+
+// ─── PATCH /admin/businesses/:businessId/status ───────────────────────────────
+
+describe('PATCH /admin/businesses/:businessId/status', () => {
+  beforeEach(async () => {
+    // Reset DRAFT business to DRAFT before each test so tests are independent
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_DRAFT_BIZ_ID },
+      data: { status: 'DRAFT', publicBookingEnabled: false },
+    });
+  });
+
+  it('admin moves DRAFT business to TRIAL → 200, status is TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    expect(res.body).toMatchObject({
+      id: E2E_ADMIN_DRAFT_BIZ_ID,
+      status: BusinessStatus.TRIAL,
+    });
+  });
+
+  it('publicBookingEnabled remains false after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    expect(res.body.publicBookingEnabled).toBe(false);
+  });
+
+  it('owner can access dashboard after DRAFT → TRIAL → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    const ownerUser = await prisma.user.findUnique({
+      where: { id: E2E_ADMIN_DRAFT_OWNER_ID },
+    });
+    MockClerkAuthGuard.currentUser = ownerUser!;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/services`)
+      .expect(200);
+  });
+
+  it('public booking still returns 404 after DRAFT → TRIAL (publicBookingEnabled is false)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/public/businesses/${E2E_ADMIN_DRAFT_BIZ_SLUG}`)
+      .expect(404);
+  });
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(403);
+  });
+
+  it('unauthenticated → 401', async () => {
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(401);
+  });
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch('/admin/businesses/00000000-0000-4000-8000-000000000000/status')
+      .send({ status: 'TRIAL' })
+      .expect(404);
+  });
+
+  it('invalid status value (ACTIVE) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(400);
+  });
+
+  it('business already in TRIAL → 409', async () => {
+    // Move to TRIAL first
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    // Attempt again — must be 409
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(409);
   });
 });
 

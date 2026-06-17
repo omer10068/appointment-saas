@@ -572,10 +572,59 @@ Regression test uses a TRIAL-status business fixture (seeded directly) because t
 | `apps/api/src/admin/admin-businesses.service.spec.ts` | Added `publicBookingEnabled` to Business fixture; updated BusinessUser fixture status; added `timezone` to DTO |
 | `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | Updated existing owner-status assertion; added regression describe block; added `DashboardModule` import |
 
+### Step 2.5: DRAFT → TRIAL status transition
+
+**Business status semantics (locked):**
+
+| Status | Meaning |
+| --- | --- |
+| `DRAFT` | Admin-only shell. No dashboard access. Not publicly visible. |
+| `TRIAL` | Dashboard onboarding unlocked. Still not publicly visible unless `publicBookingEnabled = true`. |
+| `ACTIVE` | Fully active. Will require readiness gate before transition (deferred). |
+| `SUSPENDED` / `CANCELLED` | Terminal or suspended states. |
+
+**New endpoint:** `PATCH /admin/businesses/:businessId/status`
+
+- Guards: `ClerkAuthGuard` + `PlatformAdminGuard` (admin-only, same as all other admin endpoints).
+- DTO: `SetBusinessTrialDto` — `status` field accepts only `'TRIAL'` (IsEnum validation).
+- Logic (`BusinessesService.moveDraftToTrial`):
+  - Business not found → 404.
+  - Business status is not `DRAFT` → 409 Conflict.
+  - Updates `status` to `TRIAL`. `publicBookingEnabled` unchanged.
+- Response: updated `Business` object.
+
+**Why 409 (not 400) for non-DRAFT source state:** The request is structurally valid (TRIAL is accepted), but the current resource state (not DRAFT) conflicts with the transition. 409 is more precise than 400 here.
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`)** — +9 tests (total: 23):
+
+| Test | Expected |
+| --- | --- |
+| DRAFT → TRIAL → 200, status is TRIAL | 200 |
+| publicBookingEnabled remains false after transition | 200, body.publicBookingEnabled === false |
+| Owner can access dashboard after DRAFT → TRIAL | 200 |
+| Public booking still 404 after DRAFT → TRIAL (publicBookingEnabled=false) | 404 |
+| Non-admin → 403 | 403 |
+| Unauthenticated → 401 | 401 |
+| Non-existent businessId → 404 | 404 |
+| status: 'ACTIVE' in body → 400 (invalid enum) | 400 |
+| Already TRIAL business → 409 | 409 |
+
+**Key files touched:**
+
+| File | Change |
+| --- | --- |
+| `apps/api/src/admin/dto/set-business-trial.dto.ts` | New DTO — `status` accepts only `BusinessStatus.TRIAL` |
+| `apps/api/src/businesses/businesses.service.ts` | Added `moveDraftToTrial(businessId)` |
+| `apps/api/src/admin/admin-businesses.service.ts` | Added `moveDraftToTrial(businessId)` delegation |
+| `apps/api/src/admin/admin-businesses.controller.ts` | Added `PATCH :businessId/status` route |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | +9 tests; new DRAFT fixture; `PublicModule` import for public booking gate test |
+
 ### Deferred (Phase B — do not implement without explicit instruction)
 
-- Activation endpoint (`PATCH /admin/businesses/:businessId/status` or equivalent) to move a business from `DRAFT` to `ACTIVE`/`TRIAL`.
-- Readiness check (`GET /admin/businesses/:businessId/readiness` or equivalent).
+- ServiceProvider creation boundary: currently OWNER/MANAGER can create ServiceProviders via `assertMutationAccess`; product decision says admin/ops should create new ServiceProviders/calendars. Needs explicit decision before readiness is meaningful.
+- Readiness check (`GET /admin/businesses/:businessId/readiness` or equivalent) — depends on SP creation boundary decision.
+- Full activation endpoint (TRIAL → ACTIVE) — reserved for post-readiness gate.
+- `publicBookingEnabled` toggle endpoint — separate admin activation step.
 - Admin endpoints for seeding services, service providers, and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).
 

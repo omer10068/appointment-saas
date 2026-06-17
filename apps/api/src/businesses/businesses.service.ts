@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   Business,
   BusinessStatus,
@@ -39,6 +43,24 @@ export class BusinessesService {
     return this.prisma.businessUser.findMany({
       where: { userId },
       include: { business: true },
+    });
+  }
+
+  async moveDraftToTrial(businessId: string): Promise<Business> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+    });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+    if (business.status !== BusinessStatus.DRAFT) {
+      throw new ConflictException(
+        'Business must be in DRAFT status to start trial',
+      );
+    }
+    return this.prisma.business.update({
+      where: { id: businessId },
+      data: { status: BusinessStatus.TRIAL },
     });
   }
 }
