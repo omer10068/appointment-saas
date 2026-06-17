@@ -178,8 +178,17 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - Readiness computed by shared `computeBusinessReadiness(prisma, businessId)` in `readiness.utils.ts`.
   - 7 checks: `hasActiveOwner`, `hasActiveService`, `hasActiveServiceProvider`, `hasBusinessWorkingHours`, `allActiveProvidersHaveWorkingHours`, `allActiveProvidersHaveActiveServiceAssignment`, `allActiveServicesHaveActiveProviderAssignment`.
   - E2E: `dashboard-readiness.e2e-spec.ts` (10 scenario tests); `admin-businesses.e2e-spec.ts` +5 tests. Existing `dashboard-summary-readiness.e2e-spec.ts` updated with working hours in fixture and new field assertions.
-- Approximate test counts: 23+ E2E suites / 448+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: ACTIVE activation (TRIAL→ACTIVE with readiness gate), publicBookingEnabled toggle, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- Admin/Ops business lifecycle (Step 4 — TRIAL → ACTIVE activation):
+  - `PATCH /admin/businesses/:businessId/status` now accepts `TRIAL` or `ACTIVE` (DTO extended from TRIAL-only).
+  - DRAFT → TRIAL: allowed without readiness check (unchanged).
+  - TRIAL → ACTIVE: allowed only if `computeBusinessReadiness` returns `isReady === true`; otherwise 400 with blocking reasons.
+  - DRAFT → ACTIVE: forbidden → 409. ACTIVE → ACTIVE: conflict → 409. Sending SUSPENDED/CANCELLED → 400 (DTO enum validation).
+  - `publicBookingEnabled` is NOT changed by this endpoint — remains `false` after activation.
+  - `setBusinessStatus(businessId, targetStatus)` replaces `moveDraftToTrial` in `AdminBusinessesService`.
+  - DTO class renamed `SetBusinessStatusDto` (backward-compat alias `SetBusinessTrialDto` kept).
+  - E2E: `admin-businesses.e2e-spec.ts` +8 tests (44 total); activation describe block seeds a fully configured TRIAL business and resets to TRIAL in `beforeEach`.
+- Approximate test counts: 23+ E2E suites / 456+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: publicBookingEnabled toggle, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

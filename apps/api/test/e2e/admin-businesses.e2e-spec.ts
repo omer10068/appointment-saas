@@ -45,6 +45,11 @@ const E2E_ADMIN_SP_INACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000015';
 // Admin readiness tests
 const E2E_ADMIN_RDN_BIZ_ID = 'e2e20000-0000-4000-8000-000000000016';
 const E2E_ADMIN_RDN_OWN_USER_ID = 'e2e20000-0000-4000-8000-000000000017';
+// Admin TRIAL → ACTIVE activation tests (fully configured business)
+const E2E_ADMIN_ACTIVE_BIZ_ID = 'e2e20000-0000-4000-8000-000000000018';
+const E2E_ADMIN_ACTIVE_BIZ_SLUG = 'e2e-admin-activation-biz';
+const E2E_ADMIN_ACTIVE_OWN_USER_ID = 'e2e20000-0000-4000-8000-000000000019';
+const E2E_ADMIN_ACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000020';
 
 const ADMIN_PHONE = '+19990002001';
 const REG_PHONE = '+19990002002';
@@ -55,6 +60,7 @@ const ADMIN_SP_MEMBER_PHONE = '+19990002031';
 const ADMIN_SP_DUP_PHONE = '+19990002032';
 const ADMIN_SP_INACT_SVC_PHONE = '+19990002033';
 const ADMIN_RDN_OWNER_PHONE = '+19990002041';
+const ADMIN_ACTIVE_OWNER_PHONE = '+19990002042';
 // Created by POST success test — must be cleaned up
 const CREATED_OWNER_PHONE = '+19990002010';
 // Created by regression test — must be cleaned up
@@ -497,10 +503,27 @@ describe('PATCH /admin/businesses/:businessId/status', () => {
       .expect(404);
   });
 
-  it('invalid status value (ACTIVE) → 400', async () => {
+  it('invalid status value (SUSPENDED) → 400', async () => {
     MockClerkAuthGuard.currentUser = adminUser;
     await request(app.getHttpServer())
       .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'SUSPENDED' })
+      .expect(400);
+  });
+
+  it('DRAFT → ACTIVE is forbidden → 409', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_DRAFT_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(409);
+  });
+
+  it('TRIAL → ACTIVE with failing readiness → 400', async () => {
+    // E2E_ADMIN_BIZ_ID is already TRIAL in the seed and has no services — readiness fails
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_BIZ_ID}/status`)
       .send({ status: 'ACTIVE' })
       .expect(400);
   });
@@ -977,5 +1000,201 @@ describe('GET /admin/businesses/:businessId/readiness', () => {
     expect(checks.hasActiveOwner).toBe(true);
     expect(checks.hasActiveService).toBe(false);
     expect((res.body as { isReady: boolean }).isReady).toBe(false);
+  });
+});
+
+// ─── PATCH /admin/businesses/:businessId/status — TRIAL → ACTIVE (activation) ─
+
+describe('PATCH status: TRIAL → ACTIVE (activation)', () => {
+  let ownerUser: User;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.service.deleteMany({ where: { id: E2E_ADMIN_ACTIVE_SVC_ID } });
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.business.deleteMany({
+      where: { id: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.user.deleteMany({
+      where: { id: E2E_ADMIN_ACTIVE_OWN_USER_ID },
+    });
+
+    // Seed a fully configured TRIAL business so all 7 readiness checks pass
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_ACTIVE_BIZ_ID,
+        name: 'E2E Admin Activation Business',
+        slug: E2E_ADMIN_ACTIVE_BIZ_SLUG,
+        status: 'TRIAL',
+        publicBookingEnabled: false,
+      },
+    });
+
+    ownerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_ACTIVE_OWN_USER_ID,
+        phoneNormalized: ADMIN_ACTIVE_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    const ownerBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_ACTIVE_BIZ_ID,
+        userId: ownerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_ACTIVE_SVC_ID,
+        businessId: E2E_ADMIN_ACTIVE_BIZ_ID,
+        name: 'Activation Test Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    await prisma.businessWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_ACTIVE_BIZ_ID,
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '18:00',
+        isClosed: false,
+      },
+    });
+
+    const sp = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_ACTIVE_BIZ_ID,
+        businessUserId: ownerBU.id,
+        displayName: 'Activation Test Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_ACTIVE_SVC_ID }] },
+      },
+    });
+
+    await prisma.serviceProviderWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_ACTIVE_BIZ_ID,
+        serviceProviderId: sp.id,
+        dayOfWeek: 1,
+        startTime: '09:00',
+        endTime: '18:00',
+        isClosed: false,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.service.deleteMany({ where: { id: E2E_ADMIN_ACTIVE_SVC_ID } });
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.business.deleteMany({
+      where: { id: E2E_ADMIN_ACTIVE_BIZ_ID },
+    });
+    await prisma.user.deleteMany({
+      where: { id: E2E_ADMIN_ACTIVE_OWN_USER_ID },
+    });
+  });
+
+  beforeEach(async () => {
+    // Reset to TRIAL before each test so each test starts from the same state
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_ACTIVE_BIZ_ID },
+      data: { status: 'TRIAL', publicBookingEnabled: false },
+    });
+  });
+
+  it('TRIAL → ACTIVE with passing readiness → 200, status ACTIVE', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    expect(res.body).toMatchObject({
+      id: E2E_ADMIN_ACTIVE_BIZ_ID,
+      status: BusinessStatus.ACTIVE,
+    });
+  });
+
+  it('publicBookingEnabled remains false after TRIAL → ACTIVE', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    expect(
+      (res.body as { publicBookingEnabled: boolean }).publicBookingEnabled,
+    ).toBe(false);
+  });
+
+  it('owner dashboard access works after TRIAL → ACTIVE', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/services`)
+      .expect(200);
+  });
+
+  it('public booking still returns 404 after TRIAL → ACTIVE when publicBookingEnabled is false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/public/businesses/${E2E_ADMIN_ACTIVE_BIZ_SLUG}`)
+      .expect(404);
+  });
+
+  it('ACTIVE → ACTIVE → 409', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    // First request: TRIAL → ACTIVE succeeds
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    // Second request: ACTIVE → ACTIVE must fail with 409
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ACTIVE_BIZ_ID}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(409);
   });
 });

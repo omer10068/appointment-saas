@@ -730,10 +730,47 @@ Edit and view functionality (OWNER/MANAGER can edit existing providers; MEMBER s
 - `dashboard-readiness.e2e-spec.ts`: 10 tests (UUID prefix `e2e9100X`).
 - `admin-businesses.e2e-spec.ts`: +5 tests (UUID prefix `e2e20000-…-00000016/17`).
 
+### Step 4: Admin can activate business (TRIAL → ACTIVE)
+
+**Endpoint:** `PATCH /admin/businesses/:businessId/status` — extended to accept `ACTIVE` in addition to `TRIAL`.
+
+**State machine:**
+
+| From | To | Condition | Result |
+| --- | --- | --- | --- |
+| `DRAFT` | `TRIAL` | — | 200 (existing behavior) |
+| `TRIAL` | `ACTIVE` | `readiness.isReady === true` | 200 |
+| `TRIAL` | `ACTIVE` | `readiness.isReady === false` | 400 with `blockingReasons` in message |
+| `DRAFT` | `ACTIVE` | — | 409 (must go through TRIAL first) |
+| `ACTIVE` | `ACTIVE` | — | 409 |
+| any | `SUSPENDED`/`CANCELLED` | — | 400 (DTO enum validation) |
+
+`publicBookingEnabled` is **not** changed by this endpoint — it remains `false` after activation.
+
+**Key files:**
+
+| File | Change |
+| --- | --- |
+| `src/admin/dto/set-business-trial.dto.ts` | `SetBusinessStatusDto` now accepts `TRIAL \| ACTIVE` via `@IsEnum`. Backward-compat alias `SetBusinessTrialDto` kept. |
+| `src/admin/admin-businesses.service.ts` | `setBusinessStatus(businessId, targetStatus)` replaces `moveDraftToTrial`. Runs `computeBusinessReadiness` before ACTIVE transition. |
+| `src/admin/admin-businesses.controller.ts` | `setStatus` calls `setBusinessStatus(businessId, dto.status)`. |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`):**
+
+- Invalid status value (SUSPENDED) → 400 (updated from old "ACTIVE → 400" test)
+- DRAFT → ACTIVE directly forbidden → 409
+- TRIAL → ACTIVE with failing readiness → 400
+- TRIAL → ACTIVE with passing readiness → 200, status ACTIVE
+- publicBookingEnabled remains false after TRIAL → ACTIVE → 200
+- Owner dashboard access works after ACTIVE → 200
+- Public booking still returns 404 after ACTIVE when publicBookingEnabled=false
+- ACTIVE → ACTIVE → 409
+
+Total in `admin-businesses.e2e-spec.ts`: 44 tests.
+
 **Deferred (Phase B — do not implement without explicit instruction):**
 
 - `publicBookingEnabled` toggle endpoint — separate admin activation step.
-- Full activation endpoint (TRIAL → ACTIVE) with readiness gate.
 - Admin endpoints for seeding services and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).
 

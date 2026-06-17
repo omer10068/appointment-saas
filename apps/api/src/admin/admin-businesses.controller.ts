@@ -12,7 +12,7 @@ import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
 import { AdminBusinessesService } from './admin-businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
-import { SetBusinessTrialDto } from './dto/set-business-trial.dto';
+import { SetBusinessStatusDto } from './dto/set-business-trial.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 
 @UseGuards(ClerkAuthGuard, PlatformAdminGuard)
@@ -43,9 +43,12 @@ export class AdminBusinessesController {
   @Patch(':businessId/status')
   setStatus(
     @Param('businessId') businessId: string,
-    @Body() _dto: SetBusinessTrialDto,
+    @Body() dto: SetBusinessStatusDto,
   ) {
-    return this.adminBusinessesService.moveDraftToTrial(businessId);
+    return this.adminBusinessesService.setBusinessStatus(
+      businessId,
+      dto.status,
+    );
   }
 
   @Post(':businessId/service-providers')

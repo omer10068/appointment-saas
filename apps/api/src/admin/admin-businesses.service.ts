@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   Business,
+  BusinessStatus,
   BusinessUser,
   BusinessUserStatus,
 } from '../generated/prisma/client';
@@ -42,8 +43,53 @@ export class AdminBusinessesService {
     return this.businessUsersService.createOwnerForBusiness(businessId, dto);
   }
 
-  moveDraftToTrial(businessId: string): Promise<Business> {
-    return this.businessesService.moveDraftToTrial(businessId);
+  async setBusinessStatus(
+    businessId: string,
+    targetStatus: typeof BusinessStatus.TRIAL | typeof BusinessStatus.ACTIVE,
+  ): Promise<Business> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true, status: true },
+    });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    if (targetStatus === BusinessStatus.TRIAL) {
+      if (business.status !== BusinessStatus.DRAFT) {
+        throw new ConflictException(
+          'Business must be in DRAFT status to start trial',
+        );
+      }
+      return this.prisma.business.update({
+        where: { id: businessId },
+        data: { status: BusinessStatus.TRIAL },
+      });
+    }
+
+    // targetStatus === ACTIVE
+    if (business.status === BusinessStatus.DRAFT) {
+      throw new ConflictException(
+        'DRAFT businesses cannot be activated directly; move to TRIAL first',
+      );
+    }
+    if (business.status !== BusinessStatus.TRIAL) {
+      throw new ConflictException(
+        `Cannot transition from ${business.status} to ACTIVE`,
+      );
+    }
+
+    const readiness = await computeBusinessReadiness(this.prisma, businessId);
+    if (!readiness.isReady) {
+      throw new BadRequestException(
+        `Business is not ready for activation: ${readiness.blockingReasons.join('; ')}`,
+      );
+    }
+
+    return this.prisma.business.update({
+      where: { id: businessId },
+      data: { status: BusinessStatus.ACTIVE },
+    });
   }
 
   async createServiceProvider(
