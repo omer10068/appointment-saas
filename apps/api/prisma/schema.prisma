@@ -23,6 +23,7 @@ enum UserStatus {
 }
 
 enum BusinessStatus {
+  DRAFT
   ACTIVE
   TRIAL
   SUSPENDED
@@ -83,6 +84,8 @@ model Business {
   timezone String @default("Asia/Jerusalem")
   locale   String @default("he-IL")
   currency String @default("ILS")
+
+  publicBookingEnabled Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

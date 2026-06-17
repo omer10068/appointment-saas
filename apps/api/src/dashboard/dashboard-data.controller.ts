@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -16,7 +17,6 @@ import { UpdateServiceStatusDto } from './dto/update-service-status.dto';
 import { CreateDashboardCustomerDto } from './dto/create-dashboard-customer.dto';
 import { UpdateDashboardCustomerDto } from './dto/update-dashboard-customer.dto';
 import { UpdateDashboardCustomerStatusDto } from './dto/update-dashboard-customer-status.dto';
-import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
 import { UpdateServiceProviderStatusDto } from './dto/update-service-provider-status.dto';
 import { CreateBusinessUserDto } from './dto/create-business-user.dto';
@@ -182,15 +182,9 @@ export class DashboardDataController {
   // ─── Service providers (mutations) ────────────────────────────────────────────
 
   @Post(':businessId/service-providers')
-  createServiceProvider(
-    @Param('businessId') businessId: string,
-    @Body() dto: CreateServiceProviderDto,
-    @Req() req: AuthenticatedRequest,
-  ) {
-    return this.dashboardDataService.createServiceProvider(
-      req.user.id,
-      businessId,
-      dto,
+  createServiceProvider() {
+    throw new ForbiddenException(
+      'ServiceProvider creation is restricted to platform administrators',
     );
   }
 

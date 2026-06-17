@@ -1,9 +1,7 @@
 'use client';
 
-import { ChevronDown, CalendarDays } from 'lucide-react';
+import { ChevronDown, CalendarDays, RotateCcw } from 'lucide-react';
 import { HEBREW_DAY_ABBR, formatNumericDate, isCurrentWeek } from '../_lib/calendar.utils';
-
-// ─── Selected-day title ────────────────────────────────────────────────────────
 
 interface DateControlProps {
   selectedDate: Date;
@@ -17,31 +15,21 @@ function CalendarSelectedDayTitle({ selectedDate, onClick }: DateControlProps) {
     <button
       onClick={onClick}
       aria-label="פתיחת לוח שנה חודשי"
-      className="flex flex-col items-center gap-0.5 px-3 py-2 transition active:opacity-75"
+      className="flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full bg-secondary px-3 py-1.5 transition-colors active:bg-muted"
     >
-      {/* Plain weekday title — no chip background */}
-      <span className="text-[10px] font-bold leading-none text-foreground">יום {weekday}</span>
-      {/* Date chip — the visual date-picker affordance */}
-      <span dir="ltr" className="flex items-center gap-1 rounded-full border border-border/30 bg-muted/50 px-2 py-0.5">
-        <span className="text-[12px] font-medium tabular-nums leading-none text-muted-foreground">
-          {numeric}
-        </span>
-        <CalendarDays className="size-3 shrink-0 text-muted-foreground/60" />
-      </span>
+      <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden="true" />
+      <span className="text-xs text-muted-foreground" dir="ltr">{numeric}</span>
+      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>
   );
 }
-
-// ─── Header ────────────────────────────────────────────────────────────────────
 
 interface Props {
   selectedDate: Date;
   onToday: () => void;
   onOpenCalendar: () => void;
   onFilterPress: () => void;
-  /** Current provider filter label, e.g. "כל הצוות" or "יובל". */
   filterLabel: string;
-  /** False when only one provider exists — pill becomes a passive status indicator. */
   canFilter: boolean;
 }
 
@@ -49,17 +37,40 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
   const onCurrentWeek = isCurrentWeek(selectedDate);
 
   return (
-    // Title is absolutely centered so it stays fixed regardless of side-element widths.
-    // DOM order: [filter (visual right in RTL)] ... [היום (visual left in RTL)]
-    <div className="relative flex items-center justify-between px-1 pb-2.5">
+    // dir="ltr" so flex item order is physical (today=left, filter=right) regardless of parent RTL context
+    <div dir="ltr" className="relative flex items-center pb-2 px-3">
 
-      {/* DOM first = visual right in RTL — provider filter pill */}
+      {/* Physical LEFT — today button */}
+      <button
+        onClick={onCurrentWeek ? undefined : onToday}
+        disabled={onCurrentWeek}
+        aria-label="חזור להיום"
+        className={[
+          'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-full py-1.5 transition',
+          onCurrentWeek
+            ? 'cursor-default text-muted-foreground/30'
+            : 'text-primary active:scale-95 active:opacity-70',
+        ].join(' ')}
+      >
+        <RotateCcw className="size-3.5" aria-hidden="true" />
+        <span className="text-[9px] font-semibold leading-none">היום</span>
+      </button>
+
+      {/* Absolutely centered — date control */}
+      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
+        <div className="pointer-events-auto">
+          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
+        </div>
+      </div>
+
+      {/* Physical RIGHT — provider filter pill (ml-auto pushes to right) */}
       <button
         onClick={canFilter ? onFilterPress : undefined}
         disabled={!canFilter}
         aria-label="בחירת איש צוות"
+        dir="rtl"
         className={[
-          'flex h-7 max-w-26 shrink-0 items-center gap-1 rounded-full border px-3 transition',
+          'ml-auto flex max-w-26 shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 transition',
           canFilter
             ? 'border-border/50 bg-muted/30 text-foreground/70 active:scale-95 active:bg-muted/60'
             : 'cursor-default border-border/20 text-muted-foreground/40',
@@ -67,28 +78,6 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
       >
         <span className="truncate text-[11px] font-semibold">{filterLabel}</span>
         {canFilter && <ChevronDown className="size-3.5 shrink-0 opacity-70" />}
-      </button>
-
-      {/* Center — absolutely overlaid so side elements never shift it */}
-      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
-        <div className="pointer-events-auto">
-          <CalendarSelectedDayTitle selectedDate={selectedDate} onClick={onOpenCalendar} />
-        </div>
-      </div>
-
-      {/* DOM last = visual left in RTL — today ghost pill */}
-      <button
-        onClick={onCurrentWeek ? undefined : onToday}
-        disabled={onCurrentWeek}
-        aria-label="חזור להיום"
-        className={[
-          'flex h-7 w-12 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition',
-          onCurrentWeek
-            ? 'cursor-default border-muted-foreground/20 text-muted-foreground/30'
-            : 'border-primary/40 text-primary active:scale-95 active:opacity-70',
-        ].join(' ')}
-      >
-        היום
       </button>
     </div>
   );

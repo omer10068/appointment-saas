@@ -24,6 +24,18 @@ const PUB_BIZ_SLUG = 'e2e15-active-business';
 const PUB_SUSPENDED_BIZ_ID = 'e2e15000-0000-4000-8000-000000000002';
 const PUB_SUSPENDED_BIZ_SLUG = 'e2e15-suspended-business';
 
+// Visibility gate fixtures (publicBookingEnabled + status combinations)
+const PUB_DRAFT_PE_FALSE_ID = 'e2e15000-0000-4000-8000-000000000050';
+const PUB_DRAFT_PE_FALSE_SLUG = 'e2e15-draft-pe-false';
+const PUB_DRAFT_PE_TRUE_ID = 'e2e15000-0000-4000-8000-000000000051';
+const PUB_DRAFT_PE_TRUE_SLUG = 'e2e15-draft-pe-true';
+const PUB_TRIAL_PE_FALSE_ID = 'e2e15000-0000-4000-8000-000000000052';
+const PUB_TRIAL_PE_FALSE_SLUG = 'e2e15-trial-pe-false';
+const PUB_ACTIVE_PE_FALSE_ID = 'e2e15000-0000-4000-8000-000000000053';
+const PUB_ACTIVE_PE_FALSE_SLUG = 'e2e15-active-pe-false';
+const PUB_TRIAL_PE_TRUE_ID = 'e2e15000-0000-4000-8000-000000000054';
+const PUB_TRIAL_PE_TRUE_SLUG = 'e2e15-trial-pe-true';
+
 const PUB_SP_USER_ID = 'e2e15000-0000-4000-8000-000000000010';
 const PUB_SP_BU_ID = 'e2e15000-0000-4000-8000-000000000011';
 const PUB_INACTIVE_SP_USER_ID = 'e2e15000-0000-4000-8000-000000000012';
@@ -81,6 +93,20 @@ beforeAll(async () => {
   await prisma.user.deleteMany({
     where: { id: { in: [PUB_SP_USER_ID, PUB_INACTIVE_SP_USER_ID] } },
   });
+  // Visibility gate fixtures (no child relations — simple delete)
+  await prisma.business.deleteMany({
+    where: {
+      id: {
+        in: [
+          PUB_DRAFT_PE_FALSE_ID,
+          PUB_DRAFT_PE_TRUE_ID,
+          PUB_TRIAL_PE_FALSE_ID,
+          PUB_ACTIVE_PE_FALSE_ID,
+          PUB_TRIAL_PE_TRUE_ID,
+        ],
+      },
+    },
+  });
 
   // ── Seed active business ───────────────────────────────────────────────────
   await prisma.business.create({
@@ -89,6 +115,7 @@ beforeAll(async () => {
       name: 'E2E Public Business',
       slug: PUB_BIZ_SLUG,
       status: BusinessStatus.ACTIVE,
+      publicBookingEnabled: true,
       // timezone defaults to Asia/Jerusalem
     },
   });
@@ -208,6 +235,53 @@ beforeAll(async () => {
       status: BusinessStatus.SUSPENDED,
     },
   });
+
+  // ── Visibility gate fixtures ───────────────────────────────────────────────
+  await prisma.business.create({
+    data: {
+      id: PUB_DRAFT_PE_FALSE_ID,
+      name: 'E2E Draft PE False',
+      slug: PUB_DRAFT_PE_FALSE_SLUG,
+      status: BusinessStatus.DRAFT,
+      publicBookingEnabled: false,
+    },
+  });
+  await prisma.business.create({
+    data: {
+      id: PUB_DRAFT_PE_TRUE_ID,
+      name: 'E2E Draft PE True',
+      slug: PUB_DRAFT_PE_TRUE_SLUG,
+      status: BusinessStatus.DRAFT,
+      publicBookingEnabled: true,
+    },
+  });
+  await prisma.business.create({
+    data: {
+      id: PUB_TRIAL_PE_FALSE_ID,
+      name: 'E2E Trial PE False',
+      slug: PUB_TRIAL_PE_FALSE_SLUG,
+      status: BusinessStatus.TRIAL,
+      publicBookingEnabled: false,
+    },
+  });
+  await prisma.business.create({
+    data: {
+      id: PUB_ACTIVE_PE_FALSE_ID,
+      name: 'E2E Active PE False',
+      slug: PUB_ACTIVE_PE_FALSE_SLUG,
+      status: BusinessStatus.ACTIVE,
+      publicBookingEnabled: false,
+    },
+  });
+  await prisma.business.create({
+    data: {
+      id: PUB_TRIAL_PE_TRUE_ID,
+      name: 'E2E Trial PE True',
+      slug: PUB_TRIAL_PE_TRUE_SLUG,
+      status: BusinessStatus.TRIAL,
+      publicBookingEnabled: true,
+    },
+  });
 });
 
 afterAll(async () => {
@@ -236,6 +310,19 @@ afterAll(async () => {
   });
   await prisma.user.deleteMany({
     where: { id: { in: [PUB_SP_USER_ID, PUB_INACTIVE_SP_USER_ID] } },
+  });
+  await prisma.business.deleteMany({
+    where: {
+      id: {
+        in: [
+          PUB_DRAFT_PE_FALSE_ID,
+          PUB_DRAFT_PE_TRUE_ID,
+          PUB_TRIAL_PE_FALSE_ID,
+          PUB_ACTIVE_PE_FALSE_ID,
+          PUB_TRIAL_PE_TRUE_ID,
+        ],
+      },
+    },
   });
   await app.close();
 });
@@ -436,5 +523,61 @@ describe('GET /public/businesses/:slug/available-slots', () => {
 
     // PUB_SP_INACTIVE_ID is isActive:false → 400 from engine before link check
     expect(res.status).toBe(400);
+  });
+});
+
+// ─── Public booking visibility gate ───────────────────────────────────────────
+// Tests the combined status + publicBookingEnabled guard in findActiveBusinessBySlug.
+// Only TRIAL|ACTIVE with publicBookingEnabled=true must return 200; all others 404.
+
+describe('Public booking visibility gate', () => {
+  it('DRAFT + publicBookingEnabled=false → 404', async () => {
+    const res = await request(app.getHttpServer()).get(
+      `/public/businesses/${PUB_DRAFT_PE_FALSE_SLUG}`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('DRAFT + publicBookingEnabled=true → 404 (DRAFT status blocks regardless)', async () => {
+    const res = await request(app.getHttpServer()).get(
+      `/public/businesses/${PUB_DRAFT_PE_TRUE_SLUG}`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('TRIAL + publicBookingEnabled=false → 404', async () => {
+    const res = await request(app.getHttpServer()).get(
+      `/public/businesses/${PUB_TRIAL_PE_FALSE_SLUG}`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('ACTIVE + publicBookingEnabled=false → 404', async () => {
+    const res = await request(app.getHttpServer()).get(
+      `/public/businesses/${PUB_ACTIVE_PE_FALSE_SLUG}`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('TRIAL + publicBookingEnabled=true → 200', async () => {
+    const res = await request(app.getHttpServer()).get(
+      `/public/businesses/${PUB_TRIAL_PE_TRUE_SLUG}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      slug: PUB_TRIAL_PE_TRUE_SLUG,
+    });
+    expect(res.body).not.toHaveProperty('status');
+    expect(res.body).not.toHaveProperty('publicBookingEnabled');
+  });
+
+  it('ACTIVE + publicBookingEnabled=true → 200 (uses existing PUB_BIZ_ID fixture)', async () => {
+    const res = await request(app.getHttpServer()).get(
+      `/public/businesses/${PUB_BIZ_SLUG}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      slug: PUB_BIZ_SLUG,
+    });
   });
 });

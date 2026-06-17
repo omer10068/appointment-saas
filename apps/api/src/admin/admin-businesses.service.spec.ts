@@ -7,6 +7,9 @@ import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { BusinessUsersService } from '../business-users/business-users.service';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { AdminBusinessesService } from './admin-businesses.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+const mockPrismaService = {};
 
 const mockBusiness: Business = {
   id: 'biz-1',
@@ -16,6 +19,7 @@ const mockBusiness: Business = {
   timezone: 'Asia/Jerusalem',
   locale: 'he-IL',
   currency: 'ILS',
+  publicBookingEnabled: false,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -25,7 +29,7 @@ const mockBusinessUser: BusinessUser = {
   businessId: 'biz-1',
   userId: 'user-1',
   role: 'OWNER',
-  status: 'INVITED',
+  status: 'ACTIVE',
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -49,6 +53,7 @@ describe('AdminBusinessesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminBusinessesService,
+        { provide: PrismaService, useValue: mockPrismaService },
         { provide: BusinessesService, useValue: mockBusinessesService },
         { provide: BusinessUsersService, useValue: mockBusinessUsersService },
       ],
@@ -59,7 +64,11 @@ describe('AdminBusinessesService', () => {
 
   describe('create', () => {
     it('delegates to BusinessesService.create', async () => {
-      const dto: CreateBusinessDto = { name: 'Acme Corp', slug: 'acme-corp' };
+      const dto: CreateBusinessDto = {
+        name: 'Acme Corp',
+        slug: 'acme-corp',
+        timezone: 'Asia/Jerusalem',
+      };
       mockBusinessesService.create.mockResolvedValue(mockBusiness);
 
       const result = await service.create(dto);

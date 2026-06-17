@@ -77,8 +77,24 @@ Covered by `dashboard-business-settings.e2e-spec.ts` (16 tests: 6 GET + 10 PATCH
 **Readiness** (`GET …/readiness`):
 
 ```json
-{ "hasActiveServiceProviders": true, "hasActiveService": true, "isReady": true }
+{
+  "hasActiveServiceProviders": true,
+  "hasActiveService": true,
+  "isReady": true,
+  "checks": {
+    "hasActiveOwner": true,
+    "hasActiveService": true,
+    "hasActiveServiceProvider": true,
+    "hasBusinessWorkingHours": true,
+    "allActiveProvidersHaveWorkingHours": true,
+    "allActiveProvidersHaveActiveServiceAssignment": true,
+    "allActiveServicesHaveActiveProviderAssignment": true
+  },
+  "blockingReasons": []
+}
 ```
+
+Legacy fields (`hasActiveServiceProviders`, `hasActiveService`, `isReady`) are preserved for backward compatibility.
 
 **Appointment** (`GET …/appointments` items):
 
@@ -403,6 +419,7 @@ To share slot computation between the authenticated dashboard and the public sur
 ### Access rules (all four endpoints)
 
 - Business `status` not `ACTIVE` or `TRIAL` → 404 (same response as unknown slug — callers cannot distinguish).
+- Business `publicBookingEnabled` is `false` → 404 (same 404 — callers cannot distinguish from unknown slug or wrong status).
 - Unknown slug → 404.
 - Inactive service passed as `serviceId` to available-slots → 400.
 - Inactive SP passed as `serviceProviderId` to available-slots → 400.
@@ -471,6 +488,337 @@ E2E coverage added to `dashboard-appointments.e2e-spec.ts`: appointment create w
 This supports the customer history feature: the frontend fetches past appointments filtered by customer without a separate endpoint.
 
 E2E coverage added to `dashboard-appointments.e2e-spec.ts`: `businessCustomerId` filter returns only that customer's appointments (1 result); unknown `businessCustomerId` returns empty list. Suite: 11/11 passing.
+
+## Completed — Phase 6: Admin/Ops Business Lifecycle (Step 1)
+
+### What was implemented
+
+**Schema additions** (`20260617015541_add_draft_status_and_public_booking_enabled`):
+
+- `DRAFT` added to `BusinessStatus` enum. Additive migration — zero data loss for existing rows.
+- `publicBookingEnabled Boolean @default(false)` added to `Business` table.
+
+**Schema default vs service-layer enforcement:**
+
+The Prisma schema default for `Business.status` stays `TRIAL` (not `DRAFT`). All 20+ e2e test suites seed businesses with explicit `status` values — none rely on the schema default. Keeping the default as `TRIAL` avoids any test breakage. The enforcement point is the service layer only.
+
+**Invariants introduced:**
+
+| Invariant | Enforced in |
+| --- | --- |
+| Admin-created businesses start as `DRAFT` | `BusinessesService.create` — `data: { ...dto, status: BusinessStatus.DRAFT }` |
+| `publicBookingEnabled` starts as `false` | Schema `@default(false)` — not settable via `CreateBusinessDto` |
+| Public booking gate: `status IN [ACTIVE, TRIAL]` **AND** `publicBookingEnabled = true` | `PublicBusinessesService.findActiveBusinessBySlug` |
+| `CreateBusinessDto` requires `timezone` | `@IsString @IsNotEmpty @MaxLength(100)` validator |
+| Dashboard access (`assertAccess`) still allows only `ACTIVE` or `TRIAL` | Unchanged — DRAFT businesses return 403 to all dashboard users |
+
+**Why `publicBookingEnabled` is not in `CreateBusinessDto`:**
+
+The field starts `false` and can only be enabled via a future admin activation endpoint (Phase B). Excluding it from the DTO prevents any caller from bypassing the onboarding gate.
+
+**DRAFT blocks dashboard access:** Phase B (activation endpoint) is required before a newly created DRAFT business is usable. Until then, all `assertAccess` / `assertMutationAccess` / `assertOwnerAccess` calls on a DRAFT business return 403.
+
+### E2E coverage added
+
+**`admin-businesses.e2e-spec.ts`** — +5 tests (total: 12):
+
+| Test | Result |
+| --- | --- |
+| Valid body with timezone → 201, status `DRAFT`, `publicBookingEnabled: false`, timezone persisted | 201 |
+| Missing timezone → 400 | 400 |
+| Empty timezone → 400 | 400 |
+| Non-admin → 403 | 403 |
+| Missing auth → 401 | 401 |
+
+**`public-businesses.e2e-spec.ts`** — +6 tests (total: 20), all visibility gate combinations:
+
+| status | publicBookingEnabled | Expected |
+| --- | --- | --- |
+| `DRAFT` | `false` | 404 |
+| `DRAFT` | `true` | 404 |
+| `TRIAL` | `false` | 404 |
+| `ACTIVE` | `false` | 404 |
+| `TRIAL` | `true` | 200 |
+| `ACTIVE` | `true` | 200 (reuses existing fixture) |
+
+All four public endpoints call `findActiveBusinessBySlug` as their first step, so the gate covers all of them.
+
+### Key files touched
+
+| File | Change |
+| --- | --- |
+| `apps/api/prisma/schema.prisma` | Added `DRAFT` to enum; added `publicBookingEnabled` field |
+| `apps/api/prisma/migrations/20260617…/migration.sql` | `ALTER TYPE … ADD VALUE 'DRAFT'`; `ALTER TABLE … ADD COLUMN publicBookingEnabled` |
+| `apps/api/src/businesses/dto/create-business.dto.ts` | Added required `timezone` field |
+| `apps/api/src/businesses/businesses.service.ts` | `create` forces `status: BusinessStatus.DRAFT` |
+| `apps/api/src/public/public-businesses.service.ts` | `findActiveBusinessBySlug` adds `publicBookingEnabled` gate |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | +5 create-business tests |
+| `apps/api/test/e2e/public-businesses.e2e-spec.ts` | +6 visibility gate tests; existing fixture seeded with `publicBookingEnabled: true` |
+
+### Step 2: Admin-created owner starts as ACTIVE
+
+**Problem:** `createOwnerForBusiness` was creating the `BusinessUser` with `status: INVITED`. Since `assertAccess` requires `BusinessUser.status = ACTIVE`, admin-created owners received 403 on every dashboard endpoint — a complete deadlock.
+
+**Fix:** Changed `BusinessUserStatus.INVITED` → `BusinessUserStatus.ACTIVE` in the `businessUser.create` call inside `createOwnerForBusiness` (`business-users.service.ts`).
+
+**Scope boundary:**
+
+| Path | Status | Rationale |
+| --- | --- | --- |
+| Admin `createOwnerForBusiness` — `BusinessUser.status` | **ACTIVE** | Owner must access dashboard immediately |
+| Admin `createOwnerForBusiness` — `User.status` | `INVITED` unchanged | Identity verification is separate from business membership |
+| Dashboard `POST .../users` invite flow | `INVITED` unchanged | Dashboard invites require a separate accept/activate step |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`)** — +2 tests (total: 14):
+
+| Test | Result |
+| --- | --- |
+| Admin creates owner → `BusinessUser` has `role: OWNER`, `status: ACTIVE` | 201 + assertion |
+| Admin creates owner → owner can call dashboard endpoint → 200 | 200 |
+
+Regression test uses a TRIAL-status business fixture (seeded directly) because the DRAFT → ACTIVE activation endpoint is not yet built, and `assertAccess` requires `ACTIVE` or `TRIAL`.
+
+**Key files touched:**
+
+| File | Change |
+| --- | --- |
+| `apps/api/src/business-users/business-users.service.ts` | `status: BusinessUserStatus.ACTIVE` in `businessUser.create` |
+| `apps/api/src/business-users/business-users.service.spec.ts` | Updated fixture status; updated `businessUser.create` call assertions; added `publicBookingEnabled` to Business fixture |
+| `apps/api/src/businesses/businesses.service.spec.ts` | Added `publicBookingEnabled` to Business fixtures; added `timezone` to DTO; updated `create` assertion to expect `status: 'DRAFT'` |
+| `apps/api/src/admin/admin-businesses.service.spec.ts` | Added `publicBookingEnabled` to Business fixture; updated BusinessUser fixture status; added `timezone` to DTO |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | Updated existing owner-status assertion; added regression describe block; added `DashboardModule` import |
+
+### Step 2.5: DRAFT → TRIAL status transition
+
+**Business status semantics (locked):**
+
+| Status | Meaning |
+| --- | --- |
+| `DRAFT` | Admin-only shell. No dashboard access. Not publicly visible. |
+| `TRIAL` | Dashboard onboarding unlocked. Still not publicly visible unless `publicBookingEnabled = true`. |
+| `ACTIVE` | Fully active. Will require readiness gate before transition (deferred). |
+| `SUSPENDED` / `CANCELLED` | Terminal or suspended states. |
+
+**New endpoint:** `PATCH /admin/businesses/:businessId/status`
+
+- Guards: `ClerkAuthGuard` + `PlatformAdminGuard` (admin-only, same as all other admin endpoints).
+- DTO: `SetBusinessTrialDto` — `status` field accepts only `'TRIAL'` (IsEnum validation).
+- Logic (`BusinessesService.moveDraftToTrial`):
+  - Business not found → 404.
+  - Business status is not `DRAFT` → 409 Conflict.
+  - Updates `status` to `TRIAL`. `publicBookingEnabled` unchanged.
+- Response: updated `Business` object.
+
+**Why 409 (not 400) for non-DRAFT source state:** The request is structurally valid (TRIAL is accepted), but the current resource state (not DRAFT) conflicts with the transition. 409 is more precise than 400 here.
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`)** — +9 tests (total: 23):
+
+| Test | Expected |
+| --- | --- |
+| DRAFT → TRIAL → 200, status is TRIAL | 200 |
+| publicBookingEnabled remains false after transition | 200, body.publicBookingEnabled === false |
+| Owner can access dashboard after DRAFT → TRIAL | 200 |
+| Public booking still 404 after DRAFT → TRIAL (publicBookingEnabled=false) | 404 |
+| Non-admin → 403 | 403 |
+| Unauthenticated → 401 | 401 |
+| Non-existent businessId → 404 | 404 |
+| status: 'ACTIVE' in body → 400 (invalid enum) | 400 |
+| Already TRIAL business → 409 | 409 |
+
+**Key files touched:**
+
+| File | Change |
+| --- | --- |
+| `apps/api/src/admin/dto/set-business-trial.dto.ts` | New DTO — `status` accepts only `BusinessStatus.TRIAL` |
+| `apps/api/src/businesses/businesses.service.ts` | Added `moveDraftToTrial(businessId)` |
+| `apps/api/src/admin/admin-businesses.service.ts` | Added `moveDraftToTrial(businessId)` delegation |
+| `apps/api/src/admin/admin-businesses.controller.ts` | Added `PATCH :businessId/status` route |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | +9 tests; new DRAFT fixture; `PublicModule` import for public booking gate test |
+
+### Step 2.6: ServiceProvider creation boundary
+
+**Product decision (locked):** `ServiceProvider` represents a bookable calendar/resource — not just a staff profile. New SP creation is Admin/Ops-owned. Business OWNER/MANAGER may manage existing providers but cannot create new ones.
+
+**Dashboard endpoint blocked:** `POST /dashboard/businesses/:businessId/service-providers` now throws `ForbiddenException` immediately (before any body parsing or service call). All authenticated callers → 403. Unauthenticated → 401 (guard fires before handler).
+
+**New admin endpoint:** `POST /admin/businesses/:businessId/service-providers`
+
+- Guards: `ClerkAuthGuard` + `PlatformAdminGuard`.
+- DTO: reuses `CreateServiceProviderDto` from the dashboard module.
+- Logic (`AdminBusinessesService.createServiceProvider`):
+  - Business not found → 404.
+  - `businessUserId` not in this business → 400.
+  - `isActive: true` + `BusinessUser.status !== ACTIVE` → 400.
+  - Duplicate `businessUserId` (SP already exists) → 409.
+  - Any `serviceId` not in this business → 400.
+  - `isActive: true` + any linked service inactive → 400.
+  - Creates SP + `ServiceProviderService` links in a transaction.
+- Response: `ServiceProviderDto` (same shape as dashboard).
+
+**E2E coverage:**
+
+- `dashboard-service-providers-mutations.e2e-spec.ts`: POST create block updated — owner/manager tests changed from 201 → 403; all DTO/business-logic tests changed from 400/409 → 403 (handler throws before any service call or body parsing).
+- `admin-businesses.e2e-spec.ts`: new describe block (`POST /admin/businesses/:businessId/service-providers`) — 9 tests, new fixtures under `e2e20000-0000-4000-8000-000000000009..0015`.
+
+| Test | Expected |
+| --- | --- |
+| admin + valid body → 201 with ServiceProviderDto shape | 201 |
+| admin + isActive: false → 201, isActive false | 201 |
+| non-admin → 403 | 403 |
+| missing auth → 401 | 401 |
+| non-existent businessId → 404 | 404 |
+| missing displayName → 400 | 400 |
+| businessUserId not in this business → 400 | 400 |
+| duplicate businessUserId → 409 | 409 |
+| linking inactive service to active SP → 400 | 400 |
+
+**Frontend:** Removed from `mobile-team-shell.tsx`:
+
+- FAB (`MobileFab`) and `showCreateSheet` state (OWNER-only create trigger).
+- `ProviderCreateSheet` import and JSX.
+- `useAppBusinessUsers` hook import and call (was used only to populate eligible users for create flow).
+- Related state: `eligibleUsers`, `invalidateAfterProviderCreate`, users loading/error merged into composed state.
+
+Edit and view functionality (OWNER/MANAGER can edit existing providers; MEMBER sees read-only detail) is unchanged.
+
+**Key files touched:**
+
+| File | Change |
+| --- | --- |
+| `apps/api/src/dashboard/dashboard-data.controller.ts` | `createServiceProvider` throws `ForbiddenException`, removed `@Body`/`@Req` params |
+| `apps/api/src/admin/admin-businesses.service.ts` | Injected `PrismaService`; added `createServiceProvider` with full validation logic |
+| `apps/api/src/admin/admin-businesses.controller.ts` | Added `POST :businessId/service-providers` route |
+| `apps/api/test/e2e/dashboard-service-providers-mutations.e2e-spec.ts` | POST create block: 201→403 for owner/manager; 400/409→403 for validation tests |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | New SP creation describe block with 9 tests |
+| `apps/web/src/app/app/_components/mobile-team-shell.tsx` | Removed FAB, ProviderCreateSheet, useAppBusinessUsers |
+
+### Step 3: Detailed business readiness check
+
+**Endpoints:**
+
+- `GET /dashboard/businesses/:businessId/readiness` — extended with 7-check structured response. Guarded by `assertAccess`.
+- `GET /admin/businesses/:businessId/readiness` — admin-only (no access check needed beyond `PlatformAdminGuard`). 404 if business not found.
+
+**Seven readiness checks:**
+
+| Check | Rule |
+| --- | --- |
+| `hasActiveOwner` | ≥1 `BusinessUser` with `role=OWNER` and `status=ACTIVE` |
+| `hasActiveService` | ≥1 `Service` with `isActive=true` |
+| `hasActiveServiceProvider` | ≥1 `ServiceProvider` with `isActive=true` |
+| `hasBusinessWorkingHours` | ≥1 `BusinessWorkingHour` record |
+| `allActiveProvidersHaveWorkingHours` | Every active SP has ≥1 `ServiceProviderWorkingHour` record |
+| `allActiveProvidersHaveActiveServiceAssignment` | Every active SP has ≥1 `ServiceProviderService` link where the service is active |
+| `allActiveServicesHaveActiveProviderAssignment` | Every active service has ≥1 `ServiceProviderService` link where the SP is active |
+
+`isReady = true` iff all 7 checks pass. `blockingReasons` lists human-readable descriptions of each failing check. Vacuous-truth rule: checks over an empty set (e.g., no active SPs) evaluate to `true`; `isReady` still fails on the count-based check.
+
+**Key files:**
+
+| File | Role |
+| --- | --- |
+| `src/dashboard/readiness.utils.ts` | `computeBusinessReadiness(prisma, businessId)` — shared pure function; exports `BusinessReadinessChecks`, `BusinessReadinessDto` |
+| `src/dashboard/dashboard-data.service.ts` | `getBusinessReadiness` delegates to `computeBusinessReadiness` after `assertAccess`; re-exports interfaces |
+| `src/admin/admin-businesses.service.ts` | `getBusinessReadiness(businessId)` — 404 guard + `computeBusinessReadiness` |
+| `src/admin/admin-businesses.controller.ts` | `GET :businessId/readiness` route |
+| `test/e2e/dashboard-summary-readiness.e2e-spec.ts` | Updated to include working hours in fixture + new `checks`/`blockingReasons` assertions |
+| `test/e2e/dashboard-readiness.e2e-spec.ts` | 10 scenario-based tests (1 per check failure mode + single/multi-provider happy paths) |
+| `test/e2e/admin-businesses.e2e-spec.ts` | +5 admin readiness tests in new describe block |
+
+**E2E coverage added:**
+
+- `dashboard-readiness.e2e-spec.ts`: 10 tests (UUID prefix `e2e9100X`).
+- `admin-businesses.e2e-spec.ts`: +5 tests (UUID prefix `e2e20000-…-00000016/17`).
+
+### Step 4: Admin can activate business (TRIAL → ACTIVE)
+
+**Endpoint:** `PATCH /admin/businesses/:businessId/status` — extended to accept `ACTIVE` in addition to `TRIAL`.
+
+**State machine:**
+
+| From | To | Condition | Result |
+| --- | --- | --- | --- |
+| `DRAFT` | `TRIAL` | — | 200 (existing behavior) |
+| `TRIAL` | `ACTIVE` | `readiness.isReady === true` | 200 |
+| `TRIAL` | `ACTIVE` | `readiness.isReady === false` | 400 with `blockingReasons` in message |
+| `DRAFT` | `ACTIVE` | — | 409 (must go through TRIAL first) |
+| `ACTIVE` | `ACTIVE` | — | 409 |
+| any | `SUSPENDED`/`CANCELLED` | — | 400 (DTO enum validation) |
+
+`publicBookingEnabled` is **not** changed by this endpoint — it remains `false` after activation.
+
+**Key files:**
+
+| File | Change |
+| --- | --- |
+| `src/admin/dto/set-business-trial.dto.ts` | `SetBusinessStatusDto` now accepts `TRIAL \| ACTIVE` via `@IsEnum`. Backward-compat alias `SetBusinessTrialDto` kept. |
+| `src/admin/admin-businesses.service.ts` | `setBusinessStatus(businessId, targetStatus)` replaces `moveDraftToTrial`. Runs `computeBusinessReadiness` before ACTIVE transition. |
+| `src/admin/admin-businesses.controller.ts` | `setStatus` calls `setBusinessStatus(businessId, dto.status)`. |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`):**
+
+- Invalid status value (SUSPENDED) → 400 (updated from old "ACTIVE → 400" test)
+- DRAFT → ACTIVE directly forbidden → 409
+- TRIAL → ACTIVE with failing readiness → 400
+- TRIAL → ACTIVE with passing readiness → 200, status ACTIVE
+- publicBookingEnabled remains false after TRIAL → ACTIVE → 200
+- Owner dashboard access works after ACTIVE → 200
+- Public booking still returns 404 after ACTIVE when publicBookingEnabled=false
+- ACTIVE → ACTIVE → 409
+
+Total in `admin-businesses.e2e-spec.ts`: 44 tests.
+
+### Step 5: Admin publicBookingEnabled toggle
+
+**Endpoint:** `PATCH /admin/businesses/:businessId/public-booking`
+
+**Request body:** `{ "publicBookingEnabled": boolean }` (validated with `@IsBoolean`).
+
+**Rules:**
+
+| Operation | Condition | Result |
+| --- | --- | --- |
+| Disable (`false`) | Any status | 200 — no readiness check required |
+| Enable (`true`) | `status = DRAFT / SUSPENDED / CANCELLED` | 409 |
+| Enable (`true`) | `status = TRIAL / ACTIVE`, readiness fails | 400 with blocking reasons |
+| Enable (`true`) | `status = TRIAL / ACTIVE`, readiness passes | 200, `publicBookingEnabled = true` |
+
+- `business.status` is **not** changed in either direction.
+- Public booking is live only when `status IN [TRIAL, ACTIVE]` **AND** `publicBookingEnabled = true`. ACTIVE alone is not enough.
+- Disabling does not require readiness — allows admins to take a business offline without meeting configuration thresholds.
+
+**Key files:**
+
+| File | Change |
+| --- | --- |
+| `src/admin/dto/set-business-public-booking.dto.ts` | New. `SetBusinessPublicBookingDto` with `@IsBoolean publicBookingEnabled`. |
+| `src/admin/admin-businesses.service.ts` | `setPublicBookingEnabled(businessId, enabled)` added. |
+| `src/admin/admin-businesses.controller.ts` | `PATCH :businessId/public-booking` route added. |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`, +17 tests, 61 total):**
+
+- Admin enables PB for TRIAL ready → 200, publicBookingEnabled=true
+- Public booking 200 after TRIAL + readiness + publicBookingEnabled=true
+- Admin enables PB for ACTIVE ready → 200, publicBookingEnabled=true
+- Public booking 200 after ACTIVE + readiness + publicBookingEnabled=true
+- Enable PB for DRAFT → 409
+- Enable PB for TRIAL failing readiness → 400
+- Enable PB for ACTIVE failing readiness → 400
+- Disable PB for ACTIVE → 200, publicBookingEnabled=false
+- Public booking 404 after disabling
+- Disable PB for DRAFT → 200 (no readiness required)
+- Disable PB for TRIAL no-ready → 200 (no readiness required)
+- Enable does not change status (TRIAL remains TRIAL)
+- Disable does not change status (ACTIVE remains ACTIVE)
+- Non-admin → 403
+- Missing auth → 401
+- Non-existent business → 404
+- Invalid/missing body → 400
+
+**Deferred (do not implement without explicit instruction):**
+
+- Admin endpoints for seeding services and working hours during onboarding.
+- `ServiceProvider.businessUserId` nullable (for unlinked providers).
 
 ## Later — Phase 3 and Beyond
 

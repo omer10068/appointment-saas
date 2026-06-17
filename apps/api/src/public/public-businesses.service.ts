@@ -71,12 +71,17 @@ export class PublicBusinessesService {
         name: true,
         slug: true,
         status: true,
+        publicBookingEnabled: true,
         timezone: true,
         locale: true,
         currency: true,
       },
     });
-    if (!business || !ALLOWED_BUSINESS_STATUSES.includes(business.status)) {
+    if (
+      !business ||
+      !ALLOWED_BUSINESS_STATUSES.includes(business.status) ||
+      !business.publicBookingEnabled
+    ) {
       throw new NotFoundException('Business not found');
     }
     return business;

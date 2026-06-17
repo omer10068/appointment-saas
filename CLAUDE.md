@@ -148,7 +148,55 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `updateServiceProvider` enforces the inactive-service invariant even when `serviceIds` are absent from the payload (checks existing links before activation).
   - `createAppointment` rejects a non-ACTIVE `BusinessCustomer` with `BadRequestException('Customer is not active')`.
   - E2E coverage added for SP inactive-service activation/update paths and customer-activity check on appointment creation.
-- Approximate test counts: 22+ E2E suites / 400+ tests, 17+ unit suites / 285+ unit tests.
+- Admin/Ops business lifecycle (Step 1 — Phase A):
+  - `BusinessStatus.DRAFT` added to the enum. Schema default remains `TRIAL` to avoid breaking test seeds; service layer enforces `DRAFT` explicitly.
+  - `publicBookingEnabled Boolean @default(false)` added to the `Business` table.
+  - `BusinessesService.create` always forces `status: BusinessStatus.DRAFT` — this is the single enforcement point for admin-created businesses.
+  - `publicBookingEnabled` is intentionally not in `CreateBusinessDto`; it starts `false` and requires a separate admin activation step (Phase B, not yet built).
+  - `CreateBusinessDto` now requires `timezone` (`@IsString @IsNotEmpty @MaxLength(100)`); missing or empty timezone → 400.
+  - Public booking gate (`findActiveBusinessBySlug`) now requires both `status IN [ACTIVE, TRIAL]` **and** `publicBookingEnabled = true`. DRAFT status or `publicBookingEnabled: false` → 404 (indistinguishable from unknown slug).
+  - `assertAccess` (dashboard) still allows only `ACTIVE | TRIAL` — a DRAFT business returns 403 to all dashboard users until it is activated (Phase B).
+  - E2E coverage: `admin-businesses.e2e-spec.ts` +5 tests (201 with DRAFT/false defaults, timezone validation, non-admin 403, missing auth 401); `public-businesses.e2e-spec.ts` +6 tests (all visibility gate combinations: DRAFT×false, DRAFT×true, TRIAL×false, ACTIVE×false → 404; TRIAL×true → 200; ACTIVE×true → 200).
+- Admin/Ops business lifecycle (Step 2 — owner ACTIVE fix):
+  - `createOwnerForBusiness` now creates the `BusinessUser` with `status: BusinessUserStatus.ACTIVE` instead of `INVITED`.
+  - The underlying `User` record is still created with `status: UserStatus.INVITED` (identity verification state is separate from business membership state).
+  - Dashboard-invited users (created via `POST /dashboard/businesses/:businessId/users`) remain `INVITED` — that path is unchanged.
+  - This eliminates the deadlock where admin-created owners could not access the dashboard because `assertAccess` requires `BusinessUser.status = ACTIVE`.
+  - E2E coverage: `admin-businesses.e2e-spec.ts` +2 regression tests (owner status ACTIVE assertion; owner can call dashboard endpoint → 200).
+- Admin/Ops business lifecycle (Step 2.5 — DRAFT → TRIAL transition):
+  - `DRAFT` is the admin-only shell state: no dashboard access for anyone, business not publicly visible.
+  - `TRIAL` is the onboarding state: dashboard access unlocked for ACTIVE business users; public booking still blocked because `publicBookingEnabled` remains `false`.
+  - `PATCH /admin/businesses/:businessId/status` with `{ "status": "TRIAL" }` moves a DRAFT business to TRIAL.
+  - Only `TRIAL` is accepted; `ACTIVE`, `SUSPENDED`, `CANCELLED` → 400 (DTO-level enum validation). Attempting this on a non-DRAFT business → 409.
+  - `publicBookingEnabled` is not touched by this endpoint — it remains `false`.
+  - `assertAccess` (dashboard) already allows `TRIAL` businesses, so no dashboard code changed.
+  - E2E coverage: `admin-businesses.e2e-spec.ts` +9 tests (200 with TRIAL status; publicBookingEnabled remains false; owner can access dashboard; public booking still 404; 403/401/404/400/409 guards).
+- ServiceProvider creation boundary (Step 2.6): Dashboard `POST .../service-providers` throws 403 for all callers. Admin-only `POST /admin/businesses/:businessId/service-providers` endpoint added. Frontend FAB and `ProviderCreateSheet` removed from team tab.
+- Admin/Ops business lifecycle (Step 3 — detailed readiness check):
+  - `GET /dashboard/businesses/:businessId/readiness` extended with 7-check structured response + `blockingReasons` array. Legacy fields (`hasActiveServiceProviders`, `hasActiveService`, `isReady`) preserved.
+  - `GET /admin/businesses/:businessId/readiness` added (platform admin only; 404 if business not found).
+  - Readiness computed by shared `computeBusinessReadiness(prisma, businessId)` in `readiness.utils.ts`.
+  - 7 checks: `hasActiveOwner`, `hasActiveService`, `hasActiveServiceProvider`, `hasBusinessWorkingHours`, `allActiveProvidersHaveWorkingHours`, `allActiveProvidersHaveActiveServiceAssignment`, `allActiveServicesHaveActiveProviderAssignment`.
+  - E2E: `dashboard-readiness.e2e-spec.ts` (10 scenario tests); `admin-businesses.e2e-spec.ts` +5 tests. Existing `dashboard-summary-readiness.e2e-spec.ts` updated with working hours in fixture and new field assertions.
+- Admin/Ops business lifecycle (Step 4 — TRIAL → ACTIVE activation):
+  - `PATCH /admin/businesses/:businessId/status` now accepts `TRIAL` or `ACTIVE` (DTO extended from TRIAL-only).
+  - DRAFT → TRIAL: allowed without readiness check (unchanged).
+  - TRIAL → ACTIVE: allowed only if `computeBusinessReadiness` returns `isReady === true`; otherwise 400 with blocking reasons.
+  - DRAFT → ACTIVE: forbidden → 409. ACTIVE → ACTIVE: conflict → 409. Sending SUSPENDED/CANCELLED → 400 (DTO enum validation).
+  - `publicBookingEnabled` is NOT changed by this endpoint — remains `false` after activation.
+  - `setBusinessStatus(businessId, targetStatus)` replaces `moveDraftToTrial` in `AdminBusinessesService`.
+  - DTO class renamed `SetBusinessStatusDto` (backward-compat alias `SetBusinessTrialDto` kept).
+  - E2E: `admin-businesses.e2e-spec.ts` +8 tests (44 total); activation describe block seeds a fully configured TRIAL business and resets to TRIAL in `beforeEach`.
+- Admin/Ops business lifecycle (Step 5 — publicBookingEnabled toggle):
+  - `PATCH /admin/businesses/:businessId/public-booking` added (platform admin only).
+  - Disabling (`publicBookingEnabled: false`): always allowed for any business status, no readiness check.
+  - Enabling (`publicBookingEnabled: true`): requires `business.status` to be `TRIAL` or `ACTIVE` (DRAFT → 409) AND `computeBusinessReadiness` returns `isReady === true` (otherwise → 400).
+  - Does not change `business.status` in either direction.
+  - Public booking is live only when `status IN [TRIAL, ACTIVE]` AND `publicBookingEnabled = true`. ACTIVE alone is not enough.
+  - `setPublicBookingEnabled(businessId, enabled)` added to `AdminBusinessesService`.
+  - `SetBusinessPublicBookingDto` (`@IsBoolean publicBookingEnabled`) added in `src/admin/dto/`.
+  - E2E: `admin-businesses.e2e-spec.ts` +17 tests (61 total).
+- Approximate test counts: 23+ E2E suites / 473+ tests, 17+ unit suites / 293+ unit tests.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
@@ -190,8 +238,9 @@ Role behavior across all tabs:
 
 Team tab specifics:
 
-- OWNER sees a FAB and can create a `ServiceProvider` linked to an eligible `BusinessUser`. Eligible = `status === 'ACTIVE'` AND `hasServiceProviderProfile === false`.
-- `GET /dashboard/businesses/:businessId/users` is OWNER-only. For non-OWNER roles the fetch is skipped entirely (`Promise.resolve([])`). No 403 is triggered for MANAGER.
+- ServiceProvider creation is admin/ops-only. No FAB or create sheet exists in the business app. The team tab is read/edit-only for all roles.
+- OWNER and MANAGER see `ProviderEditSheet` when tapping a provider row. MEMBER sees read-only `ProviderDetailSheet`.
+- `GET /dashboard/businesses/:businessId/users` is OWNER-only. The `useAppBusinessUsers` hook has been removed from the team tab (was only used by the now-removed create flow). No 403 is triggered for MANAGER.
 - `ProviderEditSheet` saves `displayName`/`serviceIds` first, then `isActive` in a second sequential call to avoid a race where the status validation (which checks service links in the DB) fires before the new `serviceIds` are committed.
 
 Customers tab specifics:
