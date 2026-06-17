@@ -38,7 +38,7 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
 
   return (
     // dir="ltr" so flex item order is physical (today=left, filter=right) regardless of parent RTL context
-    <div dir="ltr" className="relative flex items-center pb-2.5">
+    <div dir="ltr" className="relative flex items-center pb-2 px-2">
 
       {/* Physical LEFT — today button */}
       <button
@@ -46,7 +46,7 @@ export function CalendarHeader({ selectedDate, onToday, onOpenCalendar, onFilter
         disabled={onCurrentWeek}
         aria-label="חזור להיום"
         className={[
-          'flex w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full py-1.5 transition',
+          'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-full py-1.5 transition',
           onCurrentWeek
             ? 'cursor-default text-muted-foreground/30'
             : 'text-primary active:scale-95 active:opacity-70',

@@ -15,14 +15,14 @@ export function CalendarDayPicker({ selectedDate, today, onSelect, onPrevWeek, o
   const weekDays = getWeekDays(selectedDate);
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5 px-2">
       {/* Right edge in RTL — previous week */}
       <button
         onClick={onPrevWeek}
         aria-label="שבוע קודם"
-        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted"
+        className="ml-2 flex size-5.5 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted bg-gray-100"
       >
-        <ChevronRight className="size-3.5" />
+        <ChevronRight className="size-2.75" />
       </button>
 
       {/* Week days */}
@@ -71,9 +71,9 @@ export function CalendarDayPicker({ selectedDate, today, onSelect, onPrevWeek, o
       <button
         onClick={onNextWeek}
         aria-label="שבוע הבא"
-        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted"
+        className="mr-2 flex size-5.5 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted bg-gray-100"
       >
-        <ChevronLeft className="size-3.5" />
+        <ChevronLeft className="size-2.75" />
       </button>
     </div>
   );
