@@ -7,6 +7,9 @@ import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { BusinessUsersService } from '../business-users/business-users.service';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { AdminBusinessesService } from './admin-businesses.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+const mockPrismaService = {};
 
 const mockBusiness: Business = {
   id: 'biz-1',
@@ -50,6 +53,7 @@ describe('AdminBusinessesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminBusinessesService,
+        { provide: PrismaService, useValue: mockPrismaService },
         { provide: BusinessesService, useValue: mockBusinessesService },
         { provide: BusinessUsersService, useValue: mockBusinessUsersService },
       ],
