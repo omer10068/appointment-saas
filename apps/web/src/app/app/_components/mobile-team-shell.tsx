@@ -5,14 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { MobileFab } from './mobile-fab';
 import type { DashboardServiceProviderDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
 import { useAppServices } from '../_hooks/useAppServices';
-import { useAppBusinessUsers } from '../_hooks/useAppBusinessUsers';
 import { CalendarBottomNav } from './calendar-bottom-nav';
-import { ProviderCreateSheet } from './provider-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { ProviderEditSheet } from './provider-edit-sheet';
 import { BottomSheet } from './primitives/bottom-sheet';
@@ -198,7 +195,6 @@ export function MobileTeamShell() {
   const businessId   = currentBusiness?.business.id ?? null;
   const canMutate    =
     currentBusiness?.role === 'OWNER' || currentBusiness?.role === 'MANAGER';
-  const isOwner      = currentBusiness?.role === 'OWNER';
 
   // ── Data fetch ────────────────────────────────────────────────────────────────
 
@@ -223,25 +219,10 @@ export function MobileTeamShell() {
     serviceMap[s.id] = s.name;
   }
 
-  // Business users via TanStack Query — OWNER-only (disabled for non-OWNER roles).
-  const {
-    businessUsers,
-    loading: usersLoading,
-    error: usersError,
-    refetch: refetchUsers,
-  } = useAppBusinessUsers(businessId, isOwner);
-
-  // Composed loading / error / retry.
-  const loading = providersLoading || servicesLoading || usersLoading;
-  const error   = providersError ?? servicesError ?? usersError;
+  const loading = providersLoading || servicesLoading;
+  const error   = providersError ?? servicesError;
 
   const queryClient = useQueryClient();
-
-  function invalidateAfterProviderCreate() {
-    if (!businessId) return;
-    void queryClient.invalidateQueries({ queryKey: appKeys.serviceProviders(businessId) });
-    void queryClient.invalidateQueries({ queryKey: appKeys.businessUsers(businessId) });
-  }
 
   function invalidateAfterProviderEdit() {
     if (!businessId) return;
@@ -251,7 +232,6 @@ export function MobileTeamShell() {
   function retry() {
     refetchProviders();
     refetchServices();
-    refetchUsers();
   }
 
   // ── Search ────────────────────────────────────────────────────────────────────
@@ -268,14 +248,6 @@ export function MobileTeamShell() {
 
   const [selectedProvider, setSelectedProvider] =
     useState<DashboardServiceProviderDto | null>(null);
-
-  // ── Create sheet ──────────────────────────────────────────────────────────────
-
-  const [showCreateSheet, setShowCreateSheet] = useState(false);
-
-  const eligibleUsers = businessUsers.filter(
-    (u) => u.status === 'ACTIVE' && !u.hasServiceProviderProfile,
-  );
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -381,9 +353,6 @@ export function MobileTeamShell() {
 
       <CalendarBottomNav activeKey="settings" />
 
-      {/* FAB — OWNER only (MANAGER cannot access business users list) */}
-      {isOwner && <MobileFab onClick={() => setShowCreateSheet(true)} ariaLabel="הוסף חבר צוות" />}
-
       {/* Detail sheet — MEMBER only */}
       {!canMutate && (
         <ProviderDetailSheet
@@ -405,18 +374,6 @@ export function MobileTeamShell() {
         />
       )}
 
-      {/* Create sheet — OWNER only */}
-      {isOwner && (
-        <ProviderCreateSheet
-          open={showCreateSheet}
-          eligibleUsers={eligibleUsers}
-          services={services}
-          businessId={businessId}
-          getToken={() => getTokenRef.current()}
-          onClosed={() => setShowCreateSheet(false)}
-          onCreated={invalidateAfterProviderCreate}
-        />
-      )}
     </MobilePhoneFrame>
   );
 }

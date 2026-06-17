@@ -171,8 +171,9 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `publicBookingEnabled` is not touched by this endpoint — it remains `false`.
   - `assertAccess` (dashboard) already allows `TRIAL` businesses, so no dashboard code changed.
   - E2E coverage: `admin-businesses.e2e-spec.ts` +9 tests (200 with TRIAL status; publicBookingEnabled remains false; owner can access dashboard; public booking still 404; 403/401/404/400/409 guards).
-- Approximate test counts: 22+ E2E suites / 424+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: ServiceProvider creation boundary, readiness check, ACTIVE activation, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- ServiceProvider creation boundary (Step 2.6): Dashboard `POST .../service-providers` throws 403 for all callers. Admin-only `POST /admin/businesses/:businessId/service-providers` endpoint added. Frontend FAB and `ProviderCreateSheet` removed from team tab.
+- Approximate test counts: 22+ E2E suites / 433+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: readiness check, ACTIVE activation (TRIAL→ACTIVE with readiness gate), publicBookingEnabled toggle, notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 
@@ -213,8 +214,9 @@ Role behavior across all tabs:
 
 Team tab specifics:
 
-- OWNER sees a FAB and can create a `ServiceProvider` linked to an eligible `BusinessUser`. Eligible = `status === 'ACTIVE'` AND `hasServiceProviderProfile === false`.
-- `GET /dashboard/businesses/:businessId/users` is OWNER-only. For non-OWNER roles the fetch is skipped entirely (`Promise.resolve([])`). No 403 is triggered for MANAGER.
+- ServiceProvider creation is admin/ops-only. No FAB or create sheet exists in the business app. The team tab is read/edit-only for all roles.
+- OWNER and MANAGER see `ProviderEditSheet` when tapping a provider row. MEMBER sees read-only `ProviderDetailSheet`.
+- `GET /dashboard/businesses/:businessId/users` is OWNER-only. The `useAppBusinessUsers` hook has been removed from the team tab (was only used by the now-removed create flow). No 403 is triggered for MANAGER.
 - `ProviderEditSheet` saves `displayName`/`serviceIds` first, then `isActive` in a second sequential call to avoid a race where the status validation (which checks service links in the DB) fires before the new `serviceIds` are committed.
 
 Customers tab specifics:

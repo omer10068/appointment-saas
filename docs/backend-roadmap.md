@@ -619,13 +619,69 @@ Regression test uses a TRIAL-status business fixture (seeded directly) because t
 | `apps/api/src/admin/admin-businesses.controller.ts` | Added `PATCH :businessId/status` route |
 | `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | +9 tests; new DRAFT fixture; `PublicModule` import for public booking gate test |
 
-### Deferred (Phase B — do not implement without explicit instruction)
+### Step 2.6: ServiceProvider creation boundary
 
-- ServiceProvider creation boundary: currently OWNER/MANAGER can create ServiceProviders via `assertMutationAccess`; product decision says admin/ops should create new ServiceProviders/calendars. Needs explicit decision before readiness is meaningful.
-- Readiness check (`GET /admin/businesses/:businessId/readiness` or equivalent) — depends on SP creation boundary decision.
-- Full activation endpoint (TRIAL → ACTIVE) — reserved for post-readiness gate.
+**Product decision (locked):** `ServiceProvider` represents a bookable calendar/resource — not just a staff profile. New SP creation is Admin/Ops-owned. Business OWNER/MANAGER may manage existing providers but cannot create new ones.
+
+**Dashboard endpoint blocked:** `POST /dashboard/businesses/:businessId/service-providers` now throws `ForbiddenException` immediately (before any body parsing or service call). All authenticated callers → 403. Unauthenticated → 401 (guard fires before handler).
+
+**New admin endpoint:** `POST /admin/businesses/:businessId/service-providers`
+
+- Guards: `ClerkAuthGuard` + `PlatformAdminGuard`.
+- DTO: reuses `CreateServiceProviderDto` from the dashboard module.
+- Logic (`AdminBusinessesService.createServiceProvider`):
+  - Business not found → 404.
+  - `businessUserId` not in this business → 400.
+  - `isActive: true` + `BusinessUser.status !== ACTIVE` → 400.
+  - Duplicate `businessUserId` (SP already exists) → 409.
+  - Any `serviceId` not in this business → 400.
+  - `isActive: true` + any linked service inactive → 400.
+  - Creates SP + `ServiceProviderService` links in a transaction.
+- Response: `ServiceProviderDto` (same shape as dashboard).
+
+**E2E coverage:**
+
+- `dashboard-service-providers-mutations.e2e-spec.ts`: POST create block updated — owner/manager tests changed from 201 → 403; all DTO/business-logic tests changed from 400/409 → 403 (handler throws before any service call or body parsing).
+- `admin-businesses.e2e-spec.ts`: new describe block (`POST /admin/businesses/:businessId/service-providers`) — 9 tests, new fixtures under `e2e20000-0000-4000-8000-000000000009..0015`.
+
+| Test | Expected |
+| --- | --- |
+| admin + valid body → 201 with ServiceProviderDto shape | 201 |
+| admin + isActive: false → 201, isActive false | 201 |
+| non-admin → 403 | 403 |
+| missing auth → 401 | 401 |
+| non-existent businessId → 404 | 404 |
+| missing displayName → 400 | 400 |
+| businessUserId not in this business → 400 | 400 |
+| duplicate businessUserId → 409 | 409 |
+| linking inactive service to active SP → 400 | 400 |
+
+**Frontend:** Removed from `mobile-team-shell.tsx`:
+
+- FAB (`MobileFab`) and `showCreateSheet` state (OWNER-only create trigger).
+- `ProviderCreateSheet` import and JSX.
+- `useAppBusinessUsers` hook import and call (was used only to populate eligible users for create flow).
+- Related state: `eligibleUsers`, `invalidateAfterProviderCreate`, users loading/error merged into composed state.
+
+Edit and view functionality (OWNER/MANAGER can edit existing providers; MEMBER sees read-only detail) is unchanged.
+
+**Key files touched:**
+
+| File | Change |
+| --- | --- |
+| `apps/api/src/dashboard/dashboard-data.controller.ts` | `createServiceProvider` throws `ForbiddenException`, removed `@Body`/`@Req` params |
+| `apps/api/src/admin/admin-businesses.service.ts` | Injected `PrismaService`; added `createServiceProvider` with full validation logic |
+| `apps/api/src/admin/admin-businesses.controller.ts` | Added `POST :businessId/service-providers` route |
+| `apps/api/test/e2e/dashboard-service-providers-mutations.e2e-spec.ts` | POST create block: 201→403 for owner/manager; 400/409→403 for validation tests |
+| `apps/api/test/e2e/admin-businesses.e2e-spec.ts` | New SP creation describe block with 9 tests |
+| `apps/web/src/app/app/_components/mobile-team-shell.tsx` | Removed FAB, ProviderCreateSheet, useAppBusinessUsers |
+
+**Deferred (Phase B — do not implement without explicit instruction):**
+
+- Readiness check (`GET /admin/businesses/:businessId/readiness` or equivalent).
+- Full activation endpoint (TRIAL → ACTIVE) with readiness gate.
 - `publicBookingEnabled` toggle endpoint — separate admin activation step.
-- Admin endpoints for seeding services, service providers, and working hours during onboarding.
+- Admin endpoints for seeding services and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).
 
 ## Later — Phase 3 and Beyond

@@ -33,11 +33,23 @@ const E2E_ADMIN_REGRESSION_BIZ_ID = 'e2e20000-0000-4000-8000-000000000006';
 const E2E_ADMIN_DRAFT_BIZ_ID = 'e2e20000-0000-4000-8000-000000000007';
 const E2E_ADMIN_DRAFT_BIZ_SLUG = 'e2e-admin-draft-trial-biz';
 const E2E_ADMIN_DRAFT_OWNER_ID = 'e2e20000-0000-4000-8000-000000000008';
+// Admin ServiceProvider creation tests
+const E2E_ADMIN_SP_BIZ_ID = 'e2e20000-0000-4000-8000-000000000009';
+const E2E_ADMIN_SP_OWNER_USER_ID = 'e2e20000-0000-4000-8000-000000000010';
+const E2E_ADMIN_SP_MEMBER_USER_ID = 'e2e20000-0000-4000-8000-000000000011';
+const E2E_ADMIN_SP_DUP_USER_ID = 'e2e20000-0000-4000-8000-000000000012';
+const E2E_ADMIN_SP_INACT_SVC_USER_ID = 'e2e20000-0000-4000-8000-000000000013';
+const E2E_ADMIN_SP_ACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000014';
+const E2E_ADMIN_SP_INACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000015';
 
 const ADMIN_PHONE = '+19990002001';
 const REG_PHONE = '+19990002002';
 const EXISTING_OWNER_PHONE = '+19990002003';
 const DRAFT_OWNER_PHONE = '+19990002004';
+const ADMIN_SP_OWNER_PHONE = '+19990002030';
+const ADMIN_SP_MEMBER_PHONE = '+19990002031';
+const ADMIN_SP_DUP_PHONE = '+19990002032';
+const ADMIN_SP_INACT_SVC_PHONE = '+19990002033';
 // Created by POST success test — must be cleaned up
 const CREATED_OWNER_PHONE = '+19990002010';
 // Created by regression test — must be cleaned up
@@ -549,5 +561,310 @@ describe('admin-created owner status and dashboard access', () => {
     await request(app.getHttpServer())
       .get(`/dashboard/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/services`)
       .expect(200);
+  });
+});
+
+// ─── POST /admin/businesses/:businessId/service-providers ─────────────────────
+
+describe('POST /admin/businesses/:businessId/service-providers', () => {
+  let spOwnerBUId: string;
+  let spMemberBUId: string;
+  let spDupBUId: string;
+  let spInactSvcBUId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: E2E_ADMIN_SP_BIZ_ID },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SP_ACTIVE_SVC_ID, E2E_ADMIN_SP_INACTIVE_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_SP_BIZ_ID },
+    });
+    await prisma.business.deleteMany({
+      where: { id: E2E_ADMIN_SP_BIZ_ID },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_SP_OWNER_USER_ID,
+            E2E_ADMIN_SP_MEMBER_USER_ID,
+            E2E_ADMIN_SP_DUP_USER_ID,
+            E2E_ADMIN_SP_INACT_SVC_USER_ID,
+          ],
+        },
+      },
+    });
+
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_SP_BIZ_ID,
+        name: 'E2E Admin SP Business',
+        slug: 'e2e-admin-sp-business',
+        status: 'TRIAL',
+      },
+    });
+
+    const spOwnerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SP_OWNER_USER_ID,
+        phoneNormalized: ADMIN_SP_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const ownerBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SP_BIZ_ID,
+        userId: spOwnerUser.id,
+        role: 'OWNER',
+        status: 'ACTIVE',
+      },
+    });
+    spOwnerBUId = ownerBU.id;
+
+    const spMemberUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SP_MEMBER_USER_ID,
+        phoneNormalized: ADMIN_SP_MEMBER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const memberBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SP_BIZ_ID,
+        userId: spMemberUser.id,
+        role: 'MEMBER',
+        status: 'ACTIVE',
+      },
+    });
+    spMemberBUId = memberBU.id;
+
+    const spDupUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SP_DUP_USER_ID,
+        phoneNormalized: ADMIN_SP_DUP_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const dupBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SP_BIZ_ID,
+        userId: spDupUser.id,
+        role: 'MEMBER',
+        status: 'ACTIVE',
+      },
+    });
+    spDupBUId = dupBU.id;
+
+    const spInactSvcUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SP_INACT_SVC_USER_ID,
+        phoneNormalized: ADMIN_SP_INACT_SVC_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const inactSvcBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SP_BIZ_ID,
+        userId: spInactSvcUser.id,
+        role: 'MEMBER',
+        status: 'ACTIVE',
+      },
+    });
+    spInactSvcBUId = inactSvcBU.id;
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_SP_ACTIVE_SVC_ID,
+        businessId: E2E_ADMIN_SP_BIZ_ID,
+        name: 'Active Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_SP_INACTIVE_SVC_ID,
+        businessId: E2E_ADMIN_SP_BIZ_ID,
+        name: 'Inactive Service',
+        durationMinutes: 30,
+        isActive: false,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    // Pre-seed SP for duplicate test
+    await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_SP_BIZ_ID,
+        businessUserId: spDupBUId,
+        displayName: 'Pre-seeded Duplicate SP',
+        isActive: false,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: E2E_ADMIN_SP_BIZ_ID },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SP_ACTIVE_SVC_ID, E2E_ADMIN_SP_INACTIVE_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: { businessId: E2E_ADMIN_SP_BIZ_ID },
+    });
+    await prisma.business.deleteMany({
+      where: { id: E2E_ADMIN_SP_BIZ_ID },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_SP_OWNER_USER_ID,
+            E2E_ADMIN_SP_MEMBER_USER_ID,
+            E2E_ADMIN_SP_DUP_USER_ID,
+            E2E_ADMIN_SP_INACT_SVC_USER_ID,
+          ],
+        },
+      },
+    });
+  });
+
+  it('admin + valid body → 201 with correct ServiceProviderDto shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'Admin Provider',
+        businessUserId: spOwnerBUId,
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+        isActive: true,
+      })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      id: expect.any(String) as string,
+      displayName: 'Admin Provider',
+      isActive: true,
+      businessUserId: spOwnerBUId,
+      serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+      createdAt: expect.any(String) as string,
+      updatedAt: expect.any(String) as string,
+    });
+  });
+
+  it('admin + isActive: false → 201 with isActive false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'Inactive Admin Provider',
+        businessUserId: spMemberBUId,
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+        isActive: false,
+      })
+      .expect(201);
+
+    expect((res.body as { isActive: boolean }).isActive).toBe(false);
+  });
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'Provider',
+        businessUserId: spInactSvcBUId,
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+      })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'Provider',
+        businessUserId: spInactSvcBUId,
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+      })
+      .expect(401);
+  });
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(
+        '/admin/businesses/00000000-0000-4000-8000-000000000000/service-providers',
+      )
+      .send({
+        displayName: 'Provider',
+        businessUserId: spInactSvcBUId,
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+      })
+      .expect(404);
+  });
+
+  it('missing displayName → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        businessUserId: spInactSvcBUId,
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+      })
+      .expect(400);
+  });
+
+  it('businessUserId not in this business → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'Provider',
+        businessUserId: '00000000-0000-4000-8000-000000000099',
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+      })
+      .expect(400);
+  });
+
+  it('duplicate businessUserId → 409', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'Duplicate Provider',
+        businessUserId: spDupBUId,
+        serviceIds: [E2E_ADMIN_SP_ACTIVE_SVC_ID],
+      })
+      .expect(409);
+  });
+
+  it('linking inactive service to active ServiceProvider → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'Provider',
+        businessUserId: spInactSvcBUId,
+        serviceIds: [E2E_ADMIN_SP_INACTIVE_SVC_ID],
+        isActive: true,
+      })
+      .expect(400);
   });
 });

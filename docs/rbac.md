@@ -26,7 +26,7 @@ Full control over the business.
 - Manage services
 - Manage customers
 - Manage appointments
-- Manage service providers
+- Edit/manage existing service providers (update display name, services, active status)
 - Manage working hours
 - Manage availability exceptions
 - Invite/remove MANAGER users
@@ -44,13 +44,14 @@ Operational manager.
 - Manage services
 - Manage customers
 - Manage appointments
-- Manage service providers
+- Edit/manage existing service providers (update display name, services, active status)
 - Manage working hours
 - Manage availability exceptions
 - Access business app
 
 **Cannot:**
 
+- Create new service providers (admin/ops only — see note below)
 - Invite/remove users
 - Change user roles
 - Transfer ownership
@@ -108,7 +109,8 @@ Basic operational user with read access.
 | Update appointment details             | yes   | yes     | no     |
 | Change appointment status              | yes   | yes     | no     |
 | View service providers                 | yes   | yes     | yes    |
-| Create/update/delete service providers | yes   | yes     | no     |
+| Create service providers               | no    | no      | no     |
+| Update/edit existing service providers | yes   | yes     | no     |
 | View working hours                     | yes   | yes     | yes    |
 | Update working hours                   | yes   | yes     | no     |
 | Manage availability exceptions         | yes   | yes     | no     |
@@ -147,3 +149,5 @@ The following items require an explicit decision before being tested, changed, o
    Both endpoints scope the target lookup by both `businessUserId` and `businessId` — a foreign `businessUserId` from another business returns 404.
 
 5. **Remove business users — not yet implemented**: Hard delete and soft-removal via a dedicated endpoint are deferred. Until a DELETE endpoint is added, blocking a user (`status = BLOCKED`) is the mechanism to revoke app access. MANAGER cannot remove users; this restriction is permanent per the permission matrix above.
+
+6. **ServiceProvider creation — admin/ops only (locked):** `ServiceProvider` represents a bookable calendar/resource. Creating new ServiceProviders is restricted to platform admins via `POST /admin/businesses/:businessId/service-providers`. The dashboard endpoint (`POST /dashboard/businesses/:businessId/service-providers`) throws `ForbiddenException` for all callers. OWNER and MANAGER can update/edit existing providers via the dashboard but cannot create new ones. This decision is locked — do not open dashboard SP creation without an explicit product decision.

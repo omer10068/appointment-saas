@@ -1,13 +1,26 @@
-import { Injectable } from '@nestjs/common';
-import { Business, BusinessUser } from '../generated/prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Business,
+  BusinessUser,
+  BusinessUserStatus,
+} from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { BusinessesService } from '../businesses/businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { BusinessUsersService } from '../business-users/business-users.service';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
+import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
+import type { ServiceProviderDto } from '../dashboard/dashboard-data.service';
 
 @Injectable()
 export class AdminBusinessesService {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly businessesService: BusinessesService,
     private readonly businessUsersService: BusinessUsersService,
   ) {}
@@ -29,5 +42,85 @@ export class AdminBusinessesService {
 
   moveDraftToTrial(businessId: string): Promise<Business> {
     return this.businessesService.moveDraftToTrial(businessId);
+  }
+
+  async createServiceProvider(
+    businessId: string,
+    dto: CreateServiceProviderDto,
+  ): Promise<ServiceProviderDto> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+    });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    const businessUser = await this.prisma.businessUser.findFirst({
+      where: { id: dto.businessUserId, businessId },
+      select: { id: true, status: true },
+    });
+    if (!businessUser) {
+      throw new BadRequestException(
+        'BusinessUser does not belong to this business',
+      );
+    }
+
+    const isActive = dto.isActive ?? true;
+    if (isActive && businessUser.status !== BusinessUserStatus.ACTIVE) {
+      throw new BadRequestException(
+        'Cannot create an active ServiceProvider for a non-ACTIVE BusinessUser',
+      );
+    }
+
+    const duplicate = await this.prisma.serviceProvider.findUnique({
+      where: { businessUserId: dto.businessUserId },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new ConflictException(
+        'This BusinessUser already has a ServiceProvider profile',
+      );
+    }
+
+    const services = await this.prisma.service.findMany({
+      where: { id: { in: dto.serviceIds }, businessId },
+      select: { id: true, isActive: true },
+    });
+    if (services.length !== dto.serviceIds.length) {
+      throw new BadRequestException(
+        'One or more services do not belong to this business',
+      );
+    }
+    if (isActive && services.some((s) => !s.isActive)) {
+      throw new BadRequestException(
+        'Active ServiceProvider cannot be linked to inactive services',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const sp = await tx.serviceProvider.create({
+        data: {
+          businessId,
+          displayName: dto.displayName,
+          businessUserId: dto.businessUserId,
+          isActive,
+        },
+      });
+      await tx.serviceProviderService.createMany({
+        data: dto.serviceIds.map((serviceId) => ({
+          serviceProviderId: sp.id,
+          serviceId,
+        })),
+      });
+      return {
+        id: sp.id,
+        displayName: sp.displayName,
+        isActive: sp.isActive,
+        businessUserId: sp.businessUserId,
+        serviceIds: dto.serviceIds,
+        createdAt: sp.createdAt,
+        updatedAt: sp.updatedAt,
+      };
+    });
   }
 }

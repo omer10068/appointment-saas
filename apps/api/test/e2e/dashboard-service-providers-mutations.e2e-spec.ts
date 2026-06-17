@@ -373,9 +373,9 @@ beforeEach(() => {
 // ─── POST /dashboard/businesses/:businessId/service-providers ─────────────────
 
 describe('POST /dashboard/businesses/:businessId/service-providers', () => {
-  it('owner → 201 with correct ServiceProviderDto shape', async () => {
+  it('owner → 403 (creation restricted to platform administrators)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
       .send({
         displayName: 'Owner Provider',
@@ -383,36 +383,19 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
         isActive: true,
       })
-      .expect(201);
-
-    expect(res.body).toMatchObject<ServiceProviderDto>({
-      id: expect.any(String) as string,
-      displayName: 'Owner Provider',
-      isActive: true,
-      businessUserId: ownerBUId,
-      serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
-      createdAt: expect.any(String) as string,
-      updatedAt: expect.any(String) as string,
-    });
+      .expect(403);
   });
 
-  it('manager → 201', async () => {
+  it('manager → 403 (creation restricted to platform administrators)', async () => {
     MockClerkAuthGuard.currentUser = managerUser;
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
       .send({
         displayName: 'Manager Provider',
         businessUserId: managerBUId,
         serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
       })
-      .expect(201);
-
-    const body = res.body as ServiceProviderDto;
-    expect(body.displayName).toBe('Manager Provider');
-    expect(body.businessUserId).toBe(managerBUId);
-    // isActive defaults to true when not provided
-    expect(body.isActive).toBe(true);
-    expect(body.serviceIds).toEqual([E2E_SP_MUT_ACTIVE_SVC_ID]);
+      .expect(403);
   });
 
   it('member → 403', async () => {
@@ -479,7 +462,7 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
       .expect(403);
   });
 
-  it('missing displayName → 400', async () => {
+  it('missing displayName → 403 (handler blocks before validation)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
@@ -487,10 +470,10 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         businessUserId: ownerBUId,
         serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
       })
-      .expect(400);
+      .expect(403);
   });
 
-  it('empty displayName → 400', async () => {
+  it('empty displayName → 403 (handler blocks before validation)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
@@ -499,18 +482,18 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         businessUserId: ownerBUId,
         serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
       })
-      .expect(400);
+      .expect(403);
   });
 
-  it('missing serviceIds → 400', async () => {
+  it('missing serviceIds → 403 (handler blocks before validation)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
       .send({ displayName: 'Provider', businessUserId: ownerBUId })
-      .expect(400);
+      .expect(403);
   });
 
-  it('empty serviceIds array → 400', async () => {
+  it('empty serviceIds array → 403 (handler blocks before validation)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
@@ -519,18 +502,18 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         businessUserId: ownerBUId,
         serviceIds: [],
       })
-      .expect(400);
+      .expect(403);
   });
 
-  it('missing businessUserId → 400', async () => {
+  it('missing businessUserId → 403 (handler blocks before validation)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
       .send({ displayName: 'Provider', serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID] })
-      .expect(400);
+      .expect(403);
   });
 
-  it('businessUserId not in this business → 400', async () => {
+  it('businessUserId not in this business → 403 (handler blocks before service call)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
@@ -539,10 +522,10 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         businessUserId: '00000000-0000-4000-8000-000000000099',
         serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
       })
-      .expect(400);
+      .expect(403);
   });
 
-  it('duplicate businessUserId → 409 (ownerBU already has a ServiceProvider from test 1)', async () => {
+  it('duplicate businessUserId → 403 (handler blocks before service call)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
@@ -551,11 +534,10 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         businessUserId: ownerBUId,
         serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID],
       })
-      .expect(409);
+      .expect(403);
   });
 
-  it('cross-tenant serviceId → 400', async () => {
-    // Service from the other business — not found in this business
+  it('cross-tenant serviceId → 403 (handler blocks before service call)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
@@ -564,10 +546,10 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         businessUserId: memberBUId,
         serviceIds: [E2E_SP_MUT_OTHER_SVC_ID],
       })
-      .expect(400);
+      .expect(403);
   });
 
-  it('linking inactive service to active ServiceProvider → 400', async () => {
+  it('linking inactive service to active ServiceProvider → 403 (handler blocks before service call)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     await request(app.getHttpServer())
       .post(`/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers`)
@@ -577,7 +559,7 @@ describe('POST /dashboard/businesses/:businessId/service-providers', () => {
         serviceIds: [E2E_SP_MUT_INACTIVE_SVC_ID],
         isActive: true,
       })
-      .expect(400);
+      .expect(403);
   });
 });
 

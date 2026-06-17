@@ -13,6 +13,7 @@ import { AdminBusinessesService } from './admin-businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { SetBusinessTrialDto } from './dto/set-business-trial.dto';
+import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 
 @UseGuards(ClerkAuthGuard, PlatformAdminGuard)
 @Controller('admin/businesses')
@@ -45,5 +46,13 @@ export class AdminBusinessesController {
     @Body() dto: SetBusinessTrialDto,
   ) {
     return this.adminBusinessesService.moveDraftToTrial(businessId);
+  }
+
+  @Post(':businessId/service-providers')
+  createServiceProvider(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateServiceProviderDto,
+  ) {
+    return this.adminBusinessesService.createServiceProvider(businessId, dto);
   }
 }
