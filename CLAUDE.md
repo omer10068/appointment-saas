@@ -251,8 +251,15 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - Asserts publicBookingEnabled remains false throughout and is never accidentally set.
   - Serves as a living backend runbook for first manual onboarding.
   - E2E: `admin-businesses.e2e-spec.ts` +1 test (128 total).
-- Approximate test counts: 23+ E2E suites / 540+ tests, 17+ unit suites / 293+ unit tests.
-- Admin/Ops onboarding runbook: `docs/admin-onboarding-runbook.md` — step-by-step guide for manually onboarding a business from DRAFT to ACTIVE using backend endpoints only. Covers the full two-partner setup, working hours, readiness verification, status transitions, common mistakes, and troubleshooting.
+- Phase C — Admin correction endpoints (DRAFT-safe):
+  - Goal: fix common setup mistakes during DRAFT onboarding without DB edits or moving to TRIAL early.
+  - `PATCH /admin/businesses/:businessId` — update name, timezone, locale, currency. Reuses `UpdateBusinessSettingsDto`. At least one field required → 400 otherwise. slug is intentionally immutable (not in DTO; sending it returns 400 due to `forbidNonWhitelisted`). Works on any business status.
+  - `PATCH /admin/businesses/:businessId/services/:serviceId` — update service fields. Reuses `UpdateServiceDto`. Verifies service belongs to businessId → 404 if cross-tenant. No cascade on deactivation (readiness reflects the broken state). Works on any business status.
+  - `PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId` — update SP displayName, serviceIds, isActive. Reuses `UpdateServiceProviderDto`. Preserves all invariants from `createServiceProvider`: active SP cannot link inactive services; activating SP with no services → 400. businessUserId remains immutable. Transaction: delete+recreate service links when serviceIds provided. Works on any business status.
+  - All three: `ClerkAuthGuard + PlatformAdminGuard` only. No dashboard guards. No Prisma schema changes. Dashboard behavior unchanged.
+  - E2E: `admin-businesses.e2e-spec.ts` +33 tests (161 total); `describe('Phase C — Admin correction endpoints')` with 3 nested describes (9 + 11 + 13 tests). Shared `beforeAll`/`afterAll`/`beforeEach` resets mutable state. Covers DRAFT allowed, partial update, invariant validation, cross-tenant 404, 403, 401, readiness-restore integration test.
+- Approximate test counts: 23+ E2E suites / 573+ tests, 17+ unit suites / 293+ unit tests.
+- Admin/Ops onboarding runbook: `docs/admin-onboarding-runbook.md` — step-by-step guide for manually onboarding a business from DRAFT to ACTIVE using backend endpoints only. Covers the full two-partner setup, working hours, readiness verification, status transitions, common mistakes, and troubleshooting. Phase C correction endpoints documented in the runbook.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture

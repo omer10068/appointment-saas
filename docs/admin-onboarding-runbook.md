@@ -635,10 +635,60 @@ When `readiness.isReady` is `false`, `blockingReasons` lists the failing checks.
 | `No active service provider` | Create an active ServiceProvider via `POST /admin/businesses/:id/service-providers` |
 | `No business working hours configured` | Set business working hours via `PUT /admin/businesses/:id/working-hours` |
 | `One or more active service providers have no working hours` | Identify which provider(s) have `hasWorkingHours: false` in the onboarding summary, then call `PUT /admin/businesses/:id/service-providers/:spId/working-hours` for each |
-| `One or more active service providers have no active service assignment` | The affected provider has no active service linked. Recreate or re-link via dashboard after moving to TRIAL |
-| `One or more active services have no active service provider assignment` | The affected service is not linked to any active provider. Check provider `serviceIds` in the onboarding summary |
+| `One or more active service providers have no active service assignment` | Update the SP's service assignments via `PATCH /admin/businesses/:id/service-providers/:spId` with `{"serviceIds": ["<active-service-id>"]}` |
+| `One or more active services have no active service provider assignment` | The affected service is not linked to any active provider. Update a provider's `serviceIds` via `PATCH /admin/businesses/:id/service-providers/:spId` |
 
 After fixing each issue, call `GET /admin/businesses/:id/readiness` again to verify.
+
+---
+
+## Corrections During DRAFT
+
+If you made a mistake during DRAFT setup, use these endpoints to correct it without moving to TRIAL or editing the DB directly.
+
+### Update business metadata (name, timezone, locale, currency)
+
+```http
+PATCH /admin/businesses/:businessId
+Content-Type: application/json
+
+{"name": "Correct Business Name", "timezone": "Asia/Jerusalem"}
+```
+
+At least one field required. Slug is immutable — do not send it (returns 400).
+
+### Update service fields (name, duration, price, etc.)
+
+```http
+PATCH /admin/businesses/:businessId/services/:serviceId
+Content-Type: application/json
+
+{"name": "Correct Service Name", "durationMinutes": 60}
+```
+
+Any combination of `name`, `description`, `durationMinutes`, `priceCents`, `bufferBeforeMin`, `bufferAfterMin`, `isActive`.
+
+### Update ServiceProvider assignments or display name
+
+```http
+PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId
+Content-Type: application/json
+
+{"serviceIds": ["<correct-service-id>"], "displayName": "Correct Name"}
+```
+
+- `serviceIds`: replaces all current service links. Must be ≥ 1 entry if the provider is active.
+- `isActive`: set to `false` to deactivate a wrongly-created provider.
+- `businessUserId` is immutable — cannot be changed after creation.
+
+### Update working hours
+
+Working hours use full-replace semantics. Call the PUT endpoint again with the correct schedule:
+
+```http
+PUT /admin/businesses/:businessId/working-hours
+PUT /admin/businesses/:businessId/service-providers/:serviceProviderId/working-hours
+```
 
 ---
 
@@ -649,10 +699,10 @@ After fixing each issue, call `GET /admin/businesses/:id/readiness` again to ver
 - **No public appointment creation.** Customers book through the Business App only (manual, by owner/manager).
 - **No onboarding automation.** This runbook is the process.
 - **No multiple OWNERs.** Exactly one OWNER per business.
-- **Corrections during DRAFT are limited.** If you need to fix a service name/duration, a service-provider assignment, or business metadata (name/timezone) after creation and while the business is still in DRAFT, Phase C endpoints do not exist yet. Options:
-  - Move to TRIAL first (dashboard unlocks, enabling corrections via the Business App).
-  - Recreate the entity (delete + recreate via admin endpoints for services; working hours support full replacement already).
-  - Direct DB fix as a last resort.
+- **No BusinessUser role/status corrections via admin.** To change a business user's role (MANAGER ↔ MEMBER) or status (ACTIVE ↔ BLOCKED), move to TRIAL first and use the dashboard (`PATCH /dashboard/businesses/:id/users/:buId/role` or `/status`).
+- **No user phone/email correction.** User identity fields require more complex dedup logic. If the wrong phone was used, block the BusinessUser (after TRIAL) and create a new one with the correct phone.
+- **No delete endpoints.** Use `isActive: false` to deactivate a wrong service or provider. Use `BLOCKED` status for a wrong business user (after TRIAL).
+- **Slug is immutable.** If the slug is wrong, the business must be deleted and recreated.
 - **Working-hours conflict checks are intentionally skipped** in the admin Phase B endpoints (`PUT .../working-hours`). These endpoints are designed for DRAFT-phase setup where no appointments exist. For TRIAL/ACTIVE businesses with existing appointments, use the dashboard endpoints, which do enforce conflict checks.
 
 ---

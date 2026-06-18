@@ -21,6 +21,9 @@ import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provid
 import type { CreateServiceDto } from '../dashboard/dto/create-service.dto';
 import type { CreateBusinessUserDto } from '../dashboard/dto/create-business-user.dto';
 import type { UpsertWorkingHoursDto } from '../dashboard/dto/upsert-working-hours.dto';
+import type { UpdateBusinessSettingsDto } from '../dashboard/dto/update-business-settings.dto';
+import type { UpdateServiceDto } from '../dashboard/dto/update-service.dto';
+import type { UpdateServiceProviderDto } from '../dashboard/dto/update-service-provider.dto';
 import type {
   BusinessUserCreatedDto,
   ServiceDto,
@@ -452,6 +455,187 @@ export class AdminBusinessesService {
       throw new NotFoundException('Business not found');
     }
     return computeBusinessReadiness(this.prisma, businessId);
+  }
+
+  async updateBusinessMetadata(
+    businessId: string,
+    dto: UpdateBusinessSettingsDto,
+  ): Promise<Business> {
+    const hasField =
+      dto.name !== undefined ||
+      dto.timezone !== undefined ||
+      dto.locale !== undefined ||
+      dto.currency !== undefined;
+    if (!hasField) {
+      throw new BadRequestException(
+        'At least one field must be provided to update',
+      );
+    }
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    return this.prisma.business.update({
+      where: { id: businessId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.timezone !== undefined && { timezone: dto.timezone }),
+        ...(dto.locale !== undefined && { locale: dto.locale }),
+        ...(dto.currency !== undefined && { currency: dto.currency }),
+      },
+    });
+  }
+
+  async updateService(
+    businessId: string,
+    serviceId: string,
+    dto: UpdateServiceDto,
+  ): Promise<ServiceDto> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    const service = await this.prisma.service.findFirst({
+      where: { id: serviceId, businessId },
+      select: { id: true },
+    });
+    if (!service) throw new NotFoundException('Service not found');
+
+    return this.prisma.service.update({
+      where: { id: serviceId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.durationMinutes !== undefined && {
+          durationMinutes: dto.durationMinutes,
+        }),
+        ...(dto.priceCents !== undefined && { priceCents: dto.priceCents }),
+        ...(dto.bufferBeforeMin !== undefined && {
+          bufferBeforeMin: dto.bufferBeforeMin,
+        }),
+        ...(dto.bufferAfterMin !== undefined && {
+          bufferAfterMin: dto.bufferAfterMin,
+        }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        durationMinutes: true,
+        priceCents: true,
+        isActive: true,
+        bufferBeforeMin: true,
+        bufferAfterMin: true,
+      },
+    });
+  }
+
+  async updateServiceProvider(
+    businessId: string,
+    serviceProviderId: string,
+    dto: UpdateServiceProviderDto,
+  ): Promise<ServiceProviderDto> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    const existing = await this.prisma.serviceProvider.findFirst({
+      where: { id: serviceProviderId, businessId },
+      select: {
+        id: true,
+        displayName: true,
+        isActive: true,
+        businessUserId: true,
+        services: {
+          select: { serviceId: true, service: { select: { isActive: true } } },
+        },
+      },
+    });
+    if (!existing) throw new NotFoundException('Service provider not found');
+
+    const effectiveIsActive = dto.isActive ?? existing.isActive;
+
+    if (dto.serviceIds !== undefined) {
+      if (effectiveIsActive && dto.serviceIds.length === 0) {
+        throw new BadRequestException(
+          'Active ServiceProvider must have at least one service',
+        );
+      }
+      const services = await this.prisma.service.findMany({
+        where: { id: { in: dto.serviceIds }, businessId },
+        select: { id: true, isActive: true },
+      });
+      if (services.length !== dto.serviceIds.length) {
+        throw new BadRequestException(
+          'One or more services do not belong to this business',
+        );
+      }
+      if (effectiveIsActive && services.some((s) => !s.isActive)) {
+        throw new BadRequestException(
+          'Active ServiceProvider cannot be linked to inactive services',
+        );
+      }
+    } else if (effectiveIsActive) {
+      if (existing.services.length === 0) {
+        throw new BadRequestException(
+          'Cannot activate ServiceProvider with no services',
+        );
+      }
+      if (existing.services.some((s) => !s.service.isActive)) {
+        throw new BadRequestException(
+          'Active ServiceProvider cannot be linked to inactive services',
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.serviceIds !== undefined) {
+        await tx.serviceProviderService.deleteMany({
+          where: { serviceProviderId },
+        });
+        if (dto.serviceIds.length > 0) {
+          await tx.serviceProviderService.createMany({
+            data: dto.serviceIds.map((serviceId) => ({
+              serviceProviderId,
+              serviceId,
+            })),
+          });
+        }
+      }
+
+      const updated = await tx.serviceProvider.update({
+        where: { id: serviceProviderId },
+        data: {
+          ...(dto.displayName !== undefined && {
+            displayName: dto.displayName,
+          }),
+          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        },
+      });
+
+      const finalServiceIds =
+        dto.serviceIds !== undefined
+          ? dto.serviceIds
+          : existing.services.map((s) => s.serviceId);
+
+      return {
+        id: updated.id,
+        displayName: updated.displayName,
+        isActive: updated.isActive,
+        businessUserId: updated.businessUserId,
+        serviceIds: finalServiceIds,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+      };
+    });
   }
 
   async getOnboardingSummary(

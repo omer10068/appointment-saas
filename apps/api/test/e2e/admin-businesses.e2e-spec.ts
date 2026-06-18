@@ -132,6 +132,19 @@ const ADMIN_OS_OWNER_PHONE = '+19990002084';
 const ADMIN_OS_MANAGER_PHONE = '+19990002085';
 const ADMIN_OS_EMPTY_OWNER_PHONE = '+19990002086';
 const ADMIN_OS_BIZ_B_OWNER_PHONE = '+19990002087';
+// Phase C — correction endpoints
+const E2E_ADMIN_PC_BIZ_ID = 'e2e20000-0000-4000-8000-000000000056';
+const E2E_ADMIN_PC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000057';
+const E2E_ADMIN_PC_OWNER_ID = 'e2e20000-0000-4000-8000-000000000058';
+const E2E_ADMIN_PC_SECOND_USER_ID = 'e2e20000-0000-4000-8000-000000000059';
+const E2E_ADMIN_PC_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000060';
+const E2E_ADMIN_PC_SVC_ID = 'e2e20000-0000-4000-8000-000000000061';
+const E2E_ADMIN_PC_SVC_B_ID = 'e2e20000-0000-4000-8000-000000000062';
+const E2E_ADMIN_PC_INACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000063';
+const E2E_ADMIN_PC_SVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000064';
+const ADMIN_PC_OWNER_PHONE = '+19990002092';
+const ADMIN_PC_SECOND_USER_PHONE = '+19990002093';
+const ADMIN_PC_OWNER_B_PHONE = '+19990002094';
 // Full onboarding happy path test
 const E2E_ADMIN_HP_SLUG = 'e2e-admin-hp-biz';
 const ADMIN_HP_OWNER_PHONE = '+19990002090';
@@ -4260,5 +4273,699 @@ describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
     expect(final.business.status).toBe('ACTIVE');
     expect(final.business.publicBookingEnabled).toBe(false);
     expect(final.readiness.isReady).toBe(true);
+  });
+});
+
+// ─── Phase C — Admin correction endpoints ─────────────────────────────────────
+
+describe('Phase C — Admin correction endpoints', () => {
+  let pcSpId: string;
+  let pcNoSvcSpId: string;
+  let pcSpBizBId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_PC_OWNER_ID,
+            E2E_ADMIN_PC_SECOND_USER_ID,
+            E2E_ADMIN_PC_OWNER_B_ID,
+          ],
+        },
+      },
+    });
+
+    // ── Seed biz A (DRAFT) ───────────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PC_BIZ_ID,
+        name: 'E2E Admin Phase C Business A',
+        slug: 'e2e-admin-pc-biz-a',
+        status: 'DRAFT',
+        timezone: 'Asia/Jerusalem',
+        locale: 'he',
+        currency: 'ILS',
+      },
+    });
+
+    const pcOwnerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_PC_OWNER_ID,
+        phoneNormalized: ADMIN_PC_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    const pcOwnerBu = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        userId: pcOwnerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    const pcSecondUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_PC_SECOND_USER_ID,
+        phoneNormalized: ADMIN_PC_SECOND_USER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    const pcSecondBu = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        userId: pcSecondUser.id,
+        role: BusinessUserRole.MEMBER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // Services in biz A
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_SVC_ID,
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        name: 'Phase C Service A',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_SVC_B_ID,
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        name: 'Phase C Service B',
+        durationMinutes: 45,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_INACTIVE_SVC_ID,
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        name: 'Phase C Inactive Service',
+        durationMinutes: 30,
+        isActive: false,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    // SP A — active, linked to Service A
+    const spA = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        businessUserId: pcOwnerBu.id,
+        displayName: 'Phase C Provider A',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_PC_SVC_ID }] },
+      },
+    });
+    pcSpId = spA.id;
+
+    // SP "no-service" — inactive, no service links (for activating-with-no-services test)
+    const spNoSvc = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        businessUserId: pcSecondBu.id,
+        displayName: 'Phase C No-Service Provider',
+        isActive: false,
+      },
+    });
+    pcNoSvcSpId = spNoSvc.id;
+
+    // ── Seed biz B (TRIAL) for isolation ────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PC_BIZ_B_ID,
+        name: 'E2E Admin Phase C Business B',
+        slug: 'e2e-admin-pc-biz-b',
+        status: 'TRIAL',
+        timezone: 'America/New_York',
+      },
+    });
+
+    const pcOwnerBUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_PC_OWNER_B_ID,
+        phoneNormalized: ADMIN_PC_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    const pcOwnerBBu = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_B_ID,
+        userId: pcOwnerBUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_SVC_BIZ_B_ID,
+        businessId: E2E_ADMIN_PC_BIZ_B_ID,
+        name: 'Phase C Biz B Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    const spBizB = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_B_ID,
+        businessUserId: pcOwnerBBu.id,
+        displayName: 'Phase C Biz B Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_PC_SVC_BIZ_B_ID }] },
+      },
+    });
+    pcSpBizBId = spBizB.id;
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_PC_OWNER_ID,
+            E2E_ADMIN_PC_SECOND_USER_ID,
+            E2E_ADMIN_PC_OWNER_B_ID,
+          ],
+        },
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    // Reset biz A metadata to known state
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_PC_BIZ_ID },
+      data: {
+        name: 'E2E Admin Phase C Business A',
+        timezone: 'Asia/Jerusalem',
+        locale: 'he',
+        currency: 'ILS',
+      },
+    });
+    // Reset service A to active + original fields
+    await prisma.service.update({
+      where: { id: E2E_ADMIN_PC_SVC_ID },
+      data: { name: 'Phase C Service A', durationMinutes: 60, isActive: true },
+    });
+    // Reset SP A service links and state
+    await prisma.serviceProviderService.deleteMany({
+      where: { serviceProviderId: pcSpId },
+    });
+    await prisma.serviceProviderService.create({
+      data: { serviceProviderId: pcSpId, serviceId: E2E_ADMIN_PC_SVC_ID },
+    });
+    await prisma.serviceProvider.update({
+      where: { id: pcSpId },
+      data: { displayName: 'Phase C Provider A', isActive: true },
+    });
+    // Reset no-service SP
+    await prisma.serviceProvider.update({
+      where: { id: pcNoSvcSpId },
+      data: { isActive: false },
+    });
+  });
+
+  // ─── PATCH /admin/businesses/:businessId ─────────────────────────────────────
+
+  describe('PATCH /admin/businesses/:businessId (update business metadata)', () => {
+    it('admin can update business name during DRAFT → 200, name changed', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'Updated Phase C Name' })
+        .expect(200);
+
+      expect((res.body as { name: string }).name).toBe('Updated Phase C Name');
+    });
+
+    it('admin can update timezone during DRAFT → 200, timezone changed', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ timezone: 'America/New_York' })
+        .expect(200);
+
+      expect((res.body as { timezone: string }).timezone).toBe(
+        'America/New_York',
+      );
+    });
+
+    it('admin can update locale and currency together → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ locale: 'en-US', currency: 'USD' })
+        .expect(200);
+
+      const body = res.body as { locale: string; currency: string };
+      expect(body.locale).toBe('en-US');
+      expect(body.currency).toBe('USD');
+    });
+
+    it('partial update preserves unspecified fields', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'Only Name Updated' })
+        .expect(200);
+
+      const body = res.body as { name: string; timezone: string };
+      expect(body.name).toBe('Only Name Updated');
+      expect(body.timezone).toBe('Asia/Jerusalem');
+    });
+
+    it('empty body returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({})
+        .expect(400);
+    });
+
+    it('non-existent businessId returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch('/admin/businesses/00000000-0000-4000-8000-000000000000')
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-admin returns 403', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'X' })
+        .expect(403);
+    });
+
+    it('missing auth returns 401', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'X' })
+        .expect(401);
+    });
+
+    it('slug field in body returns 400 (non-whitelisted)', async () => {
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'New Name', slug: 'new-slug' })
+        .expect(400);
+    });
+  });
+
+  // ─── PATCH /admin/businesses/:businessId/services/:serviceId ─────────────────
+
+  describe('PATCH /admin/businesses/:businessId/services/:serviceId (update service)', () => {
+    it('admin can update service name during DRAFT → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'Updated Service Name' })
+        .expect(200);
+
+      expect((res.body as { name: string }).name).toBe('Updated Service Name');
+    });
+
+    it('admin can update durationMinutes → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ durationMinutes: 90 })
+        .expect(200);
+
+      expect((res.body as { durationMinutes: number }).durationMinutes).toBe(
+        90,
+      );
+    });
+
+    it('admin can deactivate service with isActive=false → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      expect((res.body as { isActive: boolean }).isActive).toBe(false);
+    });
+
+    it('partial update preserves unspecified fields', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'Only Name' })
+        .expect(200);
+
+      const body = res.body as { name: string; durationMinutes: number };
+      expect(body.name).toBe('Only Name');
+      expect(body.durationMinutes).toBe(60);
+    });
+
+    it('invalid durationMinutes (below min) returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ durationMinutes: 4 })
+        .expect(400);
+    });
+
+    it('cross-tenant service returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_BIZ_B_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-existent serviceId returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/00000000-0000-4000-8000-000000000000`,
+        )
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-existent businessId returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/00000000-0000-4000-8000-000000000000/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-admin returns 403', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(403);
+    });
+
+    it('missing auth returns 401', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(401);
+    });
+
+    it('deactivating service assigned to active provider fails allActiveProvidersHaveActiveServiceAssignment', async () => {
+      // Deactivate Service A — SP A is active and linked to it
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      // Readiness check: allActiveProvidersHaveActiveServiceAssignment should now be false
+      const summaryRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      expect(
+        (
+          summaryRes.body as {
+            readiness: {
+              checks: {
+                allActiveProvidersHaveActiveServiceAssignment: boolean;
+              };
+            };
+          }
+        ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
+      ).toBe(false);
+    });
+  });
+
+  // ─── PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId ─
+
+  describe('PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId (update ServiceProvider)', () => {
+    it('admin can update SP displayName during DRAFT → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'Updated Provider Name' })
+        .expect(200);
+
+      expect((res.body as { displayName: string }).displayName).toBe(
+        'Updated Provider Name',
+      );
+    });
+
+    it('admin can replace serviceIds during DRAFT → 200, serviceIds changed', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
+        .expect(200);
+
+      const serviceIds = (res.body as { serviceIds: string[] }).serviceIds;
+      expect(serviceIds).toContain(E2E_ADMIN_PC_SVC_B_ID);
+      expect(serviceIds).not.toContain(E2E_ADMIN_PC_SVC_ID);
+    });
+
+    it('admin can deactivate SP with isActive=false → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      expect((res.body as { isActive: boolean }).isActive).toBe(false);
+    });
+
+    it('partial update (only displayName) preserves existing serviceIds', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'Only Name Updated' })
+        .expect(200);
+
+      const body = res.body as { displayName: string; serviceIds: string[] };
+      expect(body.displayName).toBe('Only Name Updated');
+      expect(body.serviceIds).toContain(E2E_ADMIN_PC_SVC_ID);
+    });
+
+    it('active provider with empty serviceIds returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [] })
+        .expect(400);
+    });
+
+    it('active provider with inactive service in serviceIds returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_INACTIVE_SVC_ID] })
+        .expect(400);
+    });
+
+    it('activating inactive provider with no existing services returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcNoSvcSpId}`,
+        )
+        .send({ isActive: true })
+        .expect(400);
+    });
+
+    it('cross-tenant SP returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpBizBId}`,
+        )
+        .send({ displayName: 'X' })
+        .expect(404);
+    });
+
+    it('non-existent SP returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/00000000-0000-4000-8000-000000000000`,
+        )
+        .send({ displayName: 'X' })
+        .expect(404);
+    });
+
+    it('non-admin returns 403', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'X' })
+        .expect(403);
+    });
+
+    it('missing auth returns 401', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'X' })
+        .expect(401);
+    });
+
+    it('updating serviceIds is reflected in onboarding summary', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
+        .expect(200);
+
+      const summaryRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      const sp = (
+        summaryRes.body as {
+          serviceProviders: Array<{ id: string; serviceIds: string[] }>;
+        }
+      ).serviceProviders.find((s) => s.id === pcSpId);
+
+      expect(sp).toBeDefined();
+      expect(sp?.serviceIds).toContain(E2E_ADMIN_PC_SVC_B_ID);
+      expect(sp?.serviceIds).not.toContain(E2E_ADMIN_PC_SVC_ID);
+    });
+
+    it('updating serviceIds can restore readiness after wrong assignment', async () => {
+      // Deactivate Service A — SP A is active and linked to it → breaks readiness
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      // Verify readiness check is broken
+      const brokenRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      expect(
+        (
+          brokenRes.body as {
+            readiness: {
+              checks: {
+                allActiveProvidersHaveActiveServiceAssignment: boolean;
+              };
+            };
+          }
+        ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
+      ).toBe(false);
+
+      // Update SP to use Service B (still active) → restores readiness
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
+        .expect(200);
+
+      const restoredRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      expect(
+        (
+          restoredRes.body as {
+            readiness: {
+              checks: {
+                allActiveProvidersHaveActiveServiceAssignment: boolean;
+              };
+            };
+          }
+        ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
+      ).toBe(true);
+    });
   });
 });

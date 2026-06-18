@@ -19,6 +19,9 @@ import { CreateServiceDto } from '../dashboard/dto/create-service.dto';
 import { CreateBusinessUserDto } from '../dashboard/dto/create-business-user.dto';
 import { UpsertWorkingHoursDto } from '../dashboard/dto/upsert-working-hours.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
+import { UpdateBusinessSettingsDto } from '../dashboard/dto/update-business-settings.dto';
+import { UpdateServiceDto } from '../dashboard/dto/update-service.dto';
+import { UpdateServiceProviderDto } from '../dashboard/dto/update-service-provider.dto';
 
 @UseGuards(ClerkAuthGuard, PlatformAdminGuard)
 @Controller('admin/businesses')
@@ -106,6 +109,40 @@ export class AdminBusinessesController {
     @Body() dto: UpsertWorkingHoursDto,
   ) {
     return this.adminBusinessesService.setServiceProviderWorkingHours(
+      businessId,
+      serviceProviderId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId')
+  updateBusinessMetadata(
+    @Param('businessId') businessId: string,
+    @Body() dto: UpdateBusinessSettingsDto,
+  ) {
+    return this.adminBusinessesService.updateBusinessMetadata(businessId, dto);
+  }
+
+  @Patch(':businessId/services/:serviceId')
+  updateService(
+    @Param('businessId') businessId: string,
+    @Param('serviceId') serviceId: string,
+    @Body() dto: UpdateServiceDto,
+  ) {
+    return this.adminBusinessesService.updateService(
+      businessId,
+      serviceId,
+      dto,
+    );
+  }
+
+  @Patch(':businessId/service-providers/:serviceProviderId')
+  updateServiceProvider(
+    @Param('businessId') businessId: string,
+    @Param('serviceProviderId') serviceProviderId: string,
+    @Body() dto: UpdateServiceProviderDto,
+  ) {
+    return this.adminBusinessesService.updateServiceProvider(
       businessId,
       serviceProviderId,
       dto,

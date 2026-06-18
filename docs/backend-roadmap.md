@@ -963,13 +963,40 @@ Goal: allow Admin to configure a new business during the DRAFT phase, before the
 
 **E2E coverage:** 1 consolidated test added (128 total in `admin-businesses.e2e-spec.ts`).
 
+### Phase C: Admin correction endpoints
+
+**Status:** Complete.
+
+**Endpoints added:**
+
+- `PATCH /admin/businesses/:businessId` — update name, timezone, locale, currency
+- `PATCH /admin/businesses/:businessId/services/:serviceId` — update service fields
+- `PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId` — update SP displayName, serviceIds, isActive
+
+**Purpose:** Fix common setup mistakes during DRAFT onboarding without requiring DB edits or an early move to TRIAL.
+
+**Key design decisions:**
+
+- All three endpoints work on any business status (DRAFT/TRIAL/ACTIVE). No status check.
+- `ClerkAuthGuard + PlatformAdminGuard` only — no dashboard guards.
+- Reuse existing dashboard DTOs: `UpdateBusinessSettingsDto`, `UpdateServiceDto`, `UpdateServiceProviderDto`.
+- Slug is intentionally immutable — absent from `UpdateBusinessSettingsDto`; sending it returns 400 (`forbidNonWhitelisted`).
+- Service deactivation has no cascade — if an active SP links the deactivated service, readiness reflects this cleanly.
+- SP update preserves all creation-time invariants (active SP cannot link inactive services; activating with no services → 400).
+- `businessUserId` on SP is immutable — absent from `UpdateServiceProviderDto`.
+- No Prisma schema changes. Dashboard behavior unchanged.
+
+**Methods added to `AdminBusinessesService`:** `updateBusinessMetadata`, `updateService`, `updateServiceProvider`.
+
+**E2E coverage:** 33 tests added (161 total in `admin-businesses.e2e-spec.ts`). `describe('Phase C — Admin correction endpoints')` with 3 nested describes (9 + 11 + 13 tests). Includes a readiness-restore integration test: deactivate service A → check readiness broken → update SP to service B → check readiness restored.
+
 ### Admin/Ops Onboarding Runbook
 
 **Status:** Written.
 
 **Document:** [`docs/admin-onboarding-runbook.md`](./admin-onboarding-runbook.md)
 
-Step-by-step operational guide for manually onboarding a business using backend endpoints only. Covers the full 12-step sequence matching the happy-path E2E test: create business → create owner → add manager → create services → create ServiceProviders → set working hours → verify summary + readiness → DRAFT → TRIAL → ACTIVE. Includes example payloads, common mistakes, readiness troubleshooting map, and current limitations.
+Step-by-step operational guide for manually onboarding a business using backend endpoints only. Covers the full 12-step sequence matching the happy-path E2E test: create business → create owner → add manager → create services → create ServiceProviders → set working hours → verify summary + readiness → DRAFT → TRIAL → ACTIVE. Includes example payloads, common mistakes, readiness troubleshooting map, and Phase C correction endpoints for DRAFT-phase corrections.
 
 ## Later — Phase 3 and Beyond
 
