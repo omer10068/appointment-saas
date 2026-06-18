@@ -55,6 +55,16 @@ const E2E_ADMIN_CSVC_BIZ_ID = 'e2e20000-0000-4000-8000-000000000029'; // DRAFT b
 const E2E_ADMIN_CSVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000030'; // TRIAL biz B (isolation)
 const E2E_ADMIN_CSVC_OWNER_ID = 'e2e20000-0000-4000-8000-000000000031';
 const E2E_ADMIN_CSVC_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000032';
+// Admin onboarding summary tests (B.5)
+const E2E_ADMIN_OS_BIZ_ID = 'e2e20000-0000-4000-8000-000000000047'; // full DRAFT biz
+const E2E_ADMIN_OS_EMPTY_BIZ_ID = 'e2e20000-0000-4000-8000-000000000048'; // minimal DRAFT biz
+const E2E_ADMIN_OS_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000049'; // isolation biz
+const E2E_ADMIN_OS_OWNER_ID = 'e2e20000-0000-4000-8000-000000000050';
+const E2E_ADMIN_OS_MANAGER_ID = 'e2e20000-0000-4000-8000-000000000051';
+const E2E_ADMIN_OS_EMPTY_OWNER_ID = 'e2e20000-0000-4000-8000-000000000052';
+const E2E_ADMIN_OS_BIZ_B_OWNER_ID = 'e2e20000-0000-4000-8000-000000000053';
+const E2E_ADMIN_OS_SVC_ID = 'e2e20000-0000-4000-8000-000000000054';
+const E2E_ADMIN_OS_BIZ_B_SVC_ID = 'e2e20000-0000-4000-8000-000000000055';
 // Admin set SP working hours tests (B.4)
 const E2E_ADMIN_SPWH_BIZ_ID = 'e2e20000-0000-4000-8000-000000000041';
 const E2E_ADMIN_SPWH_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000042';
@@ -118,6 +128,10 @@ const ALL_ABU_TEST_PHONES = [
   ADMIN_ABU_T12_PHONE,
   ADMIN_ABU_T13_PHONE,
 ];
+const ADMIN_OS_OWNER_PHONE = '+19990002084';
+const ADMIN_OS_MANAGER_PHONE = '+19990002085';
+const ADMIN_OS_EMPTY_OWNER_PHONE = '+19990002086';
+const ADMIN_OS_BIZ_B_OWNER_PHONE = '+19990002087';
 const ADMIN_RDN_OWNER_PHONE = '+19990002041';
 const ADMIN_ACTIVE_OWNER_PHONE = '+19990002042';
 const ADMIN_PB_OWNER_PHONE = '+19990002050';
@@ -3349,5 +3363,543 @@ describe('PUT /admin/businesses/:businessId/service-providers/:spId/working-hour
       where: { serviceProviderId: spBId },
     });
     expect(rows).toHaveLength(0);
+  });
+});
+
+// ─── GET /admin/businesses/:businessId/onboarding-summary (B.5) ───────────────
+
+describe('GET /admin/businesses/:businessId/onboarding-summary (admin onboarding summary)', () => {
+  let osSpId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_OS_SVC_ID, E2E_ADMIN_OS_BIZ_B_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_OWNER_ID,
+            E2E_ADMIN_OS_MANAGER_ID,
+            E2E_ADMIN_OS_EMPTY_OWNER_ID,
+            E2E_ADMIN_OS_BIZ_B_OWNER_ID,
+          ],
+        },
+      },
+    });
+
+    // ── Seed biz A (full DRAFT) ───────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_ID,
+        name: 'E2E Admin OS Business A',
+        slug: 'e2e-admin-os-biz-a',
+        status: 'DRAFT',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    const ownerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_OWNER_ID,
+        phoneNormalized: ADMIN_OS_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const buOwner = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        userId: ownerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    const managerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_MANAGER_ID,
+        phoneNormalized: ADMIN_OS_MANAGER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        userId: managerUser.id,
+        role: BusinessUserRole.MANAGER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_OS_SVC_ID,
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        name: 'OS Test Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    const spA = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        businessUserId: buOwner.id,
+        displayName: 'OS Test Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_OS_SVC_ID }] },
+      },
+    });
+    osSpId = spA.id;
+    await prisma.businessWorkingHour.createMany({
+      data: [
+        {
+          businessId: E2E_ADMIN_OS_BIZ_ID,
+          dayOfWeek: 1,
+          isClosed: false,
+          startTime: '09:00',
+          endTime: '18:00',
+        },
+        {
+          businessId: E2E_ADMIN_OS_BIZ_ID,
+          dayOfWeek: 3,
+          isClosed: false,
+          startTime: '09:00',
+          endTime: '18:00',
+        },
+      ],
+    });
+    await prisma.serviceProviderWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        serviceProviderId: osSpId,
+        dayOfWeek: 1,
+        isClosed: false,
+        startTime: '09:00',
+        endTime: '18:00',
+      },
+    });
+
+    // ── Seed biz A-empty (minimal DRAFT) ──────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_OS_EMPTY_BIZ_ID,
+        name: 'E2E Admin OS Empty Business',
+        slug: 'e2e-admin-os-empty-biz',
+        status: 'DRAFT',
+        timezone: 'UTC',
+      },
+    });
+    const emptyOwnerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_EMPTY_OWNER_ID,
+        phoneNormalized: ADMIN_OS_EMPTY_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_EMPTY_BIZ_ID,
+        userId: emptyOwnerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // ── Seed biz B (TRIAL — for tenant isolation) ─────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_B_ID,
+        name: 'E2E Admin OS Business B',
+        slug: 'e2e-admin-os-biz-b',
+        status: 'TRIAL',
+        timezone: 'UTC',
+      },
+    });
+    const bizBOwnerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_B_OWNER_ID,
+        phoneNormalized: ADMIN_OS_BIZ_B_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_B_ID,
+        userId: bizBOwnerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_B_SVC_ID,
+        businessId: E2E_ADMIN_OS_BIZ_B_ID,
+        name: 'OS Biz B Service',
+        durationMinutes: 30,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_OS_SVC_ID, E2E_ADMIN_OS_BIZ_B_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_OWNER_ID,
+            E2E_ADMIN_OS_MANAGER_ID,
+            E2E_ADMIN_OS_EMPTY_OWNER_ID,
+            E2E_ADMIN_OS_BIZ_B_OWNER_ID,
+          ],
+        },
+      },
+    });
+  });
+
+  // ── Success — full DRAFT business ─────────────────────────────────────────
+
+  it('full DRAFT business → 200 with all top-level keys present', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const body = res.body as Record<string, unknown>;
+    expect(body).toHaveProperty('business');
+    expect(body).toHaveProperty('users');
+    expect(body).toHaveProperty('services');
+    expect(body).toHaveProperty('serviceProviders');
+    expect(body).toHaveProperty('businessWorkingHours');
+    expect(body).toHaveProperty('readiness');
+  });
+
+  it('business metadata is correct (id, name, slug, status=DRAFT, timezone, publicBookingEnabled=false)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const biz = (
+      res.body as {
+        business: {
+          id: string;
+          name: string;
+          slug: string;
+          status: string;
+          timezone: string;
+          publicBookingEnabled: boolean;
+        };
+      }
+    ).business;
+    expect(biz.id).toBe(E2E_ADMIN_OS_BIZ_ID);
+    expect(biz.name).toBe('E2E Admin OS Business A');
+    expect(biz.slug).toBe('e2e-admin-os-biz-a');
+    expect(biz.status).toBe('DRAFT');
+    expect(biz.timezone).toBe('Asia/Jerusalem');
+    expect(biz.publicBookingEnabled).toBe(false);
+  });
+
+  it('users section contains OWNER and MANAGER with correct role, status, and user.phone', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const users = (
+      res.body as {
+        users: Array<{
+          role: string;
+          status: string;
+          user: { phone: string };
+        }>;
+      }
+    ).users;
+    expect(users).toHaveLength(2);
+    const owner = users.find((u) => u.role === 'OWNER');
+    const manager = users.find((u) => u.role === 'MANAGER');
+    expect(owner).toBeDefined();
+    expect(owner?.status).toBe('ACTIVE');
+    expect(owner?.user.phone).toBe(ADMIN_OS_OWNER_PHONE);
+    expect(manager).toBeDefined();
+    expect(manager?.status).toBe('ACTIVE');
+    expect(manager?.user.phone).toBe(ADMIN_OS_MANAGER_PHONE);
+  });
+
+  it('services section contains the seeded service with correct shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const services = (
+      res.body as {
+        services: Array<{ id: string; name: string; isActive: boolean }>;
+      }
+    ).services;
+    expect(services).toHaveLength(1);
+    expect(services[0].id).toBe(E2E_ADMIN_OS_SVC_ID);
+    expect(services[0].name).toBe('OS Test Service');
+    expect(services[0].isActive).toBe(true);
+  });
+
+  it('serviceProviders section has SP with serviceIds array and hasWorkingHours=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const sps = (
+      res.body as {
+        serviceProviders: Array<{
+          id: string;
+          displayName: string;
+          isActive: boolean;
+          serviceIds: string[];
+          hasWorkingHours: boolean;
+        }>;
+      }
+    ).serviceProviders;
+    expect(sps).toHaveLength(1);
+    expect(sps[0].id).toBe(osSpId);
+    expect(sps[0].displayName).toBe('OS Test Provider');
+    expect(sps[0].isActive).toBe(true);
+    expect(sps[0].serviceIds).toContain(E2E_ADMIN_OS_SVC_ID);
+    expect(sps[0].hasWorkingHours).toBe(true);
+  });
+
+  it('businessWorkingHours is ordered by dayOfWeek ascending', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const hours = (
+      res.body as { businessWorkingHours: Array<{ dayOfWeek: number }> }
+    ).businessWorkingHours;
+    expect(hours).toHaveLength(2);
+    expect(hours[0].dayOfWeek).toBe(1);
+    expect(hours[1].dayOfWeek).toBe(3);
+  });
+
+  it('readiness is embedded with isReady=true and all checks true for fully configured business', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const readiness = (
+      res.body as {
+        readiness: {
+          isReady: boolean;
+          checks: {
+            hasActiveOwner: boolean;
+            hasActiveService: boolean;
+            hasActiveServiceProvider: boolean;
+            hasBusinessWorkingHours: boolean;
+            allActiveProvidersHaveWorkingHours: boolean;
+          };
+        };
+      }
+    ).readiness;
+    expect(readiness.isReady).toBe(true);
+    expect(readiness.checks.hasActiveOwner).toBe(true);
+    expect(readiness.checks.hasActiveService).toBe(true);
+    expect(readiness.checks.hasActiveServiceProvider).toBe(true);
+    expect(readiness.checks.hasBusinessWorkingHours).toBe(true);
+    expect(readiness.checks.allActiveProvidersHaveWorkingHours).toBe(true);
+  });
+
+  // ── Empty DRAFT business ──────────────────────────────────────────────────
+
+  it('empty DRAFT business → 200 with empty services/SPs/hours and isReady=false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_EMPTY_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const body = res.body as {
+      users: unknown[];
+      services: unknown[];
+      serviceProviders: unknown[];
+      businessWorkingHours: unknown[];
+      readiness: { isReady: boolean };
+    };
+    expect(body.users).toHaveLength(1); // owner only
+    expect(body.services).toHaveLength(0);
+    expect(body.serviceProviders).toHaveLength(0);
+    expect(body.businessWorkingHours).toHaveLength(0);
+    expect(body.readiness.isReady).toBe(false);
+  });
+
+  // ── DRAFT status is not blocked ───────────────────────────────────────────
+
+  it('DRAFT business is not blocked by status → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+  });
+
+  // ── Not found ─────────────────────────────────────────────────────────────
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .get(
+        '/admin/businesses/00000000-0000-4000-8000-000000000000/onboarding-summary',
+      )
+      .expect(404);
+  });
+
+  // ── Auth guards ───────────────────────────────────────────────────────────
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(401);
+  });
+
+  // ── Tenant isolation ──────────────────────────────────────────────────────
+
+  it('biz A summary does not contain biz B service (tenant isolation)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const serviceIds = (
+      res.body as { services: Array<{ id: string }> }
+    ).services.map((s) => s.id);
+    expect(serviceIds).not.toContain(E2E_ADMIN_OS_BIZ_B_SVC_ID);
   });
 });

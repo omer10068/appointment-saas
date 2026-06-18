@@ -920,6 +920,37 @@ Goal: allow Admin to configure a new business during the DRAFT phase, before the
 
 **E2E coverage:** 15 tests added (114 total in `admin-businesses.e2e-spec.ts`).
 
+### Phase B.5: Admin onboarding summary
+
+**Endpoint:** `GET /admin/businesses/:businessId/onboarding-summary`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on any business status including DRAFT (no status restriction).
+- Returns a single compound read — no mutations.
+- Executes one compound Prisma query fetching business metadata, businessUsers (with user phone/email), services, serviceProviders (with service links and a `hasWorkingHours` flag), businessWorkingHours, then calls `computeBusinessReadiness` and embeds the result.
+- `getOnboardingSummary(businessId)` added to `AdminBusinessesService`.
+- `AdminOnboardingSummaryDto` interface defined at the bottom of `admin-businesses.service.ts`.
+- Does NOT replace or expand `GET /admin/businesses/:businessId/readiness` — that endpoint stays lean and is called by `setBusinessStatus`/`setPublicBookingEnabled`.
+- No Prisma schema changes.
+
+**Response shape:**
+
+```json
+{
+  "business": { "id", "name", "slug", "status", "timezone", "publicBookingEnabled" },
+  "users": [{ "id", "role", "status", "user": { "id", "phone", "email" } }],
+  "services": [{ "id", "name", "durationMinutes", "priceCents", "isActive" }],
+  "serviceProviders": [{ "id", "displayName", "isActive", "businessUserId", "serviceIds": [...], "hasWorkingHours" }],
+  "businessWorkingHours": [{ "id", "dayOfWeek", "startTime", "endTime", "isClosed" }],
+  "readiness": { "isReady", "hasActiveServiceProviders", "hasActiveService", "checks": {...}, "blockingReasons": [...] }
+}
+```
+
+**E2E coverage:** 13 tests added (127 total in `admin-businesses.e2e-spec.ts`).
+
 ## Later — Phase 3 and Beyond
 
 - Notifications and outbox (async appointment created/cancelled events).

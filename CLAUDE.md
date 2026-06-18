@@ -237,7 +237,15 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
     - `setServiceProviderWorkingHours(businessId, serviceProviderId, dto)` added to `AdminBusinessesService`.
     - No Prisma schema changes. Dashboard SP working-hours behavior unchanged.
     - E2E: `admin-businesses.e2e-spec.ts` +15 tests (114 total); covers DRAFT set, mixed days, full replacement, 404 (biz/SP/cross-tenant), 400 (day/time), 403/401, dashboard visibility after TRIAL, readiness contribution, tenant isolation.
-- Approximate test counts: 23+ E2E suites / 526+ tests, 17+ unit suites / 293+ unit tests.
+  - Phase B.5 — Admin onboarding summary:
+    - `GET /admin/businesses/:businessId/onboarding-summary` added (platform admin only, no business status check).
+    - Works on any business status including DRAFT — read-only, no mutations.
+    - Single compound Prisma query + `computeBusinessReadiness` call. Returns `AdminOnboardingSummaryDto` with business metadata, users (with user phone/email), services, serviceProviders (with `serviceIds[]` and `hasWorkingHours`), businessWorkingHours, and embedded `readiness` block.
+    - Does NOT replace or expand `GET /admin/businesses/:businessId/readiness` — that endpoint stays lean and is called by `setBusinessStatus` and `setPublicBookingEnabled`.
+    - `getOnboardingSummary(businessId)` added to `AdminBusinessesService`. `AdminOnboardingSummaryDto` interface defined in same file.
+    - No Prisma schema changes. Dashboard behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +13 tests (127 total); covers full DRAFT business (all keys, metadata, users, services, SPs with serviceIds+hasWorkingHours, businessWorkingHours ordering, readiness embed), empty DRAFT business, DRAFT status not blocked, 404/403/401, tenant isolation.
+- Approximate test counts: 23+ E2E suites / 539+ tests, 17+ unit suites / 293+ unit tests.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture

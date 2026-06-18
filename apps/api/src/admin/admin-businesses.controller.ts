@@ -116,4 +116,9 @@ export class AdminBusinessesController {
   getBusinessReadiness(@Param('businessId') businessId: string) {
     return this.adminBusinessesService.getBusinessReadiness(businessId);
   }
+
+  @Get(':businessId/onboarding-summary')
+  getOnboardingSummary(@Param('businessId') businessId: string) {
+    return this.adminBusinessesService.getOnboardingSummary(businessId);
+  }
 }

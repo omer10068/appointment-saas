@@ -453,4 +453,151 @@ export class AdminBusinessesService {
     }
     return computeBusinessReadiness(this.prisma, businessId);
   }
+
+  async getOnboardingSummary(
+    businessId: string,
+  ): Promise<AdminOnboardingSummaryDto> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        timezone: true,
+        publicBookingEnabled: true,
+        businessUsers: {
+          select: {
+            id: true,
+            role: true,
+            status: true,
+            user: {
+              select: {
+                id: true,
+                phoneNormalized: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { role: 'asc' },
+        },
+        services: {
+          select: {
+            id: true,
+            name: true,
+            durationMinutes: true,
+            priceCents: true,
+            isActive: true,
+          },
+          orderBy: { name: 'asc' },
+        },
+        serviceProviders: {
+          select: {
+            id: true,
+            displayName: true,
+            isActive: true,
+            businessUserId: true,
+            services: {
+              select: { serviceId: true },
+            },
+            serviceProviderWorkingHours: {
+              select: { id: true },
+              take: 1,
+            },
+          },
+          orderBy: { displayName: 'asc' },
+        },
+        businessWorkingHours: {
+          select: {
+            id: true,
+            dayOfWeek: true,
+            startTime: true,
+            endTime: true,
+            isClosed: true,
+          },
+          orderBy: { dayOfWeek: 'asc' },
+        },
+      },
+    });
+
+    if (!business) throw new NotFoundException('Business not found');
+
+    const readiness = await computeBusinessReadiness(this.prisma, businessId);
+
+    return {
+      business: {
+        id: business.id,
+        name: business.name,
+        slug: business.slug,
+        status: business.status,
+        timezone: business.timezone,
+        publicBookingEnabled: business.publicBookingEnabled,
+      },
+      users: business.businessUsers.map((bu) => ({
+        id: bu.id,
+        role: bu.role,
+        status: bu.status,
+        user: {
+          id: bu.user.id,
+          phone: bu.user.phoneNormalized,
+          email: bu.user.email,
+        },
+      })),
+      services: business.services,
+      serviceProviders: business.serviceProviders.map((sp) => ({
+        id: sp.id,
+        displayName: sp.displayName,
+        isActive: sp.isActive,
+        businessUserId: sp.businessUserId,
+        serviceIds: sp.services.map((s) => s.serviceId),
+        hasWorkingHours: sp.serviceProviderWorkingHours.length > 0,
+      })),
+      businessWorkingHours: business.businessWorkingHours,
+      readiness,
+    };
+  }
+}
+
+export interface AdminOnboardingSummaryDto {
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    timezone: string;
+    publicBookingEnabled: boolean;
+  };
+  users: Array<{
+    id: string;
+    role: string;
+    status: string;
+    user: {
+      id: string;
+      phone: string;
+      email: string | null;
+    };
+  }>;
+  services: Array<{
+    id: string;
+    name: string;
+    durationMinutes: number;
+    priceCents: number | null;
+    isActive: boolean;
+  }>;
+  serviceProviders: Array<{
+    id: string;
+    displayName: string;
+    isActive: boolean;
+    businessUserId: string;
+    serviceIds: string[];
+    hasWorkingHours: boolean;
+  }>;
+  businessWorkingHours: Array<{
+    id: string;
+    dayOfWeek: number;
+    startTime: string | null;
+    endTime: string | null;
+    isClosed: boolean;
+  }>;
+  readiness: BusinessReadinessDto;
 }
