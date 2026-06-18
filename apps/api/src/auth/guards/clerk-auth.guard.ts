@@ -61,7 +61,9 @@ export class ClerkAuthGuard implements CanActivate {
       return byClerkId;
     }
 
-    // Slow path: first login — fetch full Clerk user data (email + phone)
+    // Slow path: first login — fetch full Clerk user data (email + optional phone).
+    // Business-side users (OWNER/MANAGER/MEMBER/admin) authenticate by email only.
+    // Clerk phone/SMS is not used; Israeli numbers are not supported in our Clerk setup.
     this.logger.debug(
       `no user by clerkUserId=${clerkUserId}, fetching Clerk user data`,
     );
@@ -72,51 +74,49 @@ export class ClerkAuthGuard implements CanActivate {
       },
     );
 
-    // Phone is required for all new internal users
-    if (!clerkData.phone) {
-      this.logger.warn(
-        `clerkUserId=${clerkUserId} has no verified phone — login rejected. ` +
-          'Add a phone number to your Clerk profile to continue.',
-      );
-      throw new UnauthorizedException(
-        'Phone number is required. Please add a verified phone to your Clerk profile.',
-      );
-    }
-
-    let phoneNormalized: string;
-    try {
-      phoneNormalized = normalizePhone(clerkData.phone);
-    } catch {
-      this.logger.warn(
-        `clerkUserId=${clerkUserId} phone "${clerkData.phone}" could not be normalized`,
-      );
-      throw new UnauthorizedException('Invalid phone number in Clerk profile');
-    }
-
-    // Try to find existing User by phoneNormalized (phone-first identity)
-    const byPhone = await this.prisma.user.findUnique({
-      where: { phoneNormalized },
-    });
-
-    if (byPhone) {
-      if (byPhone.clerkUserId !== null) {
-        this.logger.warn(
-          `phoneNormalized ${phoneNormalized} already linked to a different clerkUserId`,
-        );
-        throw new UnauthorizedException();
-      }
-      // Link invited user by phone: preserve id + BusinessUser assignments
-      this.logger.debug(
-        `linking user by phone internalId=${byPhone.id} → ACTIVE`,
-      );
-      return this.prisma.user.update({
-        where: { id: byPhone.id },
-        data: { clerkUserId, status: UserStatus.ACTIVE },
-      });
-    }
-
-    // Fallback: try to find invited user by email (backward compat)
     const email = clerkData.email?.toLowerCase() ?? null;
+
+    // Normalize phone only if Clerk provides one (legacy path for older accounts /
+    // platform admins that may still have a Clerk phone on file).
+    // Phone is NOT sent to Clerk during admin provisioning and is NOT required here.
+    let phoneNormalized: string | null = null;
+    if (clerkData.phone) {
+      try {
+        phoneNormalized = normalizePhone(clerkData.phone);
+      } catch {
+        this.logger.warn(
+          `clerkUserId=${clerkUserId} phone "${clerkData.phone}" could not be normalized — skipping phone lookup`,
+        );
+      }
+    }
+
+    // Try to find existing User by phone (legacy path for invited users linked by phone)
+    if (phoneNormalized) {
+      const byPhone = await this.prisma.user.findUnique({
+        where: { phoneNormalized },
+      });
+
+      if (byPhone) {
+        if (byPhone.clerkUserId !== null) {
+          this.logger.warn(
+            `phoneNormalized ${phoneNormalized} already linked to a different clerkUserId`,
+          );
+          throw new UnauthorizedException();
+        }
+        // Link invited user by phone: preserve id + BusinessUser assignments
+        this.logger.debug(
+          `linking user by phone internalId=${byPhone.id} → ACTIVE`,
+        );
+        return this.prisma.user.update({
+          where: { id: byPhone.id },
+          data: { clerkUserId, status: UserStatus.ACTIVE },
+        });
+      }
+    }
+
+    // Try to find existing User by email (primary path for email-only business users).
+    // Admin-provisioned users (Phase D) have email set and clerkUserId pre-linked, so
+    // this path handles the edge case where clerkUserId was cleared or DB was re-seeded.
     if (email) {
       const byEmail = await this.prisma.user.findUnique({ where: { email } });
       if (byEmail) {
@@ -127,28 +127,46 @@ export class ClerkAuthGuard implements CanActivate {
           throw new UnauthorizedException();
         }
         this.logger.debug(
-          `linking invited user by email internalId=${byEmail.id} status=${byEmail.status} → ACTIVE`,
+          `linking user by email internalId=${byEmail.id} status=${byEmail.status} → ACTIVE`,
         );
         return this.prisma.user.update({
           where: { id: byEmail.id },
-          data: { clerkUserId, phoneNormalized, status: UserStatus.ACTIVE },
+          data: {
+            clerkUserId,
+            status: UserStatus.ACTIVE,
+            // Only update phoneNormalized if Clerk provided a phone (legacy accounts)
+            ...(phoneNormalized ? { phoneNormalized } : {}),
+          },
         });
       }
     }
 
-    // Create new internal user
-    this.logger.debug(
-      `creating new user clerkUserId=${clerkUserId} phone=${phoneNormalized}`,
+    // No existing internal user found by phone or email.
+    if (phoneNormalized) {
+      // Legacy: create a new internal User for Clerk accounts that carry a phone.
+      // Preserves existing create behavior for platform admin or pre-provisioning accounts.
+      this.logger.debug(
+        `creating new user clerkUserId=${clerkUserId} phone=${phoneNormalized}`,
+      );
+      return this.prisma.user.create({
+        data: {
+          email,
+          phoneNormalized,
+          clerkUserId,
+          platformRole: PlatformRole.USER,
+          status: UserStatus.ACTIVE,
+        },
+      });
+    }
+
+    // Email-only Clerk user with no matching internal account — reject.
+    // All business users must be provisioned by an admin via POST /admin/businesses/:id/owner
+    // or POST /admin/businesses/:id/users before their first login.
+    this.logger.warn(
+      `clerkUserId=${clerkUserId} has no matching internal user ` +
+        `(email=${email ?? 'none'}) — user must be provisioned by admin first`,
     );
-    return this.prisma.user.create({
-      data: {
-        email,
-        phoneNormalized,
-        clerkUserId,
-        platformRole: PlatformRole.USER,
-        status: UserStatus.ACTIVE,
-      },
-    });
+    throw new UnauthorizedException();
   }
 
   protected verifyClerkToken(

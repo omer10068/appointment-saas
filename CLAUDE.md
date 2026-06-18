@@ -270,7 +270,18 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - E2E: `admin-businesses.e2e-spec.ts` +9 tests (170 total); includes missing-email-400, Clerk-failure-502, skip-if-prelinked, phone-normalization, 403/401.
   - Unit: `clerk-provisioning.service.spec.ts` 8 tests — email search, email create (verifies no phoneNumber in Clerk payload), error handling.
   - No Prisma schema changes. No frontend changes. Dashboard behavior unchanged.
-- Approximate test counts: 23+ E2E suites / 582+ tests, 17+ unit suites / 301+ unit tests.
+- Phase D.2 — Harden ClerkAuthGuard for email-only business users:
+  - `ClerkAuthGuard` slow path no longer requires a Clerk phone. Business users authenticate by email only; Clerk phone/SMS is not used.
+  - Slow path order: (1) fast path by `clerkUserId` (unchanged); (2) try link by phone (legacy — only if Clerk phone available); (3) try link by email (primary for Phase D users); (4) if phone available and no match → create user (legacy); (5) email-only + no match → 401.
+  - `phoneNormalized` is NOT included in the email-path update: email-only Clerk users have no Clerk phone, and the internal `User.phoneNormalized` (set at provisioning time) is preserved as-is.
+  - Auto-create is only possible when Clerk provides a phone number (legacy path). Email-only users must be provisioned by admin before first login (closed system).
+  - Business users still **must have a phone internally** (`User.phoneNormalized` required by schema). Phone is contact metadata; it is not used for Clerk auth and is never sent to Clerk.
+  - Customers (future `BusinessCustomer` / public booking) are phone-first and do NOT authenticate through Clerk. Customer models and customer auth are NOT part of Phase D/D.2.
+  - Unit: `clerk-auth.guard.spec.ts` +4 D.2 tests (20 total): email-only link success, email lowercase normalization, email-only + no match → 401, email already linked to different Clerk account → 401.
+  - `business-users.service.spec.ts` updated: adds `ClerkProvisioningService` mock, `user.update` mock, and correct assertions after Phase D changed `createOwnerForBusiness` to provision Clerk and use `status: ACTIVE`. 7 tests total (net +2 vs pre-D baseline).
+  - `admin-businesses.service.spec.ts` updated: adds `ClerkProvisioningService` stub provider. 5 tests unchanged.
+  - No Prisma schema changes. No E2E changes. No frontend changes.
+- Approximate test counts: 23+ E2E suites / 582+ tests, 18+ unit suites / 306+ unit tests.
 - Admin/Ops onboarding runbook: `docs/admin-onboarding-runbook.md` — step-by-step guide for manually onboarding a business from DRAFT to ACTIVE using backend endpoints only. Covers the full two-partner setup, working hours, readiness verification, status transitions, common mistakes, and troubleshooting. Phase C and Phase D documented. Email is required for OWNER and MANAGER creation.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
