@@ -39,11 +39,12 @@ Confirm the following before starting:
 - [ ] Business name and URL-safe slug are chosen (e.g. `my-salon`)
 - [ ] Business timezone is known (e.g. `Asia/Jerusalem`, `America/New_York`)
 - [ ] Primary owner's phone number is known (E.164, e.g. `+972501234567`)
+- [ ] Primary owner's email address is known and valid — **required** for Clerk authentication
 - [ ] Second partner's phone number is known
+- [ ] Second partner's email address is known and valid — **required** for Clerk authentication
 - [ ] Service list is agreed (name + duration in minutes for each)
 - [ ] Business working hours are agreed (days + open/close times)
 - [ ] Each provider's working hours are agreed
-- [ ] Email addresses are optional but recommended
 
 ---
 
@@ -138,7 +139,9 @@ POST /admin/businesses/{{businessId}}/owner
 
 - Only one OWNER per business. A second call to this endpoint → 409.
 - The `id` in the response is the `BusinessUser.id`. Save it as `{{ownerBusinessUserId}}`. You will need it in Step 6 to create the provider.
-- Phone is normalized to E.164 internally. If the user already exists in the system (by phone or email), they will be linked rather than duplicated.
+- `email` is **required**. Missing or invalid email → 400. The email is used to create or locate the user's Clerk account (the login credential).
+- Phone is normalized to E.164 internally. If a user with that phone already exists in the system, they will be linked rather than duplicated.
+- Clerk authentication is email-based. The user logs in with their email address — not their phone number.
 
 ---
 
@@ -169,7 +172,9 @@ POST /admin/businesses/{{businessId}}/users
 **Pitfalls:**
 
 - `role` must be `"MANAGER"` or `"MEMBER"`. `"OWNER"` is rejected by this endpoint (use Step 2 for owner).
-- The same phone lookup applies: if the user already exists in the system they are linked automatically.
+- `email` is **required**. Missing or invalid email → 400. Used to create or locate the user's Clerk account.
+- Clerk authentication is email-based. The user logs in with their email address.
+- If the user already exists in the system (found by phone), they are linked automatically. Their Clerk account is created only if they don't already have one.
 - Same-user-same-business duplicate → 409.
 
 ---

@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { ClerkAuthGuard } from '../../src/auth/guards/clerk-auth.guard';
+import { ClerkProvisioningService } from '../../src/auth/clerk-provisioning.service';
 import { AdminModule } from '../../src/admin/admin.module';
 import { DashboardModule } from '../../src/dashboard/dashboard.module';
 import { PublicModule } from '../../src/public/public.module';
@@ -145,6 +146,24 @@ const E2E_ADMIN_PC_SVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000064';
 const ADMIN_PC_OWNER_PHONE = '+19990002092';
 const ADMIN_PC_SECOND_USER_PHONE = '+19990002093';
 const ADMIN_PC_OWNER_B_PHONE = '+19990002094';
+// Phase D — Clerk provisioning
+const E2E_ADMIN_PD_BIZ_ID = 'e2e20000-0000-4000-8000-000000000065';
+const E2E_ADMIN_PD_PRELINKED_USER_ID = 'e2e20000-0000-4000-8000-000000000066';
+const ADMIN_PD_PRELINKED_PHONE = '+19990002100';
+const ADMIN_PD_OWNER_PHONE = '+19990002101';
+const ADMIN_PD_MANAGER_PHONE = '+19990002102';
+const ADMIN_PD_FAILURE_PHONE = '+19990002103';
+const ADMIN_PD_LOCAL_PHONE_RAW = '0502222104'; // Israeli local format
+const ADMIN_PD_LOCAL_PHONE_E164 = '+972502222104'; // expected after normalization
+const ADMIN_PD_TRUST_EXISTING_PHONE = '+19990002105';
+const ALL_PD_PHONES = [
+  ADMIN_PD_PRELINKED_PHONE,
+  ADMIN_PD_OWNER_PHONE,
+  ADMIN_PD_MANAGER_PHONE,
+  ADMIN_PD_FAILURE_PHONE,
+  ADMIN_PD_LOCAL_PHONE_E164,
+  ADMIN_PD_TRUST_EXISTING_PHONE,
+];
 // Full onboarding happy path test
 const E2E_ADMIN_HP_SLUG = 'e2e-admin-hp-biz';
 const ADMIN_HP_OWNER_PHONE = '+19990002090';
@@ -156,6 +175,22 @@ const ADMIN_PB_OWNER_PHONE = '+19990002050';
 const CREATED_OWNER_PHONE = '+19990002010';
 // Created by regression test — must be cleaned up
 const REGRESSION_OWNER_PHONE = '+19990002011';
+// Email constants for Clerk provisioning (email is primary Clerk identifier)
+const ADMIN_ABU_MANAGER_EMAIL = 'abu-manager@example.com';
+const ADMIN_ABU_MEMBER_EMAIL = 'abu-member@example.com';
+const ADMIN_ABU_DUP_EMAIL = 'abu-dup@example.com';
+const ADMIN_ABU_CROSS_BIZ_EMAIL = 'abu-crossbiz@example.com';
+const ADMIN_ABU_T11_EMAIL = 'abu-t11@example.com';
+const ADMIN_ABU_T12_EMAIL = 'abu-t12@example.com';
+const ADMIN_ABU_T13_EMAIL = 'abu-t13@example.com';
+const ADMIN_HP_OWNER_EMAIL = 'hp-owner@example.com';
+const ADMIN_HP_MANAGER_EMAIL = 'hp-manager@example.com';
+const ADMIN_PD_OWNER_EMAIL = 'pd-owner@example.com';
+const ADMIN_PD_MANAGER_EMAIL = 'pd-manager@example.com';
+const ADMIN_PD_FAILURE_EMAIL = 'pd-failure@example.com';
+const ADMIN_PD_LOCAL_EMAIL = 'pd-local@example.com';
+const ADMIN_PD_TRUST_EXISTING_EMAIL = 'pd-trust@example.com';
+const ADMIN_PD_PRELINKED_EMAIL = 'pd-prelinked@example.com';
 
 // ─── Shared module-level setup ────────────────────────────────────────────────
 
@@ -163,6 +198,19 @@ let app: INestApplication<App>;
 let prisma: PrismaService;
 let adminUser: User;
 let regularUser: User;
+
+// ClerkProvisioningService mock — used by createOwnerForBusiness and addBusinessUser.
+// Default implementation returns a deterministic clerkUserId derived from the email so
+// each unique email gets a unique Clerk ID and DB uniqueness constraints are satisfied.
+const mockClerkProvisioning = {
+  findOrCreateClerkUser: jest
+    .fn<(dto: { email: string }) => Promise<{ clerkUserId: string }>>()
+    .mockImplementation((dto: { email: string }) =>
+      Promise.resolve({
+        clerkUserId: `clerk_${dto.email.replace(/\W/g, '')}`,
+      }),
+    ),
+};
 
 beforeAll(async () => {
   const module: TestingModule = await Test.createTestingModule({
@@ -176,6 +224,8 @@ beforeAll(async () => {
   })
     .overrideGuard(ClerkAuthGuard)
     .useClass(MockClerkAuthGuard)
+    .overrideProvider(ClerkProvisioningService)
+    .useValue(mockClerkProvisioning)
     .compile();
 
   app = await createTestApp(module);
@@ -2166,7 +2216,11 @@ describe('POST /admin/businesses/:businessId/users (admin add business user)', (
     MockClerkAuthGuard.currentUser = adminUser;
     const res = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_ABU_MANAGER_PHONE,
+        email: ADMIN_ABU_MANAGER_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(201);
 
     const body = res.body as {
@@ -2190,7 +2244,11 @@ describe('POST /admin/businesses/:businessId/users (admin add business user)', (
     MockClerkAuthGuard.currentUser = adminUser;
     const res = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_MEMBER_PHONE, role: 'MEMBER' })
+      .send({
+        phone: ADMIN_ABU_MEMBER_PHONE,
+        email: ADMIN_ABU_MEMBER_EMAIL,
+        role: 'MEMBER',
+      })
       .expect(201);
 
     expect((res.body as { role: string }).role).toBe('MEMBER');
@@ -2245,12 +2303,20 @@ describe('POST /admin/businesses/:businessId/users (admin add business user)', (
     MockClerkAuthGuard.currentUser = adminUser;
     await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_DUP_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_ABU_DUP_PHONE,
+        email: ADMIN_ABU_DUP_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(201);
 
     await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_DUP_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_ABU_DUP_PHONE,
+        email: ADMIN_ABU_DUP_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(409);
   });
 
@@ -2260,12 +2326,20 @@ describe('POST /admin/businesses/:businessId/users (admin add business user)', (
     MockClerkAuthGuard.currentUser = adminUser;
     await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_CROSS_BIZ_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_ABU_CROSS_BIZ_PHONE,
+        email: ADMIN_ABU_CROSS_BIZ_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(201);
 
     const res = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_B_ID}/users`)
-      .send({ phone: ADMIN_ABU_CROSS_BIZ_PHONE, role: 'MEMBER' })
+      .send({
+        phone: ADMIN_ABU_CROSS_BIZ_PHONE,
+        email: ADMIN_ABU_CROSS_BIZ_EMAIL,
+        role: 'MEMBER',
+      })
       .expect(201);
 
     expect((res.body as { businessId: string }).businessId).toBe(
@@ -2296,7 +2370,11 @@ describe('POST /admin/businesses/:businessId/users (admin add business user)', (
     MockClerkAuthGuard.currentUser = adminUser;
     const addRes = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_T11_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_ABU_T11_PHONE,
+        email: ADMIN_ABU_T11_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(201);
     const { userId } = addRes.body as { userId: string };
     const managerUser = await prisma.user.findUniqueOrThrow({
@@ -2318,7 +2396,11 @@ describe('POST /admin/businesses/:businessId/users (admin add business user)', (
     MockClerkAuthGuard.currentUser = adminUser;
     const addRes = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_T12_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_ABU_T12_PHONE,
+        email: ADMIN_ABU_T12_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(201);
     const { userId } = addRes.body as { userId: string };
     const managerUser = await prisma.user.findUniqueOrThrow({
@@ -2344,7 +2426,11 @@ describe('POST /admin/businesses/:businessId/users (admin add business user)', (
 
     const addRes = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
-      .send({ phone: ADMIN_ABU_T13_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_ABU_T13_PHONE,
+        email: ADMIN_ABU_T13_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(201);
     const managerBuId = (addRes.body as { id: string }).id;
 
@@ -4001,7 +4087,7 @@ describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
     // ── Step 2: Create first OWNER ────────────────────────────────────────────
     const ownerRes = await request(app.getHttpServer())
       .post(`/admin/businesses/${hpBusinessId}/owner`)
-      .send({ phone: ADMIN_HP_OWNER_PHONE })
+      .send({ phone: ADMIN_HP_OWNER_PHONE, email: ADMIN_HP_OWNER_EMAIL })
       .expect(201);
 
     const ownerBu = ownerRes.body as {
@@ -4016,7 +4102,11 @@ describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
     // ── Step 3: Add second partner as MANAGER ─────────────────────────────────
     const managerRes = await request(app.getHttpServer())
       .post(`/admin/businesses/${hpBusinessId}/users`)
-      .send({ phone: ADMIN_HP_MANAGER_PHONE, role: 'MANAGER' })
+      .send({
+        phone: ADMIN_HP_MANAGER_PHONE,
+        email: ADMIN_HP_MANAGER_EMAIL,
+        role: 'MANAGER',
+      })
       .expect(201);
 
     const managerBu = managerRes.body as {
@@ -4966,6 +5056,312 @@ describe('Phase C — Admin correction endpoints', () => {
           }
         ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
       ).toBe(true);
+    });
+  });
+
+  // ─── Phase D — Clerk provisioning ─────────────────────────────────────────
+
+  describe('Phase D — Clerk provisioning', () => {
+    beforeAll(async () => {
+      // Idempotent pre-cleanup
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.serviceProviderService.deleteMany({
+        where: {
+          serviceProvider: { businessId: E2E_ADMIN_PD_BIZ_ID },
+        },
+      });
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.business.deleteMany({
+        where: { id: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.user.deleteMany({
+        where: { phoneNormalized: { in: ALL_PD_PHONES } },
+      });
+
+      // Seed: DRAFT business for Phase D
+      await prisma.business.create({
+        data: {
+          id: E2E_ADMIN_PD_BIZ_ID,
+          name: 'Phase D Provisioning Biz',
+          slug: 'e2e-admin-pd-biz',
+          status: 'DRAFT',
+          timezone: 'Asia/Jerusalem',
+        },
+      });
+
+      // Pre-seeded User with clerkUserId already set (for test 3: skip Clerk)
+      await prisma.user.create({
+        data: {
+          id: E2E_ADMIN_PD_PRELINKED_USER_ID,
+          phoneNormalized: ADMIN_PD_PRELINKED_PHONE,
+          clerkUserId: 'clerk_preexisting_pd',
+          status: 'ACTIVE',
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.serviceProviderService.deleteMany({
+        where: {
+          serviceProvider: { businessId: E2E_ADMIN_PD_BIZ_ID },
+        },
+      });
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.business.deleteMany({
+        where: { id: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.user.deleteMany({
+        where: { phoneNormalized: { in: ALL_PD_PHONES } },
+      });
+    });
+
+    beforeEach(() => {
+      MockClerkAuthGuard.currentUser = adminUser;
+      // Reset call history and restore default implementation before each test
+      jest.clearAllMocks();
+      mockClerkProvisioning.findOrCreateClerkUser.mockImplementation(
+        (dto: { email: string }) =>
+          Promise.resolve({
+            clerkUserId: `clerk_${dto.email.replace(/\W/g, '')}`,
+          }),
+      );
+    });
+
+    it('creates OWNER and provisions Clerk user — clerkUserId stored on User', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+        .send({ phone: ADMIN_PD_OWNER_PHONE, email: ADMIN_PD_OWNER_EMAIL })
+        .expect(201);
+
+      expect((res.body as { role: string }).role).toBe('OWNER');
+
+      // Provisioning service was called once with the email (not phone)
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledWith({
+        email: ADMIN_PD_OWNER_EMAIL,
+      });
+
+      // clerkUserId stored in the DB
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_OWNER_PHONE },
+      });
+      expect(user?.clerkUserId).toBe(
+        `clerk_${ADMIN_PD_OWNER_EMAIL.replace(/\W/g, '')}`,
+      );
+      expect(user?.status).toBe('ACTIVE');
+    });
+
+    it('adds MANAGER and provisions Clerk user — clerkUserId stored on User', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_MANAGER_PHONE,
+          email: ADMIN_PD_MANAGER_EMAIL,
+          role: 'MANAGER',
+        })
+        .expect(201);
+
+      expect((res.body as { role: string }).role).toBe('MANAGER');
+
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledWith({
+        email: ADMIN_PD_MANAGER_EMAIL,
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_MANAGER_PHONE },
+      });
+      expect(user?.clerkUserId).toBe(
+        `clerk_${ADMIN_PD_MANAGER_EMAIL.replace(/\W/g, '')}`,
+      );
+      expect(user?.status).toBe('ACTIVE');
+    });
+
+    it('existing User with clerkUserId — Clerk provisioning is skipped', async () => {
+      // ADMIN_PD_PRELINKED_PHONE is seeded with clerkUserId = 'clerk_preexisting_pd'
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_PRELINKED_PHONE,
+          email: ADMIN_PD_PRELINKED_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(201);
+
+      expect((res.body as { role: string }).role).toBe('MEMBER');
+
+      // Provisioning service must NOT be called
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
+
+      // clerkUserId on the User is unchanged
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_PRELINKED_PHONE },
+      });
+      expect(user?.clerkUserId).toBe('clerk_preexisting_pd');
+    });
+
+    it('provisioned Clerk user ID is linked to the internal User record', async () => {
+      // The mock returns a specific ID — verify it ends up in the DB
+      const specificClerkId = 'clerk_specific_linked_id';
+      mockClerkProvisioning.findOrCreateClerkUser.mockResolvedValueOnce({
+        clerkUserId: specificClerkId,
+      });
+
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_TRUST_EXISTING_PHONE,
+          email: ADMIN_PD_TRUST_EXISTING_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(201);
+
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_TRUST_EXISTING_PHONE },
+      });
+      expect(user?.clerkUserId).toBe(specificClerkId);
+    });
+
+    it('Clerk failure (BadGatewayException) returns 502 and BusinessUser is not created', async () => {
+      const { BadGatewayException } = await import('@nestjs/common');
+      mockClerkProvisioning.findOrCreateClerkUser.mockRejectedValueOnce(
+        new BadGatewayException('Clerk user provisioning failed'),
+      );
+
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_FAILURE_PHONE,
+          email: ADMIN_PD_FAILURE_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(502);
+
+      // No User or BusinessUser was created
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_FAILURE_PHONE },
+      });
+      expect(user).toBeNull();
+
+      const bu = await prisma.businessUser.findFirst({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      // Business should have no members with the failure phone (other tests in this
+      // block added members via earlier tests; just verify no new BU was created
+      // for this specific test by checking the failure phone user doesn't exist)
+      expect(bu?.userId).not.toBe(undefined); // other BUs may exist
+    });
+
+    it('Israeli local phone format is normalized to E.164 in DB (Clerk called with email)', async () => {
+      // '0502222104' → '+972502222104' stored in DB; Clerk uses email not phone
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_LOCAL_PHONE_RAW,
+          email: ADMIN_PD_LOCAL_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(201);
+
+      expect((res.body as { phoneNormalized: string }).phoneNormalized).toBe(
+        ADMIN_PD_LOCAL_PHONE_E164,
+      );
+
+      // Clerk was called with email (phone is NOT sent to Clerk)
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledWith({
+        email: ADMIN_PD_LOCAL_EMAIL,
+      });
+
+      // DB stores the normalized phone
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_LOCAL_PHONE_E164 },
+      });
+      expect(user).not.toBeNull();
+      expect(user?.phoneNormalized).toBe(ADMIN_PD_LOCAL_PHONE_E164);
+    });
+
+    it('Clerk failure on createOwner returns 502 and BusinessUser is not created', async () => {
+      const { BadGatewayException } = await import('@nestjs/common');
+      // Remove existing owner first (test 1 created one)
+      await prisma.businessUser.deleteMany({
+        where: {
+          businessId: E2E_ADMIN_PD_BIZ_ID,
+          user: { phoneNormalized: ADMIN_PD_OWNER_PHONE },
+        },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+
+      const failPhone = '+19990002199';
+      const failEmail = 'pd-fail-owner@example.com';
+      mockClerkProvisioning.findOrCreateClerkUser.mockRejectedValueOnce(
+        new BadGatewayException('Clerk user provisioning failed'),
+      );
+
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+        .send({ phone: failPhone, email: failEmail })
+        .expect(502);
+
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: failPhone },
+      });
+      expect(user).toBeNull();
+    });
+
+    it('non-admin returns 403 (guard unaffected by provisioning change)', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({ phone: '+19990002198', role: 'MEMBER' })
+        .expect(403);
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('missing auth returns 401 (guard unaffected by provisioning change)', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({ phone: '+19990002197', role: 'MEMBER' })
+        .expect(401);
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('missing email in addBusinessUser → 400 (email required for Clerk provisioning)', async () => {
+      MockClerkAuthGuard.currentUser = adminUser;
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({ phone: '+19990002196', role: 'MEMBER' })
+        .expect(400);
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
     });
   });
 });

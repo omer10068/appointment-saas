@@ -258,8 +258,20 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId` — update SP displayName, serviceIds, isActive. Reuses `UpdateServiceProviderDto`. Preserves all invariants from `createServiceProvider`: active SP cannot link inactive services; activating SP with no services → 400. businessUserId remains immutable. Transaction: delete+recreate service links when serviceIds provided. Works on any business status.
   - All three: `ClerkAuthGuard + PlatformAdminGuard` only. No dashboard guards. No Prisma schema changes. Dashboard behavior unchanged.
   - E2E: `admin-businesses.e2e-spec.ts` +33 tests (161 total); `describe('Phase C — Admin correction endpoints')` with 3 nested describes (9 + 11 + 13 tests). Shared `beforeAll`/`afterAll`/`beforeEach` resets mutable state. Covers DRAFT allowed, partial update, invariant validation, cross-tenant 404, 403, 401, readiness-restore integration test.
-- Approximate test counts: 23+ E2E suites / 573+ tests, 17+ unit suites / 293+ unit tests.
-- Admin/Ops onboarding runbook: `docs/admin-onboarding-runbook.md` — step-by-step guide for manually onboarding a business from DRAFT to ACTIVE using backend endpoints only. Covers the full two-partner setup, working hours, readiness verification, status transitions, common mistakes, and troubleshooting. Phase C correction endpoints documented in the runbook.
+- Phase D — Automatic Clerk user provisioning (email-first):
+  - `ClerkProvisioningService` added in `src/auth/clerk-provisioning.service.ts`. Exported from `AuthModule`. Injected into `BusinessUsersService` and `AdminBusinessesService`.
+  - `findOrCreateClerkUser({ email: string })` — searches Clerk by email, creates if not found. No phone-based Clerk calls. Throws `BadGatewayException` (502) on Clerk API failure.
+  - Authentication is **email-only** for business users (OWNER/MANAGER/MEMBER). Clerk phone/SMS auth is not used (Israeli phone numbers not supported by Clerk in current setup).
+  - `POST /admin/businesses/:businessId/owner` (`CreateBusinessOwnerDto`): `email` is now **required** (DTO-level validation). Provisions Clerk before the Prisma transaction. If DB write fails after Clerk creation, next retry finds the orphaned Clerk user by email (idempotent).
+  - `POST /admin/businesses/:businessId/users` (`CreateBusinessUserDto`, shared with dashboard): `email` required at service level (`addBusinessUser` throws 400 if missing). Email is NOT enforced by DTO (DTO is shared with dashboard which still has optional email). Provisions Clerk before the Prisma transaction.
+  - Pre-provision check: if internal `User` already has `clerkUserId`, Clerk is skipped (idempotent on retry). Lookup by phone first, email as fallback.
+  - Module wiring: `AuthModule` imports/exports `ClerkProvisioningService`; `BusinessUsersModule` imports `AuthModule`; `AdminModule` imports `AuthModule`.
+  - E2E mock: `overrideProvider(ClerkProvisioningService)` with `mockClerkProvisioning`. Default implementation returns deterministic clerkUserId from email. Reset via `beforeEach` in Phase D describe block.
+  - E2E: `admin-businesses.e2e-spec.ts` +9 tests (170 total); includes missing-email-400, Clerk-failure-502, skip-if-prelinked, phone-normalization, 403/401.
+  - Unit: `clerk-provisioning.service.spec.ts` 8 tests — email search, email create (verifies no phoneNumber in Clerk payload), error handling.
+  - No Prisma schema changes. No frontend changes. Dashboard behavior unchanged.
+- Approximate test counts: 23+ E2E suites / 582+ tests, 17+ unit suites / 301+ unit tests.
+- Admin/Ops onboarding runbook: `docs/admin-onboarding-runbook.md` — step-by-step guide for manually onboarding a business from DRAFT to ACTIVE using backend endpoints only. Covers the full two-partner setup, working hours, readiness verification, status transitions, common mistakes, and troubleshooting. Phase C and Phase D documented. Email is required for OWNER and MANAGER creation.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture

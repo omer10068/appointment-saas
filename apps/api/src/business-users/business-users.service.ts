@@ -13,10 +13,14 @@ import {
 import { CreateBusinessOwnerDto } from '../admin/dto/create-business-owner.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizePhone } from '../dashboard/phone.util';
+import { ClerkProvisioningService } from '../auth/clerk-provisioning.service';
 
 @Injectable()
 export class BusinessUsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clerkProvisioning: ClerkProvisioningService,
+  ) {}
 
   async createOwnerForBusiness(
     businessId: string,
@@ -29,7 +33,30 @@ export class BusinessUsersService {
       throw new BadRequestException('Invalid phone number');
     }
 
-    const email = dto.email?.trim().toLowerCase() ?? null;
+    const email = dto.email.trim().toLowerCase();
+
+    // Provision Clerk user BEFORE the transaction — Clerk is an external API and
+    // cannot participate in a Prisma transaction. We skip provisioning if the
+    // internal User already has a clerkUserId (idempotent on retry: the next call
+    // will search Clerk by email and find the previously created account).
+    const existingByPhone = await this.prisma.user.findUnique({
+      where: { phoneNormalized },
+      select: { clerkUserId: true },
+    });
+    let existingClerkUserId = existingByPhone?.clerkUserId ?? null;
+
+    if (!existingClerkUserId) {
+      const existingByEmail = await this.prisma.user.findUnique({
+        where: { email },
+        select: { clerkUserId: true },
+      });
+      existingClerkUserId = existingByEmail?.clerkUserId ?? null;
+    }
+
+    const clerkUserId: string =
+      existingClerkUserId ??
+      (await this.clerkProvisioning.findOrCreateClerkUser({ email }))
+        .clerkUserId;
 
     return this.prisma.$transaction(async (tx) => {
       const business = await tx.business.findUnique({
@@ -46,7 +73,7 @@ export class BusinessUsersService {
         throw new ConflictException('Business already has an owner');
       }
 
-      // Phone-first: look up existing user by normalized phone, then email fallback
+      // Find or create the internal User, then link clerkUserId
       let user = await tx.user.findUnique({ where: { phoneNormalized } });
 
       if (!user && email) {
@@ -55,7 +82,17 @@ export class BusinessUsersService {
 
       if (!user) {
         user = await tx.user.create({
-          data: { phoneNormalized, email, status: UserStatus.INVITED },
+          data: {
+            phoneNormalized,
+            email,
+            clerkUserId,
+            status: UserStatus.ACTIVE,
+          },
+        });
+      } else if (!user.clerkUserId) {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: { clerkUserId, status: UserStatus.ACTIVE },
         });
       }
 

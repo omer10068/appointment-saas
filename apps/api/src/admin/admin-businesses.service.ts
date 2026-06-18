@@ -33,6 +33,7 @@ import type { WorkingHourDto } from '../dashboard/availability.service';
 import { normalizePhone } from '../dashboard/phone.util';
 import { computeBusinessReadiness } from '../dashboard/readiness.utils';
 import type { BusinessReadinessDto } from '../dashboard/readiness.utils';
+import { ClerkProvisioningService } from '../auth/clerk-provisioning.service';
 
 @Injectable()
 export class AdminBusinessesService {
@@ -40,6 +41,7 @@ export class AdminBusinessesService {
     private readonly prisma: PrismaService,
     private readonly businessesService: BusinessesService,
     private readonly businessUsersService: BusinessUsersService,
+    private readonly clerkProvisioning: ClerkProvisioningService,
   ) {}
 
   create(dto: CreateBusinessDto): Promise<Business> {
@@ -232,16 +234,40 @@ export class AdminBusinessesService {
 
     const phoneNormalized = normalizePhone(dto.phone);
 
+    const email = dto.email?.trim().toLowerCase() ?? null;
+    if (!email) {
+      throw new BadRequestException('Email is required for Clerk provisioning');
+    }
+
+    // Provision Clerk user BEFORE the transaction — Clerk is an external API and
+    // cannot participate in a Prisma transaction. Skip if the User already has a
+    // clerkUserId (idempotent on retry: the next call finds the orphaned Clerk
+    // user by email and returns its ID, then the DB write succeeds).
+    const existingUser = await this.prisma.user.findUnique({
+      where: { phoneNormalized },
+      select: { clerkUserId: true },
+    });
+    const clerkUserId: string =
+      existingUser?.clerkUserId ??
+      (await this.clerkProvisioning.findOrCreateClerkUser({ email }))
+        .clerkUserId;
+
     return this.prisma.$transaction(async (tx) => {
       let user = await tx.user.findUnique({ where: { phoneNormalized } });
       if (!user) {
         user = await tx.user.create({
           data: {
             phoneNormalized,
-            email: dto.email ?? null,
+            email,
+            clerkUserId,
             status: UserStatus.ACTIVE,
             platformRole: PlatformRole.USER,
           },
+        });
+      } else if (!user.clerkUserId) {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: { clerkUserId, status: UserStatus.ACTIVE },
         });
       }
 
