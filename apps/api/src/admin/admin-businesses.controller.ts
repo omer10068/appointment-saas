@@ -14,6 +14,7 @@ import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { SetBusinessStatusDto } from './dto/set-business-trial.dto';
 import { SetBusinessPublicBookingDto } from './dto/set-business-public-booking.dto';
+import { CreateServiceDto } from '../dashboard/dto/create-service.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 
 @UseGuards(ClerkAuthGuard, PlatformAdminGuard)
@@ -50,6 +51,14 @@ export class AdminBusinessesController {
       businessId,
       dto.status,
     );
+  }
+
+  @Post(':businessId/services')
+  createService(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateServiceDto,
+  ) {
+    return this.adminBusinessesService.createService(businessId, dto);
   }
 
   @Patch(':businessId/public-booking')

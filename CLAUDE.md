@@ -196,8 +196,18 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `setPublicBookingEnabled(businessId, enabled)` added to `AdminBusinessesService`.
   - `SetBusinessPublicBookingDto` (`@IsBoolean publicBookingEnabled`) added in `src/admin/dto/`.
   - E2E: `admin-businesses.e2e-spec.ts` +17 tests (61 total).
-- Approximate test counts: 23+ E2E suites / 473+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+- Phase B — Admin/Ops Onboarding Convenience:
+  - Goal: allow Admin to onboard a new business during DRAFT phase before moving to TRIAL.
+  - Phase B.1 — Admin create service:
+    - `POST /admin/businesses/:businessId/services` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — critical for onboarding because ServiceProvider creation requires serviceIds.
+    - Reuses `CreateServiceDto` (same DTO as dashboard); same response shape as dashboard `ServiceDto`.
+    - No Prisma schema changes. Dashboard service creation behavior unchanged.
+    - `createService(businessId, dto)` added to `AdminBusinessesService`.
+    - Admin-created services are visible via dashboard after DRAFT→TRIAL and contribute to readiness.
+    - E2E: `admin-businesses.e2e-spec.ts` +12 tests (73 total); covers DRAFT creation, inactive service, DTO validation, 404/403/401, dashboard visibility, tenant isolation, readiness contribution.
+- Approximate test counts: 23+ E2E suites / 485+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: Phase B.2 (admin add business user), Phase B.3 (admin working hours), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

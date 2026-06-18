@@ -16,7 +16,11 @@ import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { BusinessUsersService } from '../business-users/business-users.service';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
-import type { ServiceProviderDto } from '../dashboard/dashboard-data.service';
+import type { CreateServiceDto } from '../dashboard/dto/create-service.dto';
+import type {
+  ServiceDto,
+  ServiceProviderDto,
+} from '../dashboard/dashboard-data.service';
 import { computeBusinessReadiness } from '../dashboard/readiness.utils';
 import type { BusinessReadinessDto } from '../dashboard/readiness.utils';
 
@@ -169,6 +173,40 @@ export class AdminBusinessesService {
         createdAt: sp.createdAt,
         updatedAt: sp.updatedAt,
       };
+    });
+  }
+
+  async createService(
+    businessId: string,
+    dto: CreateServiceDto,
+  ): Promise<ServiceDto> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    return this.prisma.service.create({
+      data: {
+        businessId,
+        name: dto.name,
+        description: dto.description ?? null,
+        durationMinutes: dto.durationMinutes,
+        priceCents: dto.priceCents ?? null,
+        bufferBeforeMin: dto.bufferBeforeMin ?? 0,
+        bufferAfterMin: dto.bufferAfterMin ?? 0,
+        isActive: dto.isActive ?? true,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        durationMinutes: true,
+        priceCents: true,
+        isActive: true,
+        bufferBeforeMin: true,
+        bufferAfterMin: true,
+      },
     });
   }
 

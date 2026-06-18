@@ -817,8 +817,62 @@ Total in `admin-businesses.e2e-spec.ts`: 44 tests.
 
 **Deferred (do not implement without explicit instruction):**
 
-- Admin endpoints for seeding services and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).
+
+## Phase B — Admin/Ops Onboarding Convenience
+
+Goal: allow Admin to configure a new business during the DRAFT phase, before the OWNER is given dashboard access via DRAFT→TRIAL. This unblocks the SP creation endpoint (`POST /admin/businesses/:businessId/service-providers`) which requires pre-existing services.
+
+### Phase B.1: Admin create service
+
+**Endpoint:** `POST /admin/businesses/:businessId/services`
+
+**Why it's first:** `createServiceProvider` requires `serviceIds[]`. For a fresh DRAFT business, there are no services. The dashboard `POST .../services` endpoint is blocked for DRAFT businesses by `assertMutationAccess`. Admin service creation unblocks the full DRAFT-phase setup sequence.
+
+**Rules:**
+
+- No business status check — DRAFT is explicitly allowed.
+- Behavior and DTO identical to dashboard service creation (`CreateServiceDto`).
+- Response shape identical to dashboard `ServiceDto`.
+- No schema changes, no new DTOs.
+- Does not enable or affect public booking.
+- Dashboard service creation is unchanged.
+
+**Key files:**
+
+| File | Change |
+| --- | --- |
+| `src/admin/admin-businesses.service.ts` | `createService(businessId, dto)` — 404 guard + Prisma create, no status check |
+| `src/admin/admin-businesses.controller.ts` | `POST :businessId/services` route |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`, +12 tests, 73 total):**
+
+- Admin creates service for DRAFT business → 201 with correct shape
+- Admin creates inactive service → 201, isActive=false
+- Missing name → 400
+- durationMinutes below min → 400
+- durationMinutes above max → 400
+- Negative priceCents → 400
+- Non-existent businessId → 404
+- Non-admin → 403
+- Missing auth → 401
+- Admin-created service visible in dashboard after DRAFT → TRIAL
+- Tenant isolation: service for biz A not visible in biz B dashboard
+- Admin-created active service contributes to readiness hasActiveService=true
+
+**Decision on SUSPENDED/CANCELLED businesses:** Admin bypass applies — no status restriction enforced. Admin can create services for a suspended business. This is consistent with the pattern on every other admin endpoint.
+
+### Phase B.2 (next): Admin add business user
+
+Not yet implemented. Needed to allow Admin to seed the MANAGER team member during DRAFT onboarding, before the dashboard is unlocked.
+
+### Phase B.3 (next): Admin set working hours
+
+Not yet implemented. Needed to complete readiness checks during DRAFT phase.
+
+### Phase B.4 (next): Admin set SP working hours
+
+Not yet implemented. Depends on SP existing (B.1 must be done first).
 
 ## Later — Phase 3 and Beyond
 

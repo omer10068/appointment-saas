@@ -50,6 +50,11 @@ const E2E_ADMIN_ACTIVE_BIZ_ID = 'e2e20000-0000-4000-8000-000000000018';
 const E2E_ADMIN_ACTIVE_BIZ_SLUG = 'e2e-admin-activation-biz';
 const E2E_ADMIN_ACTIVE_OWN_USER_ID = 'e2e20000-0000-4000-8000-000000000019';
 const E2E_ADMIN_ACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000020';
+// Admin create service tests
+const E2E_ADMIN_CSVC_BIZ_ID = 'e2e20000-0000-4000-8000-000000000029'; // DRAFT biz A
+const E2E_ADMIN_CSVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000030'; // TRIAL biz B (isolation)
+const E2E_ADMIN_CSVC_OWNER_ID = 'e2e20000-0000-4000-8000-000000000031';
+const E2E_ADMIN_CSVC_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000032';
 // Admin publicBookingEnabled toggle tests
 const E2E_ADMIN_PB_TRIAL_BIZ_ID = 'e2e20000-0000-4000-8000-000000000021';
 const E2E_ADMIN_PB_TRIAL_SLUG = 'e2e-admin-pb-trial-biz';
@@ -72,6 +77,8 @@ const ADMIN_SP_OWNER_PHONE = '+19990002030';
 const ADMIN_SP_MEMBER_PHONE = '+19990002031';
 const ADMIN_SP_DUP_PHONE = '+19990002032';
 const ADMIN_SP_INACT_SVC_PHONE = '+19990002033';
+const ADMIN_CSVC_OWNER_PHONE = '+19990002060';
+const ADMIN_CSVC_OWNER_B_PHONE = '+19990002061';
 const ADMIN_RDN_OWNER_PHONE = '+19990002041';
 const ADMIN_ACTIVE_OWNER_PHONE = '+19990002042';
 const ADMIN_PB_OWNER_PHONE = '+19990002050';
@@ -1651,5 +1658,272 @@ describe('PATCH /admin/businesses/:businessId/public-booking', () => {
       .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
       .send({})
       .expect(400);
+  });
+});
+
+// ─── POST /admin/businesses/:businessId/services ──────────────────────────────
+
+describe('POST /admin/businesses/:businessId/services', () => {
+  let csvcOwner: User;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.service.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_CSVC_OWNER_ID, E2E_ADMIN_CSVC_OWNER_B_ID] },
+      },
+    });
+
+    // Seed biz A — DRAFT (primary fixture for admin service creation)
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_CSVC_BIZ_ID,
+        name: 'E2E Admin Create Service Business A',
+        slug: 'e2e-admin-csvc-biz-a',
+        status: 'DRAFT',
+      },
+    });
+    csvcOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_CSVC_OWNER_ID,
+        phoneNormalized: ADMIN_CSVC_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_CSVC_BIZ_ID,
+        userId: csvcOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // Seed biz B — TRIAL (used only for tenant isolation test)
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_CSVC_BIZ_B_ID,
+        name: 'E2E Admin Create Service Business B',
+        slug: 'e2e-admin-csvc-biz-b',
+        status: 'TRIAL',
+      },
+    });
+    const ownerB = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_CSVC_OWNER_B_ID,
+        phoneNormalized: ADMIN_CSVC_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_CSVC_BIZ_B_ID,
+        userId: ownerB.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.service.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_CSVC_OWNER_ID, E2E_ADMIN_CSVC_OWNER_B_ID] },
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    // Reset biz A to DRAFT in case a test moved it to TRIAL
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_CSVC_BIZ_ID },
+      data: { status: 'DRAFT' },
+    });
+  });
+
+  it('admin creates service for DRAFT business → 201 with correct shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Haircut', durationMinutes: 30 })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      id: expect.any(String) as string,
+      name: 'Haircut',
+      durationMinutes: 30,
+      isActive: true,
+      bufferBeforeMin: 0,
+      bufferAfterMin: 0,
+      description: null,
+      priceCents: null,
+    });
+  });
+
+  it('admin creates inactive service → 201 with isActive=false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Inactive Service', durationMinutes: 60, isActive: false })
+      .expect(201);
+
+    expect((res.body as { isActive: boolean }).isActive).toBe(false);
+  });
+
+  it('missing name → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ durationMinutes: 30 })
+      .expect(400);
+  });
+
+  it('durationMinutes below minimum (4) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Too Short', durationMinutes: 4 })
+      .expect(400);
+  });
+
+  it('durationMinutes above maximum (481) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Too Long', durationMinutes: 481 })
+      .expect(400);
+  });
+
+  it('negative priceCents → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Bad Price', durationMinutes: 30, priceCents: -1 })
+      .expect(400);
+  });
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post('/admin/businesses/00000000-0000-4000-8000-000000000000/services')
+      .send({ name: 'Ghost Service', durationMinutes: 30 })
+      .expect(404);
+  });
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Blocked', durationMinutes: 30 })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'No Auth', durationMinutes: 30 })
+      .expect(401);
+  });
+
+  it('admin-created service is visible in dashboard after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Dashboard Visible Service', durationMinutes: 45 })
+      .expect(201);
+
+    // Move DRAFT → TRIAL so assertAccess allows the owner in
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = csvcOwner;
+    const listRes = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .expect(200);
+
+    const names = (listRes.body as { name: string }[]).map((s) => s.name);
+    expect(names).toContain('Dashboard Visible Service');
+  });
+
+  it('service created for biz A does not appear in biz B dashboard (tenant isolation)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Biz A Only Service', durationMinutes: 30 })
+      .expect(201);
+
+    // biz B is already TRIAL; csvcOwnerB can call the dashboard
+    MockClerkAuthGuard.currentUser = await prisma.user.findUniqueOrThrow({
+      where: { id: E2E_ADMIN_CSVC_OWNER_B_ID },
+    });
+    const listRes = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_CSVC_BIZ_B_ID}/services`)
+      .expect(200);
+
+    const names = (listRes.body as { name: string }[]).map((s) => s.name);
+    expect(names).not.toContain('Biz A Only Service');
+  });
+
+  it('admin-created active service contributes to readiness hasActiveService=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Readiness Service', durationMinutes: 60, isActive: true })
+      .expect(201);
+
+    const rdnRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/readiness`)
+      .expect(200);
+
+    expect(
+      (rdnRes.body as { checks: { hasActiveService: boolean } }).checks
+        .hasActiveService,
+    ).toBe(true);
   });
 });
