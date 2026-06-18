@@ -206,8 +206,18 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
     - `createService(businessId, dto)` added to `AdminBusinessesService`.
     - Admin-created services are visible via dashboard after DRAFT→TRIAL and contribute to readiness.
     - E2E: `admin-businesses.e2e-spec.ts` +12 tests (73 total); covers DRAFT creation, inactive service, DTO validation, 404/403/401, dashboard visibility, tenant isolation, readiness contribution.
-- Approximate test counts: 23+ E2E suites / 485+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: Phase B.2 (admin add business user), Phase B.3 (admin working hours), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+  - Phase B.2 — Admin add business user:
+    - `POST /admin/businesses/:businessId/users` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — critical for onboarding because SP creation requires a valid businessUserId.
+    - Reuses `CreateBusinessUserDto` from dashboard (phone, optional email, role: MANAGER|MEMBER). OWNER role blocked by DTO enum validation.
+    - Created `BusinessUser` is immediately `status: ACTIVE` — no invitation flow.
+    - User upsert by normalized phone (find by phone → find by email → create). Existing user with new business → new BusinessUser row. Same user twice in same business → 409.
+    - Returns `BusinessUserCreatedDto` shape (id, userId, businessId, role, status, phoneNormalized, email, serviceProviderId).
+    - `addBusinessUser(businessId, dto)` added to `AdminBusinessesService`.
+    - No Prisma schema changes. Dashboard business-user creation behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +13 tests (86 total); covers DRAFT creation, MEMBER/MANAGER, OWNER blocked, DTO validation, 404/403/401, duplicate 409, cross-business, dashboard DRAFT lock (403), dashboard after TRIAL (200), B.1+B.2+SP integration test.
+- Approximate test counts: 23+ E2E suites / 498+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: Phase B.3 (admin working hours), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

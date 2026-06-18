@@ -9,6 +9,8 @@ import {
   BusinessStatus,
   BusinessUser,
   BusinessUserStatus,
+  PlatformRole,
+  UserStatus,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessesService } from '../businesses/businesses.service';
@@ -17,10 +19,13 @@ import { BusinessUsersService } from '../business-users/business-users.service';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 import type { CreateServiceDto } from '../dashboard/dto/create-service.dto';
+import type { CreateBusinessUserDto } from '../dashboard/dto/create-business-user.dto';
 import type {
+  BusinessUserCreatedDto,
   ServiceDto,
   ServiceProviderDto,
 } from '../dashboard/dashboard-data.service';
+import { normalizePhone } from '../dashboard/phone.util';
 import { computeBusinessReadiness } from '../dashboard/readiness.utils';
 import type { BusinessReadinessDto } from '../dashboard/readiness.utils';
 
@@ -207,6 +212,67 @@ export class AdminBusinessesService {
         bufferBeforeMin: true,
         bufferAfterMin: true,
       },
+    });
+  }
+
+  async addBusinessUser(
+    businessId: string,
+    dto: CreateBusinessUserDto,
+  ): Promise<BusinessUserCreatedDto> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    const phoneNormalized = normalizePhone(dto.phone);
+
+    return this.prisma.$transaction(async (tx) => {
+      let user = await tx.user.findUnique({ where: { phoneNormalized } });
+      if (!user) {
+        user = await tx.user.create({
+          data: {
+            phoneNormalized,
+            email: dto.email ?? null,
+            status: UserStatus.ACTIVE,
+            platformRole: PlatformRole.USER,
+          },
+        });
+      }
+
+      const existingBu = await tx.businessUser.findUnique({
+        where: { businessId_userId: { businessId, userId: user.id } },
+      });
+      if (existingBu) {
+        throw new ConflictException(
+          'This user is already a member of this business',
+        );
+      }
+
+      const bu = await tx.businessUser.create({
+        data: {
+          businessId,
+          userId: user.id,
+          role: dto.role,
+          status: BusinessUserStatus.ACTIVE,
+        },
+      });
+
+      const serviceProvider = await tx.serviceProvider.findUnique({
+        where: { businessUserId: bu.id },
+        select: { id: true },
+      });
+
+      return {
+        id: bu.id,
+        userId: user.id,
+        businessId,
+        role: bu.role,
+        status: bu.status,
+        phoneNormalized: user.phoneNormalized,
+        email: user.email,
+        serviceProviderId: serviceProvider?.id ?? null,
+      };
     });
   }
 

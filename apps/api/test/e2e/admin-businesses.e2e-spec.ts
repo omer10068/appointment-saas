@@ -55,6 +55,11 @@ const E2E_ADMIN_CSVC_BIZ_ID = 'e2e20000-0000-4000-8000-000000000029'; // DRAFT b
 const E2E_ADMIN_CSVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000030'; // TRIAL biz B (isolation)
 const E2E_ADMIN_CSVC_OWNER_ID = 'e2e20000-0000-4000-8000-000000000031';
 const E2E_ADMIN_CSVC_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000032';
+// Admin add business user tests (B.2)
+const E2E_ADMIN_ABU_BIZ_ID = 'e2e20000-0000-4000-8000-000000000033';
+const E2E_ADMIN_ABU_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000034';
+const E2E_ADMIN_ABU_OWNER_ID = 'e2e20000-0000-4000-8000-000000000035';
+const E2E_ADMIN_ABU_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000036';
 // Admin publicBookingEnabled toggle tests
 const E2E_ADMIN_PB_TRIAL_BIZ_ID = 'e2e20000-0000-4000-8000-000000000021';
 const E2E_ADMIN_PB_TRIAL_SLUG = 'e2e-admin-pb-trial-biz';
@@ -79,6 +84,24 @@ const ADMIN_SP_DUP_PHONE = '+19990002032';
 const ADMIN_SP_INACT_SVC_PHONE = '+19990002033';
 const ADMIN_CSVC_OWNER_PHONE = '+19990002060';
 const ADMIN_CSVC_OWNER_B_PHONE = '+19990002061';
+const ADMIN_ABU_OWNER_PHONE = '+19990002070';
+const ADMIN_ABU_OWNER_B_PHONE = '+19990002071';
+const ADMIN_ABU_MANAGER_PHONE = '+19990002072';
+const ADMIN_ABU_MEMBER_PHONE = '+19990002073';
+const ADMIN_ABU_DUP_PHONE = '+19990002074';
+const ADMIN_ABU_CROSS_BIZ_PHONE = '+19990002075';
+const ADMIN_ABU_T11_PHONE = '+19990002076';
+const ADMIN_ABU_T12_PHONE = '+19990002077';
+const ADMIN_ABU_T13_PHONE = '+19990002078';
+const ALL_ABU_TEST_PHONES = [
+  ADMIN_ABU_MANAGER_PHONE,
+  ADMIN_ABU_MEMBER_PHONE,
+  ADMIN_ABU_DUP_PHONE,
+  ADMIN_ABU_CROSS_BIZ_PHONE,
+  ADMIN_ABU_T11_PHONE,
+  ADMIN_ABU_T12_PHONE,
+  ADMIN_ABU_T13_PHONE,
+];
 const ADMIN_RDN_OWNER_PHONE = '+19990002041';
 const ADMIN_ACTIVE_OWNER_PHONE = '+19990002042';
 const ADMIN_PB_OWNER_PHONE = '+19990002050';
@@ -1925,5 +1948,371 @@ describe('POST /admin/businesses/:businessId/services', () => {
       (rdnRes.body as { checks: { hasActiveService: boolean } }).checks
         .hasActiveService,
     ).toBe(true);
+  });
+});
+
+// ─── POST /admin/businesses/:businessId/users (B.2) ───────────────────────────
+
+describe('POST /admin/businesses/:businessId/users (admin add business user)', () => {
+  let abuOwner: User;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    const priorTestUsers = await prisma.user.findMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+      select: { id: true },
+    });
+    if (priorTestUsers.length > 0) {
+      await prisma.businessUser.deleteMany({
+        where: { userId: { in: priorTestUsers.map((u) => u.id) } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: priorTestUsers.map((u) => u.id) } },
+      });
+    }
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [E2E_ADMIN_ABU_OWNER_ID, E2E_ADMIN_ABU_OWNER_B_ID] } },
+    });
+
+    // Seed biz A (DRAFT)
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_ABU_BIZ_ID,
+        name: 'E2E Admin ABU Business A',
+        slug: 'e2e-admin-abu-biz-a',
+        status: 'DRAFT',
+      },
+    });
+    abuOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_ABU_OWNER_ID,
+        phoneNormalized: ADMIN_ABU_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_ABU_BIZ_ID,
+        userId: abuOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // Seed biz B (TRIAL) for cross-business membership test
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_ABU_BIZ_B_ID,
+        name: 'E2E Admin ABU Business B',
+        slug: 'e2e-admin-abu-biz-b',
+        status: 'TRIAL',
+      },
+    });
+    const ownerB = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_ABU_OWNER_B_ID,
+        phoneNormalized: ADMIN_ABU_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_ABU_BIZ_B_ID,
+        userId: ownerB.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    const testUsers = await prisma.user.findMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+      select: { id: true },
+    });
+    if (testUsers.length > 0) {
+      await prisma.businessUser.deleteMany({
+        where: { userId: { in: testUsers.map((u) => u.id) } },
+      });
+    }
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [E2E_ADMIN_ABU_OWNER_ID, E2E_ADMIN_ABU_OWNER_B_ID] } },
+    });
+    await prisma.user.deleteMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+    });
+  });
+
+  beforeEach(async () => {
+    // Delete services and SPs created by test 13 (integration test)
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: E2E_ADMIN_ABU_BIZ_ID },
+    });
+    await prisma.service.deleteMany({
+      where: { businessId: E2E_ADMIN_ABU_BIZ_ID },
+    });
+    // Delete test-created users and all their business users (covers biz A and biz B)
+    const testUsers = await prisma.user.findMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+      select: { id: true },
+    });
+    if (testUsers.length > 0) {
+      await prisma.businessUser.deleteMany({
+        where: { userId: { in: testUsers.map((u) => u.id) } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: testUsers.map((u) => u.id) } },
+      });
+    }
+    // Reset biz A to DRAFT (in case a test moved it to TRIAL)
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_ABU_BIZ_ID },
+      data: { status: 'DRAFT' },
+    });
+  });
+
+  // ── Success ───────────────────────────────────────────────────────────────
+
+  it('admin adds MANAGER to DRAFT business → 201 with ACTIVE status', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(201);
+
+    const body = res.body as {
+      id: string;
+      userId: string;
+      businessId: string;
+      role: string;
+      status: string;
+      phoneNormalized: string;
+      email: string | null;
+      serviceProviderId: string | null;
+    };
+    expect(body.role).toBe('MANAGER');
+    expect(body.status).toBe(BusinessUserStatus.ACTIVE);
+    expect(body.businessId).toBe(E2E_ADMIN_ABU_BIZ_ID);
+    expect(body.phoneNormalized).toBe(ADMIN_ABU_MANAGER_PHONE);
+    expect(body.serviceProviderId).toBeNull();
+  });
+
+  it('admin adds MEMBER to DRAFT business → 201', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MEMBER_PHONE, role: 'MEMBER' })
+      .expect(201);
+
+    expect((res.body as { role: string }).role).toBe('MEMBER');
+    expect((res.body as { status: string }).status).toBe(
+      BusinessUserStatus.ACTIVE,
+    );
+  });
+
+  // ── Validation ────────────────────────────────────────────────────────────
+
+  it('OWNER role → 400 (DTO enum rejects it)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'OWNER' })
+      .expect(400);
+  });
+
+  it('missing phone → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ role: 'MANAGER' })
+      .expect(400);
+  });
+
+  it('invalid email format → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_MANAGER_PHONE,
+        email: 'not-an-email',
+        role: 'MANAGER',
+      })
+      .expect(400);
+  });
+
+  // ── Not found ─────────────────────────────────────────────────────────────
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post('/admin/businesses/00000000-0000-4000-8000-000000000000/users')
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(404);
+  });
+
+  // ── Duplicate ─────────────────────────────────────────────────────────────
+
+  it('same phone added twice to the same business → 409', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_DUP_PHONE, role: 'MANAGER' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_DUP_PHONE, role: 'MANAGER' })
+      .expect(409);
+  });
+
+  // ── Cross-business ────────────────────────────────────────────────────────
+
+  it('same user can belong to a second business → 201', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_CROSS_BIZ_PHONE, role: 'MANAGER' })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_B_ID}/users`)
+      .send({ phone: ADMIN_ABU_CROSS_BIZ_PHONE, role: 'MEMBER' })
+      .expect(201);
+
+    expect((res.body as { businessId: string }).businessId).toBe(
+      E2E_ADMIN_ABU_BIZ_B_ID,
+    );
+  });
+
+  // ── Auth guards ───────────────────────────────────────────────────────────
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(401);
+  });
+
+  // ── Dashboard access via DRAFT lock ───────────────────────────────────────
+
+  it('admin-created MANAGER can access dashboard after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const addRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_T11_PHONE, role: 'MANAGER' })
+      .expect(201);
+    const { userId } = addRes.body as { userId: string };
+    const managerUser = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = managerUser;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_ABU_BIZ_ID}/services`)
+      .expect(200);
+  });
+
+  it('admin-created MANAGER cannot access dashboard while business is DRAFT → 403', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const addRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_T12_PHONE, role: 'MANAGER' })
+      .expect(201);
+    const { userId } = addRes.body as { userId: string };
+    const managerUser = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    MockClerkAuthGuard.currentUser = managerUser;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_ABU_BIZ_ID}/services`)
+      .expect(403);
+  });
+
+  // ── Integration: B.1 + B.2 + SP creation ─────────────────────────────────
+
+  it('admin-created MANAGER businessUserId can be used to create a ServiceProvider', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+
+    const svcRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/services`)
+      .send({ name: 'ABU SP Integration Service', durationMinutes: 60 })
+      .expect(201);
+    const svcId = (svcRes.body as { id: string }).id;
+
+    const addRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_T13_PHONE, role: 'MANAGER' })
+      .expect(201);
+    const managerBuId = (addRes.body as { id: string }).id;
+
+    const spRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'ABU Integration Provider',
+        businessUserId: managerBuId,
+        serviceIds: [svcId],
+        isActive: true,
+      })
+      .expect(201);
+
+    expect((spRes.body as { displayName: string }).displayName).toBe(
+      'ABU Integration Provider',
+    );
   });
 });

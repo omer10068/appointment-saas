@@ -862,9 +862,24 @@ Goal: allow Admin to configure a new business during the DRAFT phase, before the
 
 **Decision on SUSPENDED/CANCELLED businesses:** Admin bypass applies — no status restriction enforced. Admin can create services for a suspended business. This is consistent with the pattern on every other admin endpoint.
 
-### Phase B.2 (next): Admin add business user
+### Phase B.2: Admin add business user
 
-Not yet implemented. Needed to allow Admin to seed the MANAGER team member during DRAFT onboarding, before the dashboard is unlocked.
+**Endpoint:** `POST /admin/businesses/:businessId/users`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on DRAFT businesses (no status restriction).
+- Accepts `phone` (required), `email` (optional), `role` (MANAGER | MEMBER). OWNER is rejected at DTO validation level.
+- User upsert: find existing user by normalized phone → find by email → create new. Existing user in a new business creates a new `BusinessUser` row. Same user added twice to the same business → 409.
+- Created `BusinessUser.status` is always `ACTIVE` — no invitation flow. This is consistent with `createOwnerForBusiness`.
+- Reuses `CreateBusinessUserDto` from dashboard (phone, optional email, role MANAGER|MEMBER).
+- Returns `BusinessUserCreatedDto` shape.
+- `addBusinessUser(businessId, dto)` added to `AdminBusinessesService`.
+- Dashboard user creation behavior unchanged.
+
+**E2E coverage:** 13 tests added (86 total in `admin-businesses.e2e-spec.ts`).
 
 ### Phase B.3 (next): Admin set working hours
 
