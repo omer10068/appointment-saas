@@ -374,6 +374,73 @@ export class AdminBusinessesService {
     });
   }
 
+  async setServiceProviderWorkingHours(
+    businessId: string,
+    serviceProviderId: string,
+    dto: UpsertWorkingHoursDto,
+  ): Promise<WorkingHourDto[]> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    const sp = await this.prisma.serviceProvider.findFirst({
+      where: { id: serviceProviderId, businessId },
+      select: { id: true },
+    });
+    if (!sp) throw new NotFoundException('Service provider not found');
+
+    const seen = new Set<number>();
+    for (const h of dto.hours) {
+      if (seen.has(h.dayOfWeek)) {
+        throw new BadRequestException(
+          `Duplicate dayOfWeek value: ${h.dayOfWeek}`,
+        );
+      }
+      seen.add(h.dayOfWeek);
+      if (!h.isClosed) {
+        const startTime = h.startTime ?? null;
+        const endTime = h.endTime ?? null;
+        if (!startTime || !endTime) {
+          throw new BadRequestException(
+            'startTime and endTime are required when the day is not closed',
+          );
+        }
+        if (endTime <= startTime) {
+          throw new BadRequestException('endTime must be after startTime');
+        }
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.serviceProviderWorkingHour.deleteMany({
+        where: { serviceProviderId },
+      });
+      await tx.serviceProviderWorkingHour.createMany({
+        data: dto.hours.map((h) => ({
+          businessId,
+          serviceProviderId,
+          dayOfWeek: h.dayOfWeek,
+          startTime: h.isClosed ? null : (h.startTime ?? null),
+          endTime: h.isClosed ? null : (h.endTime ?? null),
+          isClosed: h.isClosed,
+        })),
+      });
+      return tx.serviceProviderWorkingHour.findMany({
+        where: { serviceProviderId },
+        orderBy: { dayOfWeek: 'asc' },
+        select: {
+          id: true,
+          dayOfWeek: true,
+          startTime: true,
+          endTime: true,
+          isClosed: true,
+        },
+      });
+    });
+  }
+
   async getBusinessReadiness(
     businessId: string,
   ): Promise<BusinessReadinessDto> {

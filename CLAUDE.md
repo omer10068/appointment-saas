@@ -226,8 +226,19 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
     - `setBusinessWorkingHours(businessId, dto)` added to `AdminBusinessesService`.
     - No Prisma schema changes. Dashboard working-hours behavior unchanged.
     - E2E: `admin-businesses.e2e-spec.ts` +13 tests (99 total); covers DRAFT set, mixed open/closed, full replacement, 404/400/403/401, dashboard visibility after TRIAL, readiness contribution, tenant isolation.
-- Approximate test counts: 23+ E2E suites / 511+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: Phase B.4 (admin SP working hours), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+  - Phase B.4 — Admin set ServiceProvider working hours:
+    - `PUT /admin/businesses/:businessId/service-providers/:serviceProviderId/working-hours` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — required for `allActiveProvidersHaveWorkingHours` readiness check before DRAFT→TRIAL.
+    - Verifies SP exists and belongs to `businessId` → 404 if not found or cross-tenant.
+    - Reuses `UpsertWorkingHoursDto`. Full-week replacement semantics, identical to dashboard.
+    - Same inline validation as B.3 (duplicate days, open-day time range, HH:mm format via DTO).
+    - Does not call `bookingValidation.checkServiceProviderHoursConflict` (DRAFT onboarding; no appointments exist).
+    - Returns `WorkingHourDto[]` sorted by dayOfWeek.
+    - `setServiceProviderWorkingHours(businessId, serviceProviderId, dto)` added to `AdminBusinessesService`.
+    - No Prisma schema changes. Dashboard SP working-hours behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +15 tests (114 total); covers DRAFT set, mixed days, full replacement, 404 (biz/SP/cross-tenant), 400 (day/time), 403/401, dashboard visibility after TRIAL, readiness contribution, tenant isolation.
+- Approximate test counts: 23+ E2E suites / 526+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

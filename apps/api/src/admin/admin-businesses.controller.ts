@@ -99,6 +99,19 @@ export class AdminBusinessesController {
     return this.adminBusinessesService.createServiceProvider(businessId, dto);
   }
 
+  @Put(':businessId/service-providers/:serviceProviderId/working-hours')
+  setServiceProviderWorkingHours(
+    @Param('businessId') businessId: string,
+    @Param('serviceProviderId') serviceProviderId: string,
+    @Body() dto: UpsertWorkingHoursDto,
+  ) {
+    return this.adminBusinessesService.setServiceProviderWorkingHours(
+      businessId,
+      serviceProviderId,
+      dto,
+    );
+  }
+
   @Get(':businessId/readiness')
   getBusinessReadiness(@Param('businessId') businessId: string) {
     return this.adminBusinessesService.getBusinessReadiness(businessId);

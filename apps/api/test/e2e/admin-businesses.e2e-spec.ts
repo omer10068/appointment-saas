@@ -55,6 +55,13 @@ const E2E_ADMIN_CSVC_BIZ_ID = 'e2e20000-0000-4000-8000-000000000029'; // DRAFT b
 const E2E_ADMIN_CSVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000030'; // TRIAL biz B (isolation)
 const E2E_ADMIN_CSVC_OWNER_ID = 'e2e20000-0000-4000-8000-000000000031';
 const E2E_ADMIN_CSVC_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000032';
+// Admin set SP working hours tests (B.4)
+const E2E_ADMIN_SPWH_BIZ_ID = 'e2e20000-0000-4000-8000-000000000041';
+const E2E_ADMIN_SPWH_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000042';
+const E2E_ADMIN_SPWH_OWNER_ID = 'e2e20000-0000-4000-8000-000000000043';
+const E2E_ADMIN_SPWH_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000044';
+const E2E_ADMIN_SPWH_SVC_ID = 'e2e20000-0000-4000-8000-000000000045';
+const E2E_ADMIN_SPWH_SVC_B_ID = 'e2e20000-0000-4000-8000-000000000046';
 // Admin set business working hours tests (B.3)
 const E2E_ADMIN_BWH_BIZ_ID = 'e2e20000-0000-4000-8000-000000000037';
 const E2E_ADMIN_BWH_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000038';
@@ -91,6 +98,8 @@ const ADMIN_CSVC_OWNER_PHONE = '+19990002060';
 const ADMIN_CSVC_OWNER_B_PHONE = '+19990002061';
 const ADMIN_BWH_OWNER_PHONE = '+19990002080';
 const ADMIN_BWH_OWNER_B_PHONE = '+19990002081';
+const ADMIN_SPWH_OWNER_PHONE = '+19990002082';
+const ADMIN_SPWH_OWNER_B_PHONE = '+19990002083';
 const ADMIN_ABU_OWNER_PHONE = '+19990002070';
 const ADMIN_ABU_OWNER_B_PHONE = '+19990002071';
 const ADMIN_ABU_MANAGER_PHONE = '+19990002072';
@@ -2769,5 +2778,576 @@ describe('PUT /admin/businesses/:businessId/working-hours (admin set business wo
       .expect(200);
 
     expect(res.body).toEqual([]);
+  });
+});
+
+// ─── PUT /admin/businesses/:businessId/service-providers/:spId/working-hours (B.4) ─
+
+describe('PUT /admin/businesses/:businessId/service-providers/:spId/working-hours (admin set SP working hours)', () => {
+  let spwhOwner: User;
+  let spId: string;
+  let spBId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_SVC_ID, E2E_ADMIN_SPWH_SVC_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_OWNER_ID, E2E_ADMIN_SPWH_OWNER_B_ID] },
+      },
+    });
+
+    // ── Seed biz A (DRAFT) ────────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_SPWH_BIZ_ID,
+        name: 'E2E Admin SPWH Business A',
+        slug: 'e2e-admin-spwh-biz-a',
+        status: 'DRAFT',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    spwhOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SPWH_OWNER_ID,
+        phoneNormalized: ADMIN_SPWH_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const buA = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        userId: spwhOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_SPWH_SVC_ID,
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        name: 'SPWH Test Service A',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    const spA = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        businessUserId: buA.id,
+        displayName: 'SPWH Test Provider A',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_SPWH_SVC_ID }] },
+      },
+    });
+    spId = spA.id;
+
+    // ── Seed biz B (TRIAL) ────────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_SPWH_BIZ_B_ID,
+        name: 'E2E Admin SPWH Business B',
+        slug: 'e2e-admin-spwh-biz-b',
+        status: 'TRIAL',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    const ownerB = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SPWH_OWNER_B_ID,
+        phoneNormalized: ADMIN_SPWH_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const buB = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_B_ID,
+        userId: ownerB.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_SPWH_SVC_B_ID,
+        businessId: E2E_ADMIN_SPWH_BIZ_B_ID,
+        name: 'SPWH Test Service B',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    const spB = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_B_ID,
+        businessUserId: buB.id,
+        displayName: 'SPWH Test Provider B',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_SPWH_SVC_B_ID }] },
+      },
+    });
+    spBId = spB.id;
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_SVC_ID, E2E_ADMIN_SPWH_SVC_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_OWNER_ID, E2E_ADMIN_SPWH_OWNER_B_ID] },
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    // Clear SP A working hours; reset biz A to DRAFT
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: { serviceProviderId: spId },
+    });
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_SPWH_BIZ_ID },
+      data: { status: 'DRAFT' },
+    });
+  });
+
+  // ── Success ───────────────────────────────────────────────────────────────
+
+  it('admin sets SP working hours for DRAFT business → 200 with correct shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const body = res.body as Array<{
+      id: string;
+      dayOfWeek: number;
+      startTime: string | null;
+      endTime: string | null;
+      isClosed: boolean;
+    }>;
+    expect(Array.isArray(body)).toBe(true);
+    expect(body).toHaveLength(1);
+    expect(body[0]).toMatchObject({
+      dayOfWeek: 1,
+      isClosed: false,
+      startTime: '09:00',
+      endTime: '18:00',
+    });
+    expect(typeof body[0].id).toBe('string');
+
+    // Verify persistence
+    const rows = await prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId: spId },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dayOfWeek).toBe(1);
+  });
+
+  it('admin sets a mix of open and closed days for a provider → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          { dayOfWeek: 0, isClosed: true },
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          { dayOfWeek: 6, isClosed: true },
+        ],
+      })
+      .expect(200);
+
+    const body = res.body as Array<{ dayOfWeek: number; isClosed: boolean }>;
+    expect(body).toHaveLength(3);
+    expect(body.filter((h) => h.isClosed)).toHaveLength(2);
+    expect(body.filter((h) => !h.isClosed)).toHaveLength(1);
+  });
+
+  it('second PUT replaces all existing SP hours (full replacement)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 3,
+            isClosed: false,
+            startTime: '10:00',
+            endTime: '17:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const rows = await prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId: spId },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dayOfWeek).toBe(3);
+  });
+
+  // ── Not found ─────────────────────────────────────────────────────────────
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/00000000-0000-4000-8000-000000000000/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(404);
+  });
+
+  it('non-existent serviceProviderId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/00000000-0000-4000-8000-000000000000/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(404);
+  });
+
+  it('ServiceProvider from another business → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spBId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(404);
+  });
+
+  // ── Validation ────────────────────────────────────────────────────────────
+
+  it('dayOfWeek out of range (7) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 7,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('invalid time format → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '9:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('startTime after endTime → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '18:00',
+            endTime: '09:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('open day with missing startTime/endTime → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [{ dayOfWeek: 1, isClosed: false }],
+      })
+      .expect(400);
+  });
+
+  // ── Auth guards ───────────────────────────────────────────────────────────
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(401);
+  });
+
+  // ── Dashboard visibility ──────────────────────────────────────────────────
+
+  it('admin-set SP hours visible via dashboard GET after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 4,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '16:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = spwhOwner;
+    const res = await request(app.getHttpServer())
+      .get(
+        `/dashboard/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .expect(200);
+
+    const body = res.body as Array<{ dayOfWeek: number; startTime: string }>;
+    expect(body.some((h) => h.dayOfWeek === 4 && h.startTime === '08:00')).toBe(
+      true,
+    );
+  });
+
+  // ── Readiness contribution ────────────────────────────────────────────────
+
+  it('allActiveProvidersHaveWorkingHours is false before and true after setting SP hours', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+
+    const before = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/readiness`)
+      .expect(200);
+    expect(
+      (
+        before.body as {
+          checks: { allActiveProvidersHaveWorkingHours: boolean };
+        }
+      ).checks.allActiveProvidersHaveWorkingHours,
+    ).toBe(false);
+
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const after = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/readiness`)
+      .expect(200);
+    expect(
+      (
+        after.body as {
+          checks: { allActiveProvidersHaveWorkingHours: boolean };
+        }
+      ).checks.allActiveProvidersHaveWorkingHours,
+    ).toBe(true);
+  });
+
+  // ── Tenant isolation ──────────────────────────────────────────────────────
+
+  it('setting hours for SP A does not create hours for SP B', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const rows = await prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId: spBId },
+    });
+    expect(rows).toHaveLength(0);
   });
 });

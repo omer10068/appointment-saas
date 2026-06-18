@@ -900,9 +900,25 @@ Goal: allow Admin to configure a new business during the DRAFT phase, before the
 
 **E2E coverage:** 13 tests added (99 total in `admin-businesses.e2e-spec.ts`).
 
-### Phase B.4 (next): Admin set SP working hours
+### Phase B.4: Admin set ServiceProvider working hours
 
-Not yet implemented. Depends on SP existing (B.1 must be done first).
+**Endpoint:** `PUT /admin/businesses/:businessId/service-providers/:serviceProviderId/working-hours`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on DRAFT businesses (no status restriction).
+- Verifies business exists (404) and that the ServiceProvider exists under that businessId (404 if not found or cross-tenant).
+- Same `UpsertWorkingHoursDto` and full-replacement semantics as B.3 (delete-then-recreate in one transaction).
+- Same inline validation: duplicate dayOfWeek → 400; open day missing startTime/endTime → 400; endTime ≤ startTime → 400. Time format via DTO.
+- Does not run booking-conflict check (`checkServiceProviderHoursConflict`) — targets DRAFT-phase onboarding; no appointments exist yet.
+- Returns `WorkingHourDto[]` sorted by dayOfWeek, same shape as dashboard `GET .../service-providers/:id/working-hours`.
+- `setServiceProviderWorkingHours(businessId, serviceProviderId, dto)` added to `AdminBusinessesService`.
+- Dashboard SP working-hours endpoint behavior unchanged.
+- This does not enable public booking.
+
+**E2E coverage:** 15 tests added (114 total in `admin-businesses.e2e-spec.ts`).
 
 ## Later — Phase 3 and Beyond
 
