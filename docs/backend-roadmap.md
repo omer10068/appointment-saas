@@ -881,9 +881,24 @@ Goal: allow Admin to configure a new business during the DRAFT phase, before the
 
 **E2E coverage:** 13 tests added (86 total in `admin-businesses.e2e-spec.ts`).
 
-### Phase B.3 (next): Admin set working hours
+### Phase B.3: Admin set business working hours
 
-Not yet implemented. Needed to complete readiness checks during DRAFT phase.
+**Endpoint:** `PUT /admin/businesses/:businessId/working-hours`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on DRAFT businesses (no status restriction).
+- Reuses `UpsertWorkingHoursDto` from dashboard — same request shape: `{ hours: [{ dayOfWeek, isClosed, startTime?, endTime? }] }`.
+- Full-week replacement semantics: deletes all existing rows for the business and inserts the provided set in one transaction (identical to dashboard behavior).
+- Validation: duplicate dayOfWeek → 400; open day missing startTime/endTime → 400; endTime ≤ startTime → 400. Time format validated by DTO `@Matches` pattern (HH:mm).
+- Does not run booking-conflict check (`checkBusinessHoursConflict`) — endpoint targets DRAFT-phase onboarding where no appointments exist yet.
+- Returns `WorkingHourDto[]` sorted by dayOfWeek, same shape as dashboard `GET /working-hours`.
+- `setBusinessWorkingHours(businessId, dto)` added to `AdminBusinessesService`.
+- Dashboard working-hours endpoint behavior unchanged.
+
+**E2E coverage:** 13 tests added (99 total in `admin-businesses.e2e-spec.ts`).
 
 ### Phase B.4 (next): Admin set SP working hours
 

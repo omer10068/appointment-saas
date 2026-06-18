@@ -216,8 +216,18 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
     - `addBusinessUser(businessId, dto)` added to `AdminBusinessesService`.
     - No Prisma schema changes. Dashboard business-user creation behavior unchanged.
     - E2E: `admin-businesses.e2e-spec.ts` +13 tests (86 total); covers DRAFT creation, MEMBER/MANAGER, OWNER blocked, DTO validation, 404/403/401, duplicate 409, cross-business, dashboard DRAFT lock (403), dashboard after TRIAL (200), B.1+B.2+SP integration test.
-- Approximate test counts: 23+ E2E suites / 498+ tests, 17+ unit suites / 293+ unit tests.
-- Next backend focus areas: Phase B.3 (admin working hours), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
+  - Phase B.3 — Admin set business working hours:
+    - `PUT /admin/businesses/:businessId/working-hours` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — required for `hasBusinessWorkingHours` readiness check before DRAFT→TRIAL.
+    - Reuses `UpsertWorkingHoursDto` (same DTO as dashboard). Full-week replacement semantics (delete-then-recreate in one transaction), identical to dashboard.
+    - Validation: duplicate dayOfWeek → 400; open day missing startTime/endTime → 400; endTime ≤ startTime → 400. Time format validated by `WorkingHourItemDto` (@Matches HH:mm).
+    - Does not call `bookingValidation.checkBusinessHoursConflict` (admin endpoint is for DRAFT onboarding; no appointments exist in DRAFT phase).
+    - Returns `WorkingHourDto[]` sorted by dayOfWeek.
+    - `setBusinessWorkingHours(businessId, dto)` added to `AdminBusinessesService`.
+    - No Prisma schema changes. Dashboard working-hours behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +13 tests (99 total); covers DRAFT set, mixed open/closed, full replacement, 404/400/403/401, dashboard visibility after TRIAL, readiness contribution, tenant isolation.
+- Approximate test counts: 23+ E2E suites / 511+ tests, 17+ unit suites / 293+ unit tests.
+- Next backend focus areas: Phase B.4 (admin SP working hours), notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
 

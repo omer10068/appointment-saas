@@ -20,11 +20,13 @@ import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 import type { CreateServiceDto } from '../dashboard/dto/create-service.dto';
 import type { CreateBusinessUserDto } from '../dashboard/dto/create-business-user.dto';
+import type { UpsertWorkingHoursDto } from '../dashboard/dto/upsert-working-hours.dto';
 import type {
   BusinessUserCreatedDto,
   ServiceDto,
   ServiceProviderDto,
 } from '../dashboard/dashboard-data.service';
+import type { WorkingHourDto } from '../dashboard/availability.service';
 import { normalizePhone } from '../dashboard/phone.util';
 import { computeBusinessReadiness } from '../dashboard/readiness.utils';
 import type { BusinessReadinessDto } from '../dashboard/readiness.utils';
@@ -312,6 +314,63 @@ export class AdminBusinessesService {
     return this.prisma.business.update({
       where: { id: businessId },
       data: { publicBookingEnabled: true },
+    });
+  }
+
+  async setBusinessWorkingHours(
+    businessId: string,
+    dto: UpsertWorkingHoursDto,
+  ): Promise<WorkingHourDto[]> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+
+    const seen = new Set<number>();
+    for (const h of dto.hours) {
+      if (seen.has(h.dayOfWeek)) {
+        throw new BadRequestException(
+          `Duplicate dayOfWeek value: ${h.dayOfWeek}`,
+        );
+      }
+      seen.add(h.dayOfWeek);
+      if (!h.isClosed) {
+        const startTime = h.startTime ?? null;
+        const endTime = h.endTime ?? null;
+        if (!startTime || !endTime) {
+          throw new BadRequestException(
+            'startTime and endTime are required when the day is not closed',
+          );
+        }
+        if (endTime <= startTime) {
+          throw new BadRequestException('endTime must be after startTime');
+        }
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.businessWorkingHour.deleteMany({ where: { businessId } });
+      await tx.businessWorkingHour.createMany({
+        data: dto.hours.map((h) => ({
+          businessId,
+          dayOfWeek: h.dayOfWeek,
+          startTime: h.isClosed ? null : (h.startTime ?? null),
+          endTime: h.isClosed ? null : (h.endTime ?? null),
+          isClosed: h.isClosed,
+        })),
+      });
+      return tx.businessWorkingHour.findMany({
+        where: { businessId },
+        orderBy: { dayOfWeek: 'asc' },
+        select: {
+          id: true,
+          dayOfWeek: true,
+          startTime: true,
+          endTime: true,
+          isClosed: true,
+        },
+      });
     });
   }
 

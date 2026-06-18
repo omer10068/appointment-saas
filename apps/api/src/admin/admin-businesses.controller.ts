@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
@@ -16,6 +17,7 @@ import { SetBusinessStatusDto } from './dto/set-business-trial.dto';
 import { SetBusinessPublicBookingDto } from './dto/set-business-public-booking.dto';
 import { CreateServiceDto } from '../dashboard/dto/create-service.dto';
 import { CreateBusinessUserDto } from '../dashboard/dto/create-business-user.dto';
+import { UpsertWorkingHoursDto } from '../dashboard/dto/upsert-working-hours.dto';
 import { CreateServiceProviderDto } from '../dashboard/dto/create-service-provider.dto';
 
 @UseGuards(ClerkAuthGuard, PlatformAdminGuard)
@@ -68,6 +70,14 @@ export class AdminBusinessesController {
     @Body() dto: CreateBusinessUserDto,
   ) {
     return this.adminBusinessesService.addBusinessUser(businessId, dto);
+  }
+
+  @Put(':businessId/working-hours')
+  setBusinessWorkingHours(
+    @Param('businessId') businessId: string,
+    @Body() dto: UpsertWorkingHoursDto,
+  ) {
+    return this.adminBusinessesService.setBusinessWorkingHours(businessId, dto);
   }
 
   @Patch(':businessId/public-booking')
