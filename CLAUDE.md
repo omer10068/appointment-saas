@@ -252,6 +252,7 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - Serves as a living backend runbook for first manual onboarding.
   - E2E: `admin-businesses.e2e-spec.ts` +1 test (128 total).
 - Approximate test counts: 23+ E2E suites / 540+ tests, 17+ unit suites / 293+ unit tests.
+- Admin/Ops onboarding runbook: `docs/admin-onboarding-runbook.md` — step-by-step guide for manually onboarding a business from DRAFT to ACTIVE using backend endpoints only. Covers the full two-partner setup, working hours, readiness verification, status transitions, common mistakes, and troubleshooting.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture

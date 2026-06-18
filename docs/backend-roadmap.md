@@ -963,6 +963,14 @@ Goal: allow Admin to configure a new business during the DRAFT phase, before the
 
 **E2E coverage:** 1 consolidated test added (128 total in `admin-businesses.e2e-spec.ts`).
 
+### Admin/Ops Onboarding Runbook
+
+**Status:** Written.
+
+**Document:** [`docs/admin-onboarding-runbook.md`](./admin-onboarding-runbook.md)
+
+Step-by-step operational guide for manually onboarding a business using backend endpoints only. Covers the full 12-step sequence matching the happy-path E2E test: create business → create owner → add manager → create services → create ServiceProviders → set working hours → verify summary + readiness → DRAFT → TRIAL → ACTIVE. Includes example payloads, common mistakes, readiness troubleshooting map, and current limitations.
+
 ## Later — Phase 3 and Beyond
 
 - Notifications and outbox (async appointment created/cancelled events).
