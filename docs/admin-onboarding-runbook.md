@@ -20,7 +20,7 @@ There is no Admin UI. All steps are HTTP API calls authenticated with an Admin t
 This runbook covers the first-pilot supported shape:
 
 | Entity | Count | Notes |
-|--------|-------|-------|
+| --- | --- | --- |
 | Business | 1 | Created as DRAFT; promoted to TRIAL then ACTIVE |
 | OWNER | 1 | Primary contact; has full dashboard access |
 | MANAGER | 1 | Second partner; has operational dashboard access |
@@ -50,7 +50,7 @@ Confirm the following before starting:
 ## Important Concepts
 
 | Concept | Meaning |
-|---------|---------|
+| --- | --- |
 | `BusinessUser` | Represents a person's access to a business. Controls their role (OWNER / MANAGER / MEMBER) and dashboard access. |
 | `ServiceProvider` | A bookable calendar entity. Receives appointments. One-to-one with a `BusinessUser`. |
 | `BusinessUser.id` | The ID of the membership row — **not** the same as the `User.id`. Required when creating a `ServiceProvider`. |
@@ -68,7 +68,8 @@ Confirm the following before starting:
 ## Step-by-Step Onboarding Flow
 
 All endpoints require:
-```
+
+```http
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 ```
@@ -79,11 +80,12 @@ Base URL: `https://{{api-host}}`
 
 ### Step 1 — Create Business as DRAFT
 
-```
+```http
 POST /admin/businesses
 ```
 
 **Request body:**
+
 ```json
 {
   "name": "My Salon",
@@ -95,13 +97,14 @@ POST /admin/businesses
 **Key fields to capture from response:**
 
 | Field | Variable | Notes |
-|-------|----------|-------|
+| --- | --- | --- |
 | `id` | `{{businessId}}` | Required for all subsequent steps |
 | `slug` | — | Verify it matches |
 | `status` | — | Must be `"DRAFT"` |
 | `publicBookingEnabled` | — | Must be `false` |
 
 **Pitfalls:**
+
 - `slug` must be lowercase, URL-safe, and globally unique (e.g. `my-salon`, not `My Salon`). Duplicate slug → 409.
 - `timezone` is required and must be a valid IANA timezone string.
 - Status is automatically forced to `DRAFT` — do not attempt to pass a different status.
@@ -110,11 +113,12 @@ POST /admin/businesses
 
 ### Step 2 — Create First OWNER
 
-```
+```http
 POST /admin/businesses/{{businessId}}/owner
 ```
 
 **Request body:**
+
 ```json
 {
   "phone": "+972501234567",
@@ -125,12 +129,13 @@ POST /admin/businesses/{{businessId}}/owner
 **Key fields to capture from response:**
 
 | Field | Variable | Notes |
-|-------|----------|-------|
+| --- | --- | --- |
 | `id` | `{{ownerBusinessUserId}}` | This is the `BusinessUser.id`, NOT the `User.id` |
 | `role` | — | Must be `"OWNER"` |
 | `status` | — | Must be `"ACTIVE"` |
 
 **Pitfalls:**
+
 - Only one OWNER per business. A second call to this endpoint → 409.
 - The `id` in the response is the `BusinessUser.id`. Save it as `{{ownerBusinessUserId}}`. You will need it in Step 6 to create the provider.
 - Phone is normalized to E.164 internally. If the user already exists in the system (by phone or email), they will be linked rather than duplicated.
@@ -139,11 +144,12 @@ POST /admin/businesses/{{businessId}}/owner
 
 ### Step 3 — Add Second Partner as MANAGER
 
-```
+```http
 POST /admin/businesses/{{businessId}}/users
 ```
 
 **Request body:**
+
 ```json
 {
   "phone": "+972509876543",
@@ -155,12 +161,13 @@ POST /admin/businesses/{{businessId}}/users
 **Key fields to capture from response:**
 
 | Field | Variable | Notes |
-|-------|----------|-------|
+| --- | --- | --- |
 | `id` | `{{managerBusinessUserId}}` | This is the `BusinessUser.id`, NOT the `User.id` |
 | `role` | — | Must be `"MANAGER"` |
 | `status` | — | Must be `"ACTIVE"` |
 
 **Pitfalls:**
+
 - `role` must be `"MANAGER"` or `"MEMBER"`. `"OWNER"` is rejected by this endpoint (use Step 2 for owner).
 - The same phone lookup applies: if the user already exists in the system they are linked automatically.
 - Same-user-same-business duplicate → 409.
@@ -171,11 +178,12 @@ POST /admin/businesses/{{businessId}}/users
 
 Repeat for each service.
 
-```
+```http
 POST /admin/businesses/{{businessId}}/services
 ```
 
 **Request body (example — service A):**
+
 ```json
 {
   "name": "Haircut",
@@ -186,6 +194,7 @@ POST /admin/businesses/{{businessId}}/services
 ```
 
 **Request body (example — service B):**
+
 ```json
 {
   "name": "Hair Coloring",
@@ -197,11 +206,12 @@ POST /admin/businesses/{{businessId}}/services
 **Key fields to capture from each response:**
 
 | Field | Variable |
-|-------|----------|
+| --- | --- |
 | `id` | `{{serviceAId}}`, `{{serviceBId}}`, … |
 | `isActive` | Must be `true` for readiness |
 
 **Pitfalls:**
+
 - `durationMinutes` must be between 5 and 480.
 - `priceCents` is optional; omit for free services.
 - Default `isActive` is `true`. Only pass `"isActive": false` if intentionally creating an inactive service.
@@ -217,7 +227,7 @@ Create one ServiceProvider per partner. Each provider is a bookable calendar.
 
 **Provider A — for the OWNER:**
 
-```
+```http
 POST /admin/businesses/{{businessId}}/service-providers
 ```
 
@@ -231,7 +241,7 @@ POST /admin/businesses/{{businessId}}/service-providers
 
 **Provider B — for the MANAGER:**
 
-```
+```http
 POST /admin/businesses/{{businessId}}/service-providers
 ```
 
@@ -246,12 +256,13 @@ POST /admin/businesses/{{businessId}}/service-providers
 **Key fields to capture from each response:**
 
 | Field | Variable |
-|-------|----------|
+| --- | --- |
 | `id` | `{{providerAId}}`, `{{providerBId}}` |
 | `serviceIds` | Verify correct services are linked |
 | `isActive` | Must be `true` |
 
 **Pitfalls:**
+
 - `businessUserId` must be the `BusinessUser.id` (the membership row ID), **not** the `User.id`. This is the most common mistake. Both look like UUIDs.
 - Each `BusinessUser` can have at most one `ServiceProvider`. Duplicate → 409.
 - `serviceIds` must contain at least one entry. All service IDs must belong to this business and be active if `isActive: true`.
@@ -263,7 +274,7 @@ POST /admin/businesses/{{businessId}}/service-providers
 
 This sets the general schedule for the business. It does **not** set provider-specific hours.
 
-```
+```http
 PUT /admin/businesses/{{businessId}}/working-hours
 ```
 
@@ -286,6 +297,7 @@ PUT /admin/businesses/{{businessId}}/working-hours
 Day-of-week reference: 0 = Sunday, 1 = Monday, … 6 = Saturday.
 
 **Notes:**
+
 - This is a full replacement. Sending it again overwrites all previous rows.
 - `isClosed: true` rows count toward `hasBusinessWorkingHours` — any row (even a closed day) satisfies the readiness check. Best practice is to send a complete 7-day week.
 - Time format must be `HH:mm` (24-hour, zero-padded): `"09:00"` not `"9:00"`.
@@ -299,7 +311,7 @@ Repeat for each provider. Provider working hours are independent of business wor
 
 **Provider A:**
 
-```
+```http
 PUT /admin/businesses/{{businessId}}/service-providers/{{providerAId}}/working-hours
 ```
 
@@ -315,7 +327,7 @@ PUT /admin/businesses/{{businessId}}/service-providers/{{providerAId}}/working-h
 
 **Provider B:**
 
-```
+```http
 PUT /admin/businesses/{{businessId}}/service-providers/{{providerBId}}/working-hours
 ```
 
@@ -330,6 +342,7 @@ PUT /admin/businesses/{{businessId}}/service-providers/{{providerBId}}/working-h
 ```
 
 **Notes:**
+
 - Every active ServiceProvider must have at least one working-hours row for `allActiveProvidersHaveWorkingHours` to pass.
 - Same full-replacement semantics: sending again overwrites all rows for that provider.
 - You do not need to send all 7 days — only the days they work.
@@ -340,7 +353,7 @@ PUT /admin/businesses/{{businessId}}/service-providers/{{providerBId}}/working-h
 
 Before transitioning status, do a full sanity check.
 
-```
+```http
 GET /admin/businesses/{{businessId}}/onboarding-summary
 ```
 
@@ -386,6 +399,7 @@ GET /admin/businesses/{{businessId}}/onboarding-summary
 ```
 
 **Checklist:**
+
 - [ ] `business.status` is `"DRAFT"`
 - [ ] `business.publicBookingEnabled` is `false`
 - [ ] Both users present with `status: "ACTIVE"`
@@ -402,7 +416,7 @@ If `isReady` is `false`, check `blockingReasons` — see the Troubleshooting sec
 
 ### Step 9 — Verify Readiness Directly
 
-```
+```http
 GET /admin/businesses/{{businessId}}/readiness
 ```
 
@@ -430,7 +444,7 @@ All 7 checks must be `true` before proceeding to Step 11.
 
 ### Step 10 — Move DRAFT → TRIAL
 
-```
+```http
 PATCH /admin/businesses/{{businessId}}/status
 ```
 
@@ -441,6 +455,7 @@ PATCH /admin/businesses/{{businessId}}/status
 **Expected response:** full Business object with `status: "TRIAL"` and `publicBookingEnabled: false`.
 
 **What this does:**
+
 - Unlocks dashboard access for all ACTIVE BusinessUsers (OWNER, MANAGER).
 - The owner and manager can now log in to the Business App.
 - Does **not** enable public booking.
@@ -450,7 +465,7 @@ PATCH /admin/businesses/{{businessId}}/status
 
 ### Step 11 — Move TRIAL → ACTIVE
 
-```
+```http
 PATCH /admin/businesses/{{businessId}}/status
 ```
 
@@ -461,11 +476,13 @@ PATCH /admin/businesses/{{businessId}}/status
 **Expected response:** full Business object with `status: "ACTIVE"` and `publicBookingEnabled: false`.
 
 **What this does:**
+
 - Confirms the business is fully operational.
 - Requires all 7 readiness checks to be `true`. If not → 400 with `blockingReasons`.
 - Does **not** enable public booking. `publicBookingEnabled` remains `false`.
 
 **Notes:**
+
 - DRAFT → ACTIVE directly is blocked (must go through TRIAL first).
 - If readiness fails here, use the dashboard (available since TRIAL) to fix the issue, then retry.
 
@@ -475,11 +492,12 @@ PATCH /admin/businesses/{{businessId}}/status
 
 Verify the final state:
 
-```
+```http
 GET /admin/businesses/{{businessId}}/onboarding-summary
 ```
 
 Confirm:
+
 - `business.status` is `"ACTIVE"`
 - `business.publicBookingEnabled` is `false`
 - `readiness.isReady` is `true`
@@ -629,7 +647,7 @@ All dashboard endpoints (`/dashboard/businesses/:id/...`) require the business t
 When `readiness.isReady` is `false`, `blockingReasons` lists the failing checks. Map each reason to its fix:
 
 | Blocking reason | Fix |
-|----------------|-----|
+| --- | --- |
 | `No active owner` | Create an owner via `POST /admin/businesses/:id/owner` |
 | `No active service` | Create an active service via `POST /admin/businesses/:id/services` |
 | `No active service provider` | Create an active ServiceProvider via `POST /admin/businesses/:id/service-providers` |
