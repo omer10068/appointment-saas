@@ -132,6 +132,10 @@ const ADMIN_OS_OWNER_PHONE = '+19990002084';
 const ADMIN_OS_MANAGER_PHONE = '+19990002085';
 const ADMIN_OS_EMPTY_OWNER_PHONE = '+19990002086';
 const ADMIN_OS_BIZ_B_OWNER_PHONE = '+19990002087';
+// Full onboarding happy path test
+const E2E_ADMIN_HP_SLUG = 'e2e-admin-hp-biz';
+const ADMIN_HP_OWNER_PHONE = '+19990002090';
+const ADMIN_HP_MANAGER_PHONE = '+19990002091';
 const ADMIN_RDN_OWNER_PHONE = '+19990002041';
 const ADMIN_ACTIVE_OWNER_PHONE = '+19990002042';
 const ADMIN_PB_OWNER_PHONE = '+19990002050';
@@ -3901,5 +3905,360 @@ describe('GET /admin/businesses/:businessId/onboarding-summary (admin onboarding
       res.body as { services: Array<{ id: string }> }
     ).services.map((s) => s.id);
     expect(serviceIds).not.toContain(E2E_ADMIN_OS_BIZ_B_SVC_ID);
+  });
+});
+
+// ─── Full two-partner onboarding happy path (DRAFT → ACTIVE) ─────────────────
+
+describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
+  let hpBusinessId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup: delete any leftover data from a previous run
+    const existing = await prisma.business.findUnique({
+      where: { slug: E2E_ADMIN_HP_SLUG },
+      select: { id: true },
+    });
+    if (existing) {
+      const bId = existing.id;
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: bId },
+      });
+      await prisma.serviceProvider.deleteMany({ where: { businessId: bId } });
+      await prisma.businessWorkingHour.deleteMany({
+        where: { businessId: bId },
+      });
+      await prisma.service.deleteMany({ where: { businessId: bId } });
+      await prisma.businessUser.deleteMany({ where: { businessId: bId } });
+      await prisma.business.deleteMany({ where: { id: bId } });
+    }
+    await prisma.user.deleteMany({
+      where: {
+        phoneNormalized: { in: [ADMIN_HP_OWNER_PHONE, ADMIN_HP_MANAGER_PHONE] },
+      },
+    });
+  });
+
+  afterAll(async () => {
+    if (hpBusinessId) {
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.businessWorkingHour.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.service.deleteMany({ where: { businessId: hpBusinessId } });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.business.deleteMany({ where: { id: hpBusinessId } });
+    }
+    await prisma.user.deleteMany({
+      where: {
+        phoneNormalized: { in: [ADMIN_HP_OWNER_PHONE, ADMIN_HP_MANAGER_PHONE] },
+      },
+    });
+  });
+
+  it('onboards a two-partner business from DRAFT to ACTIVE without enabling public booking', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+
+    // ── Step 1: Create business ───────────────────────────────────────────────
+    const bizRes = await request(app.getHttpServer())
+      .post('/admin/businesses')
+      .send({
+        name: 'Happy Path Business',
+        slug: E2E_ADMIN_HP_SLUG,
+        timezone: 'Asia/Jerusalem',
+      })
+      .expect(201);
+
+    const biz = bizRes.body as {
+      id: string;
+      status: string;
+      publicBookingEnabled: boolean;
+    };
+    hpBusinessId = biz.id;
+    expect(biz.status).toBe('DRAFT');
+    expect(biz.publicBookingEnabled).toBe(false);
+
+    // ── Step 2: Create first OWNER ────────────────────────────────────────────
+    const ownerRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/owner`)
+      .send({ phone: ADMIN_HP_OWNER_PHONE })
+      .expect(201);
+
+    const ownerBu = ownerRes.body as {
+      id: string;
+      role: string;
+      status: string;
+    };
+    const ownerBusinessUserId = ownerBu.id;
+    expect(ownerBu.role).toBe('OWNER');
+    expect(ownerBu.status).toBe('ACTIVE');
+
+    // ── Step 3: Add second partner as MANAGER ─────────────────────────────────
+    const managerRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/users`)
+      .send({ phone: ADMIN_HP_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(201);
+
+    const managerBu = managerRes.body as {
+      id: string;
+      role: string;
+      status: string;
+    };
+    const managerBusinessUserId = managerBu.id;
+    expect(managerBu.role).toBe('MANAGER');
+    expect(managerBu.status).toBe('ACTIVE');
+
+    // ── Step 4: Create service A ──────────────────────────────────────────────
+    const svcARes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/services`)
+      .send({ name: 'Service Alpha', durationMinutes: 60 })
+      .expect(201);
+
+    const serviceAId = (svcARes.body as { id: string }).id;
+    expect(typeof serviceAId).toBe('string');
+
+    // ── Step 5: Create service B ──────────────────────────────────────────────
+    const svcBRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/services`)
+      .send({ name: 'Service Beta', durationMinutes: 45 })
+      .expect(201);
+
+    const serviceBId = (svcBRes.body as { id: string }).id;
+    expect(typeof serviceBId).toBe('string');
+    expect(serviceBId).not.toBe(serviceAId);
+
+    // ── Step 6: Create ServiceProvider/calendar for OWNER (service A only) ────
+    const spARes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/service-providers`)
+      .send({
+        displayName: 'Provider Alpha',
+        businessUserId: ownerBusinessUserId,
+        serviceIds: [serviceAId],
+      })
+      .expect(201);
+
+    const spABody = spARes.body as { id: string; serviceIds: string[] };
+    const providerAId = spABody.id;
+    expect(spABody.serviceIds).toContain(serviceAId);
+    expect(spABody.serviceIds).not.toContain(serviceBId);
+
+    // ── Step 7: Create ServiceProvider/calendar for MANAGER (service B only) ──
+    const spBRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/service-providers`)
+      .send({
+        displayName: 'Provider Beta',
+        businessUserId: managerBusinessUserId,
+        serviceIds: [serviceBId],
+      })
+      .expect(201);
+
+    const spBBody = spBRes.body as { id: string; serviceIds: string[] };
+    const providerBId = spBBody.id;
+    expect(spBBody.serviceIds).toContain(serviceBId);
+    expect(spBBody.serviceIds).not.toContain(serviceAId);
+
+    // ── Step 8: Set business working hours (Mon–Fri 09:00–18:00) ─────────────
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${hpBusinessId}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 2,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 3,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 4,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 5,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    // ── Step 9: Set provider A working hours (Mon + Wed) ──────────────────────
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${hpBusinessId}/service-providers/${providerAId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+          {
+            dayOfWeek: 3,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    // ── Step 10: Set provider B working hours (Tue + Thu) ─────────────────────
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${hpBusinessId}/service-providers/${providerBId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 2,
+            isClosed: false,
+            startTime: '10:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 4,
+            isClosed: false,
+            startTime: '10:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    // ── Step 11: Onboarding summary (pre-transition) ──────────────────────────
+    const summaryRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${hpBusinessId}/onboarding-summary`)
+      .expect(200);
+
+    const summary = summaryRes.body as {
+      business: { status: string; publicBookingEnabled: boolean };
+      users: Array<{ role: string }>;
+      services: Array<{ id: string }>;
+      serviceProviders: Array<{
+        id: string;
+        serviceIds: string[];
+        hasWorkingHours: boolean;
+      }>;
+      businessWorkingHours: Array<{ dayOfWeek: number }>;
+      readiness: { isReady: boolean };
+    };
+
+    expect(summary.business.status).toBe('DRAFT');
+    expect(summary.business.publicBookingEnabled).toBe(false);
+
+    expect(summary.users).toHaveLength(2);
+    expect(summary.users.find((u) => u.role === 'OWNER')).toBeDefined();
+    expect(summary.users.find((u) => u.role === 'MANAGER')).toBeDefined();
+
+    expect(summary.services).toHaveLength(2);
+    const summaryServiceIds = summary.services.map((s) => s.id);
+    expect(summaryServiceIds).toContain(serviceAId);
+    expect(summaryServiceIds).toContain(serviceBId);
+
+    expect(summary.serviceProviders).toHaveLength(2);
+    const spASummary = summary.serviceProviders.find(
+      (sp) => sp.id === providerAId,
+    );
+    const spBSummary = summary.serviceProviders.find(
+      (sp) => sp.id === providerBId,
+    );
+    expect(spASummary).toBeDefined();
+    expect(spASummary?.serviceIds).toEqual([serviceAId]);
+    expect(spASummary?.hasWorkingHours).toBe(true);
+    expect(spBSummary).toBeDefined();
+    expect(spBSummary?.serviceIds).toEqual([serviceBId]);
+    expect(spBSummary?.hasWorkingHours).toBe(true);
+
+    expect(summary.businessWorkingHours.length).toBeGreaterThan(0);
+    expect(summary.readiness.isReady).toBe(true);
+
+    // ── Step 12: Readiness — all 7 checks pass ────────────────────────────────
+    const rdnRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${hpBusinessId}/readiness`)
+      .expect(200);
+
+    const rdn = rdnRes.body as {
+      isReady: boolean;
+      checks: {
+        hasActiveOwner: boolean;
+        hasActiveService: boolean;
+        hasActiveServiceProvider: boolean;
+        hasBusinessWorkingHours: boolean;
+        allActiveProvidersHaveWorkingHours: boolean;
+        allActiveProvidersHaveActiveServiceAssignment: boolean;
+        allActiveServicesHaveActiveProviderAssignment: boolean;
+      };
+    };
+    expect(rdn.isReady).toBe(true);
+    expect(rdn.checks.hasActiveOwner).toBe(true);
+    expect(rdn.checks.hasActiveService).toBe(true);
+    expect(rdn.checks.hasActiveServiceProvider).toBe(true);
+    expect(rdn.checks.hasBusinessWorkingHours).toBe(true);
+    expect(rdn.checks.allActiveProvidersHaveWorkingHours).toBe(true);
+    expect(rdn.checks.allActiveProvidersHaveActiveServiceAssignment).toBe(true);
+    expect(rdn.checks.allActiveServicesHaveActiveProviderAssignment).toBe(true);
+
+    // ── Step 13: DRAFT → TRIAL ────────────────────────────────────────────────
+    const trialRes = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${hpBusinessId}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    const trialBiz = trialRes.body as {
+      status: string;
+      publicBookingEnabled: boolean;
+    };
+    expect(trialBiz.status).toBe('TRIAL');
+    expect(trialBiz.publicBookingEnabled).toBe(false);
+
+    // ── Step 14: TRIAL → ACTIVE ───────────────────────────────────────────────
+    const activeRes = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${hpBusinessId}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    const activeBiz = activeRes.body as {
+      status: string;
+      publicBookingEnabled: boolean;
+    };
+    expect(activeBiz.status).toBe('ACTIVE');
+    expect(activeBiz.publicBookingEnabled).toBe(false);
+
+    // ── Step 15: Final summary — confirm ACTIVE, readiness still true, no public booking ──
+    const finalRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${hpBusinessId}/onboarding-summary`)
+      .expect(200);
+
+    const final = finalRes.body as {
+      business: { status: string; publicBookingEnabled: boolean };
+      readiness: { isReady: boolean };
+    };
+    expect(final.business.status).toBe('ACTIVE');
+    expect(final.business.publicBookingEnabled).toBe(false);
+    expect(final.readiness.isReady).toBe(true);
   });
 });

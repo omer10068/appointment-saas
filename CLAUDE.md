@@ -245,7 +245,13 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
     - `getOnboardingSummary(businessId)` added to `AdminBusinessesService`. `AdminOnboardingSummaryDto` interface defined in same file.
     - No Prisma schema changes. Dashboard behavior unchanged.
     - E2E: `admin-businesses.e2e-spec.ts` +13 tests (127 total); covers full DRAFT business (all keys, metadata, users, services, SPs with serviceIds+hasWorkingHours, businessWorkingHours ordering, readiness embed), empty DRAFT business, DRAFT status not blocked, 404/403/401, tenant isolation.
-- Approximate test counts: 23+ E2E suites / 539+ tests, 17+ unit suites / 293+ unit tests.
+- Full onboarding happy-path E2E test:
+  - Consolidated test added to `admin-businesses.e2e-spec.ts`: `describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)')`.
+  - One `it` block proves the complete 15-step Admin/Ops sequence: create business → create OWNER → add MANAGER → create 2 services → create 2 ServiceProviders with different service assignments → set business + both provider working hours → verify onboarding summary → verify all 7 readiness checks → DRAFT → TRIAL → ACTIVE.
+  - Asserts publicBookingEnabled remains false throughout and is never accidentally set.
+  - Serves as a living backend runbook for first manual onboarding.
+  - E2E: `admin-businesses.e2e-spec.ts` +1 test (128 total).
+- Approximate test counts: 23+ E2E suites / 540+ tests, 17+ unit suites / 293+ unit tests.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture

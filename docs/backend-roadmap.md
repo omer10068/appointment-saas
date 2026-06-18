@@ -951,6 +951,18 @@ Goal: allow Admin to configure a new business during the DRAFT phase, before the
 
 **E2E coverage:** 13 tests added (127 total in `admin-businesses.e2e-spec.ts`).
 
+### Full onboarding happy-path E2E test
+
+**Status:** Added.
+
+**Purpose:** Proves the complete Admin/Ops onboarding sequence end-to-end in a single consolidated test. Serves as a living backend runbook for first manual pilot.
+
+**Test location:** `describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)')` in `admin-businesses.e2e-spec.ts`.
+
+**Sequence covered:** Create business (DRAFT) → Create OWNER → Add MANAGER → Create 2 services → Create 2 ServiceProviders with different service assignments → Set business working hours → Set both provider working hours → Verify onboarding summary (all entities, both providers with correct `serviceIds`, `hasWorkingHours`, `isReady=true`) → Verify all 7 readiness checks → DRAFT → TRIAL → TRIAL → ACTIVE → Final summary confirms ACTIVE + `publicBookingEnabled=false`.
+
+**E2E coverage:** 1 consolidated test added (128 total in `admin-businesses.e2e-spec.ts`).
+
 ## Later — Phase 3 and Beyond
 
 - Notifications and outbox (async appointment created/cancelled events).
