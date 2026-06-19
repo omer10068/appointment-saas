@@ -7,6 +7,10 @@ import { ApiError } from '@/lib/api';
 import { fetchAdminBusinesses } from '@/lib/admin-api';
 import { MobilePhoneFrame } from '@/app/app/_components/mobile-phone-frame';
 
+export const adminKeys = {
+  businesses: ['admin', 'businesses'] as const,
+};
+
 function AdminAccessLoading() {
   return (
     <MobilePhoneFrame dir="rtl">
@@ -46,7 +50,7 @@ export function AdminAccessGate({ children }: Props) {
   const { getToken } = useAuth();
 
   const { isLoading, error } = useQuery({
-    queryKey: ['admin', 'access-check'],
+    queryKey: adminKeys.businesses,
     queryFn: () => fetchAdminBusinesses(getToken),
     retry: false,
     staleTime: 60_000,

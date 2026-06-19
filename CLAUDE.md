@@ -380,12 +380,47 @@ Admin API helper (`apps/web/src/lib/admin-api.ts`):
 - `fetchAdminBusinesses(getToken)` — used by `AdminAccessGate` for access verification.
 - `AdminBusinessListItemDto` interface defined here (no shared contract type yet).
 
-What remains for Phase E.1:
+## Current Admin Frontend Status (Phase E.1)
 
-- Wire up real business list from `GET /admin/businesses` in `/admin/businesses`
-- Add business row navigation to `/admin/businesses/[businessId]/onboarding`
-- Start onboarding summary display using `GET /admin/businesses/:businessId/onboarding-summary`
-- No new backend endpoints needed for Phase E.1
+Phase E.1 — real read-only business list and guided onboarding summary page. Still no mutation forms.
+
+Live admin routes:
+
+- `/admin/businesses` — real business list from `GET /admin/businesses` (cards with name, slug, status badge, timezone, publicBookingEnabled, createdAt)
+- `/admin/businesses/new` — placeholder ("הקמה מודרכת בקרוב"); navigates back to list
+- `/admin/businesses/[businessId]/onboarding` — fetches `GET /admin/businesses/:id/onboarding-summary`; renders 6 step cards (פרטי עסק, בעלים וצוות, שירותים, יומנים, שעות פעילות, מוכנות לשימוש) with done/missing state; shows localized blocking reasons; shows disabled "פתח גישה לדשבורד" CTA (wired in E.4)
+
+Admin hooks (`apps/web/src/app/admin/_hooks/`):
+
+- `use-admin-businesses.ts` — wraps `fetchAdminBusinesses`; uses query key `['admin', 'businesses']` shared with `AdminAccessGate` (zero extra requests when navigating to list)
+- `use-admin-onboarding-summary.ts` — wraps `fetchAdminOnboardingSummary`; key `['admin', 'onboarding-summary', businessId]`; `staleTime: 30s`
+
+Admin components (`apps/web/src/app/admin/_components/`):
+
+- `AdminAccessGate` — query key changed to `['admin', 'businesses']` (cache shared with list hook)
+- `AdminBusinessesShell` — real list + empty/error/loading states + "הקמת עסק חדש" link to `/new`
+- `AdminOnboardingShell` — summary + step cards with `buildSteps()` helper + Hebrew blocking reasons map
+
+API helpers (`apps/web/src/lib/admin-api.ts`):
+
+- `AdminBusinessListItemDto` — list item type
+- `AdminOnboardingSummaryDto` — full onboarding summary type (mirrors backend `AdminOnboardingSummaryDto`)
+- `AdminReadinessDto` / `AdminReadinessChecks` — mirrors `BusinessReadinessDto`
+- `fetchAdminBusinesses` / `fetchAdminOnboardingSummary` — typed wrappers over `fetchWithAuth`
+
+UX direction (locked by product decision):
+
+- Admin UI is a **guided onboarding flow**, not a CRUD panel
+- Language avoids "public booking" — uses "פתיחת גישה לדשבורד", "העסק מוכן לשימוש פנימי"
+- `publicBookingEnabled` must remain `false`; never referenced in admin onboarding UI
+- "פתח גישה לדשבורד" = DRAFT → TRIAL; disabled in E.1, wired in E.4
+
+Suggested next phases:
+
+- **E.2** — Create business + primary owner (DRAFT, Clerk provision, disabled dashboard)
+- **E.3** — Add MANAGER/MEMBER + create services + create ServiceProviders + assign services
+- **E.4** — Set working hours + readiness + open dashboard (DRAFT → TRIAL via PATCH /status)
+- **E.5** — Full QA pass: create business through Admin UI, owner/manager login, Business App verified
 
 ## Workflow
 
