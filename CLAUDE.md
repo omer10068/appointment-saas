@@ -294,7 +294,7 @@ Four product surfaces — each with a distinct route namespace:
 | Marketing site | `/` | Placeholder — redirects to `/app/home` until a real marketing page is built |
 | Public Booking | `/book/[businessSlug]` | Planned — where customers choose service/provider/time and book |
 | Business App | `/app/*` | Live |
-| Internal Admin | `/admin/*` | Placeholder (`פאנל ניהול פנימי`) |
+| Internal Admin | `/admin/*` | Shell live (Phase E.0) — placeholder pages only, no forms yet |
 
 Legacy routes (`/home`, `/calendar`, `/dashboard/*`, `/mobile/*`, `/team`, `/availability`) all redirect permanently to their `/app/*` equivalents via `next.config.ts`. No chains.
 
@@ -350,6 +350,42 @@ ServiceProvider assignment policy (locked — do not change without explicit ins
 Removing a `serviceId` from a `ServiceProvider` does **not** block or cancel existing future appointments for that `(serviceProviderId, serviceId)` pair. Existing appointments remain valid and manageable. The change applies only to new bookings. Do not add blocking confirmation or cascade cancellation without an explicit product decision.
 
 Next focus areas: public booking flow, notifications UI, billing UI.
+
+## Current Admin Frontend Status (Phase E.0)
+
+Admin UI shell is live at `/admin/*`. Placeholder only — no onboarding forms yet. Backend remains the single source of truth for authorization.
+
+Live admin routes:
+
+- `/admin` — redirects to `/admin/businesses` via `next.config.ts`
+- `/admin/businesses` — placeholder business list page
+- `/admin/businesses/[businessId]/onboarding` — placeholder onboarding page with section cards
+- `/admin/settings` — placeholder system settings page
+
+Admin shell components (`apps/web/src/app/admin/_components/`):
+
+- `AdminAccessGate` — client component; calls `GET /admin/businesses` on mount; shows loading → forbidden (403) → children. Non-admin authenticated users see a lock screen.
+- `AdminHeader` — server component; title + subtitle + Building2 icon badge.
+- `AdminBottomNav` — client component; two tabs: עסקים (`/admin/businesses`) and מערכת (`/admin/settings`). Same pill-active pattern as `CalendarBottomNav`.
+
+Admin layout (`apps/web/src/app/admin/layout.tsx`):
+
+- Does NOT call `auth()` or make server-side API calls (avoids Next.js RSC conditional-children build issue).
+- Wraps children in `QueryProvider` + desktop centering wrapper + `AdminAccessGate`.
+- `export const dynamic = 'force-dynamic'` prevents static pre-rendering.
+- Unauthenticated users are redirected by Clerk middleware before reaching the layout.
+
+Admin API helper (`apps/web/src/lib/admin-api.ts`):
+
+- `fetchAdminBusinesses(getToken)` — used by `AdminAccessGate` for access verification.
+- `AdminBusinessListItemDto` interface defined here (no shared contract type yet).
+
+What remains for Phase E.1:
+
+- Wire up real business list from `GET /admin/businesses` in `/admin/businesses`
+- Add business row navigation to `/admin/businesses/[businessId]/onboarding`
+- Start onboarding summary display using `GET /admin/businesses/:businessId/onboarding-summary`
+- No new backend endpoints needed for Phase E.1
 
 ## Workflow
 
