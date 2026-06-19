@@ -92,3 +92,59 @@ export function fetchAdminOnboardingSummary(
     getToken,
   );
 }
+
+// ─── Mutations ────────────────────────────────────────────────────────────────
+
+export interface AdminCreateBusinessPayload {
+  name: string;
+  slug: string;
+  timezone: string;
+}
+
+export interface AdminCreatedBusinessDto {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  timezone: string;
+  locale: string;
+  currency: string;
+  publicBookingEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function createAdminBusiness(
+  payload: AdminCreateBusinessPayload,
+  getToken: () => Promise<string | null>,
+): Promise<AdminCreatedBusinessDto> {
+  return fetchWithAuth<AdminCreatedBusinessDto>('/admin/businesses', getToken, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export interface AdminCreateOwnerPayload {
+  email: string;
+  phone: string;
+}
+
+export interface AdminCreatedOwnerDto {
+  id: string;
+  userId: string;
+  businessId: string;
+  role: string;
+  status: string;
+}
+
+export function createAdminBusinessOwner(
+  businessId: string,
+  payload: AdminCreateOwnerPayload,
+  getToken: () => Promise<string | null>,
+): Promise<AdminCreatedOwnerDto> {
+  return fetchWithAuth<AdminCreatedOwnerDto>(
+    `/admin/businesses/${businessId}/owner`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}

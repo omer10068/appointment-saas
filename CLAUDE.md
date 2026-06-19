@@ -380,44 +380,54 @@ Admin API helper (`apps/web/src/lib/admin-api.ts`):
 - `fetchAdminBusinesses(getToken)` — used by `AdminAccessGate` for access verification.
 - `AdminBusinessListItemDto` interface defined here (no shared contract type yet).
 
-## Current Admin Frontend Status (Phase E.1)
+## Current Admin Frontend Status (Phase E.2)
 
-Phase E.1 — real read-only business list and guided onboarding summary page. Still no mutation forms.
+Phases E.1 + E.2 complete. Admin can create a new business and its primary owner from the UI.
 
 Live admin routes:
 
-- `/admin/businesses` — real business list from `GET /admin/businesses` (cards with name, slug, status badge, timezone, publicBookingEnabled, createdAt)
-- `/admin/businesses/new` — placeholder ("הקמה מודרכת בקרוב"); navigates back to list
+- `/admin/businesses` — real business list from `GET /admin/businesses`; cards with name, slug, status badge, timezone, publicBookingEnabled, createdAt
+- `/admin/businesses/new` — **guided create form** (Phase E.2): two-section form (פרטי העסק + בעלים ראשי), two-step submission (POST /admin/businesses → POST /admin/businesses/:id/owner), handles partial failure, navigates to onboarding page on full success
 - `/admin/businesses/[businessId]/onboarding` — fetches `GET /admin/businesses/:id/onboarding-summary`; renders 6 step cards (פרטי עסק, בעלים וצוות, שירותים, יומנים, שעות פעילות, מוכנות לשימוש) with done/missing state; shows localized blocking reasons; shows disabled "פתח גישה לדשבורד" CTA (wired in E.4)
 
 Admin hooks (`apps/web/src/app/admin/_hooks/`):
 
-- `use-admin-businesses.ts` — wraps `fetchAdminBusinesses`; uses query key `['admin', 'businesses']` shared with `AdminAccessGate` (zero extra requests when navigating to list)
+- `use-admin-businesses.ts` — wraps `fetchAdminBusinesses`; key `['admin', 'businesses']` shared with `AdminAccessGate`
 - `use-admin-onboarding-summary.ts` — wraps `fetchAdminOnboardingSummary`; key `['admin', 'onboarding-summary', businessId]`; `staleTime: 30s`
+- `use-create-business-form.ts` — form state + two-step submission logic; handles partial failure (business ok / owner failed); invalidates `['admin', 'businesses']` on success; navigates to onboarding
 
 Admin components (`apps/web/src/app/admin/_components/`):
 
-- `AdminAccessGate` — query key changed to `['admin', 'businesses']` (cache shared with list hook)
+- `AdminAccessGate` — query key `['admin', 'businesses']` (cache shared with list hook)
 - `AdminBusinessesShell` — real list + empty/error/loading states + "הקמת עסק חדש" link to `/new`
-- `AdminOnboardingShell` — summary + step cards with `buildSteps()` helper + Hebrew blocking reasons map
+- `AdminOnboardingShell` — summary + step cards + blocking reasons map
+- `AdminNewBusinessShell` — two-section guided create form; `FormField`, `SectionLabel`, `ErrorBanner`, `PartialBanner` sub-components
 
 API helpers (`apps/web/src/lib/admin-api.ts`):
 
-- `AdminBusinessListItemDto` — list item type
-- `AdminOnboardingSummaryDto` — full onboarding summary type (mirrors backend `AdminOnboardingSummaryDto`)
-- `AdminReadinessDto` / `AdminReadinessChecks` — mirrors `BusinessReadinessDto`
-- `fetchAdminBusinesses` / `fetchAdminOnboardingSummary` — typed wrappers over `fetchWithAuth`
+- `fetchAdminBusinesses` / `fetchAdminOnboardingSummary` — read queries
+- `createAdminBusiness(payload, getToken)` — POST /admin/businesses; returns `AdminCreatedBusinessDto`
+- `createAdminBusinessOwner(businessId, payload, getToken)` — POST /admin/businesses/:id/owner; returns `AdminCreatedOwnerDto`
+
+Create business form behavior:
+
+- Section 1 fields: name (required), slug (required, lowercase URL-safe, forced-lowercase on input), timezone (required, default `Asia/Jerusalem`)
+- Section 2 fields: email (required, valid email format), phone (required, any non-empty string — backend normalizes)
+- Owner helper copy: "האימייל ישמש להתחברות דרך Clerk" / "הטלפון נשמר כפרטי קשר פנימיים ואינו משמש לאימות ב־Clerk"
+- Submit states: idle → submitting (inputs disabled) → success (redirect) / error (banner) / partial (amber banner + link to onboarding)
+- Partial failure (business created, owner failed): shows businessId + "המשך להקמה" link; does NOT retry business creation
+- 409 slug conflict: localized error message shown inline
 
 UX direction (locked by product decision):
 
 - Admin UI is a **guided onboarding flow**, not a CRUD panel
 - Language avoids "public booking" — uses "פתיחת גישה לדשבורד", "העסק מוכן לשימוש פנימי"
 - `publicBookingEnabled` must remain `false`; never referenced in admin onboarding UI
-- "פתח גישה לדשבורד" = DRAFT → TRIAL; disabled in E.1, wired in E.4
+- New businesses are always created as DRAFT; DRAFT blocks dashboard access
+- "פתח גישה לדשבורד" = DRAFT → TRIAL; disabled until E.4
 
 Suggested next phases:
 
-- **E.2** — Create business + primary owner (DRAFT, Clerk provision, disabled dashboard)
 - **E.3** — Add MANAGER/MEMBER + create services + create ServiceProviders + assign services
 - **E.4** — Set working hours + readiness + open dashboard (DRAFT → TRIAL via PATCH /status)
 - **E.5** — Full QA pass: create business through Admin UI, owner/manager login, Business App verified
