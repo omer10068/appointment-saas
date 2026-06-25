@@ -14,13 +14,17 @@ interface UseAdminOnboardingSummaryResult {
   refetch: () => void;
 }
 
+export function onboardingSummaryKey(businessId: string) {
+  return ['admin', 'onboarding-summary', businessId] as const;
+}
+
 export function useAdminOnboardingSummary(
   businessId: string,
 ): UseAdminOnboardingSummaryResult {
   const { getToken } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin', 'onboarding-summary', businessId],
+    queryKey: onboardingSummaryKey(businessId),
     queryFn: () => fetchAdminOnboardingSummary(businessId, getToken),
     staleTime: 30_000,
     retry: false,

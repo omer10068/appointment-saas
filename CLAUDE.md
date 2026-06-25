@@ -393,14 +393,14 @@ Live admin routes:
 Admin hooks (`apps/web/src/app/admin/_hooks/`):
 
 - `use-admin-businesses.ts` — wraps `fetchAdminBusinesses`; key `['admin', 'businesses']` shared with `AdminAccessGate`
-- `use-admin-onboarding-summary.ts` — wraps `fetchAdminOnboardingSummary`; key `['admin', 'onboarding-summary', businessId]`; `staleTime: 30s`
+- `use-admin-onboarding-summary.ts` — wraps `fetchAdminOnboardingSummary`; key `['admin', 'onboarding-summary', businessId]`; `staleTime: 30s`; exports `onboardingSummaryKey(businessId)` helper for targeted invalidation from section components
 - `use-create-business-form.ts` — form state + two-step submission logic; handles partial failure (business ok / owner failed); invalidates `['admin', 'businesses']` on success; navigates to onboarding
 
 Admin components (`apps/web/src/app/admin/_components/`):
 
 - `AdminAccessGate` — query key `['admin', 'businesses']` (cache shared with list hook)
 - `AdminBusinessesShell` — real list + empty/error/loading states + "הקמת עסק חדש" link to `/new`
-- `AdminOnboardingShell` — summary + step cards + blocking reasons map
+- `AdminOnboardingShell` — coordinator: fetches summary, renders compact status overview + all setup sections
 - `AdminNewBusinessShell` — two-section guided create form; `FormField`, `SectionLabel`, `ErrorBanner`, `PartialBanner` sub-components
 
 API helpers (`apps/web/src/lib/admin-api.ts`):
@@ -426,10 +426,45 @@ UX direction (locked by product decision):
 - New businesses are always created as DRAFT; DRAFT blocks dashboard access
 - "פתח גישה לדשבורד" = DRAFT → TRIAL; disabled until E.4
 
+## Current Admin Frontend Status (Phase E.3)
+
+Phase E.3 complete. Onboarding page now has interactive setup sections for managers, services, and ServiceProviders.
+
+Live admin routes:
+
+- `/admin/businesses/[businessId]/onboarding` — extended: compact status overview card at top + interactive setup sections (בעלים, מנהלים, שירותים, יומנים) + future steps placeholder + disabled dashboard CTA
+
+Admin components (`apps/web/src/app/admin/_components/`):
+
+- `AdminOnboardingShell` — refactored coordinator: at-a-glance `SummaryRow` compact view + `SectionDivider` layout + `OwnerSection` (read-only) + imports and renders the three section components
+- `admin-onboarding-managers-section.tsx` (`ManagersSection`) — manager list + create-manager form (email+phone, role fixed to MANAGER); invalidates `onboardingSummaryKey` on success; 3s success flash; maps 409/502/400 errors to Hebrew
+- `admin-onboarding-services-section.tsx` (`ServicesSection`) — service list (with inactive visual) + create-service form (name, durationMinutes 5-480, optional price in ₪ → priceCents cents); invalidates `onboardingSummaryKey` on success
+- `admin-onboarding-providers-section.tsx` (`ProvidersSection`) — SP list (with linked user + hours status) + create-SP form (displayName, businessUserId dropdown, service checkboxes); prerequisite gate if no active services or all users taken; 409 mapped to Hebrew; invalidates `onboardingSummaryKey` on success
+
+API helpers (`apps/web/src/lib/admin-api.ts`):
+
+- `createAdminManager(businessId, payload, getToken)` — POST /admin/businesses/:id/users with `{ email, phone, role: 'MANAGER' }`; returns `AdminCreatedManagerDto`
+- `createAdminService(businessId, payload, getToken)` — POST /admin/businesses/:id/services; returns `AdminCreatedServiceDto`
+- `createAdminServiceProvider(businessId, payload, getToken)` — POST /admin/businesses/:id/service-providers with `{ displayName, businessUserId, serviceIds[] }`; returns `AdminCreatedServiceProviderDto`
+
+Key domain facts locked in E.3:
+
+- Each `BusinessUser` can only have one `ServiceProvider` (1:1, enforced by backend 409). The UI hides already-linked users from the SP creation dropdown.
+- `businessUserId` is **required** for SP creation — must link to an existing OWNER or MANAGER.
+- Services must exist (and be active) before a SP can be created (prerequisite gate shown in UI).
+- Manager email is required at service level even though the DTO marks it optional (Clerk provisioning requires it).
+- `ServiceProvider` and `BusinessUser` are separate concepts — manager creation never auto-creates a SP.
+- Only the Admin creates ServiceProviders; no dashboard path exists.
+
+Data consistency pattern:
+
+- Every successful mutation calls `queryClient.invalidateQueries({ queryKey: onboardingSummaryKey(businessId) })`
+- This triggers an automatic refetch of the onboarding summary, updating all sections reactively
+- No page reload needed; TanStack Query handles the reactive chain
+
 Suggested next phases:
 
-- **E.3** — Add MANAGER/MEMBER + create services + create ServiceProviders + assign services
-- **E.4** — Set working hours + readiness + open dashboard (DRAFT → TRIAL via PATCH /status)
+- **E.4** — Set working hours (business + per-provider) + readiness check + open dashboard (DRAFT → TRIAL via PATCH /status)
 - **E.5** — Full QA pass: create business through Admin UI, owner/manager login, Business App verified
 
 ## Workflow

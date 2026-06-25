@@ -148,3 +148,98 @@ export function createAdminBusinessOwner(
     { method: 'POST', body: payload },
   );
 }
+
+// ─── Manager creation ─────────────────────────────────────────────────────────
+
+export interface AdminCreateManagerPayload {
+  email: string;
+  phone: string;
+  role: 'MANAGER';
+}
+
+export interface AdminCreatedManagerDto {
+  id: string;
+  userId: string;
+  businessId: string;
+  role: string;
+  status: string;
+  phoneNormalized: string;
+  email: string | null;
+  serviceProviderId: string | null;
+}
+
+export function createAdminManager(
+  businessId: string,
+  payload: AdminCreateManagerPayload,
+  getToken: () => Promise<string | null>,
+): Promise<AdminCreatedManagerDto> {
+  return fetchWithAuth<AdminCreatedManagerDto>(
+    `/admin/businesses/${businessId}/users`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
+// ─── Service creation ─────────────────────────────────────────────────────────
+
+export interface AdminCreateServicePayload {
+  name: string;
+  durationMinutes: number;
+  priceCents?: number | null;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface AdminCreatedServiceDto {
+  id: string;
+  name: string;
+  description: string | null;
+  durationMinutes: number;
+  priceCents: number | null;
+  isActive: boolean;
+  bufferBeforeMin: number;
+  bufferAfterMin: number;
+}
+
+export function createAdminService(
+  businessId: string,
+  payload: AdminCreateServicePayload,
+  getToken: () => Promise<string | null>,
+): Promise<AdminCreatedServiceDto> {
+  return fetchWithAuth<AdminCreatedServiceDto>(
+    `/admin/businesses/${businessId}/services`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
+// ─── ServiceProvider creation ─────────────────────────────────────────────────
+
+export interface AdminCreateServiceProviderPayload {
+  displayName: string;
+  businessUserId: string;
+  serviceIds: string[];
+  isActive?: boolean;
+}
+
+export interface AdminCreatedServiceProviderDto {
+  id: string;
+  displayName: string;
+  isActive: boolean;
+  businessUserId: string;
+  serviceIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function createAdminServiceProvider(
+  businessId: string,
+  payload: AdminCreateServiceProviderPayload,
+  getToken: () => Promise<string | null>,
+): Promise<AdminCreatedServiceProviderDto> {
+  return fetchWithAuth<AdminCreatedServiceProviderDto>(
+    `/admin/businesses/${businessId}/service-providers`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}

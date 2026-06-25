@@ -1,11 +1,16 @@
 'use client';
 
-import { Building2, Check, X } from 'lucide-react';
+import { Building2, Check, Clock, X } from 'lucide-react';
 import { MobilePhoneFrame } from '@/app/app/_components/mobile-phone-frame';
 import { AdminHeader } from './admin-header';
 import { AdminBottomNav } from './admin-bottom-nav';
 import { useAdminOnboardingSummary } from '../_hooks/use-admin-onboarding-summary';
+import { ManagersSection } from './admin-onboarding-managers-section';
+import { ServicesSection } from './admin-onboarding-services-section';
+import { ProvidersSection } from './admin-onboarding-providers-section';
 import type { AdminOnboardingSummaryDto } from '@/lib/admin-api';
+
+// ─── Shared helpers ───────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT:     { label: 'טיוטה',  className: 'bg-gray-100 text-gray-600' },
@@ -36,43 +41,77 @@ function localizeBlockingReason(reason: string): string {
   return BLOCKING_REASON_HE[reason] ?? reason;
 }
 
+// ─── Summary step cards ───────────────────────────────────────────────────────
+
 function StepIcon({ done }: { done: boolean }) {
   return (
     <div
-      className={`flex size-6 shrink-0 items-center justify-center rounded-full ${
+      className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
         done
-          ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-          : 'bg-red-50 text-red-400 dark:bg-red-900/30 dark:text-red-400'
+          ? 'bg-green-100 text-green-600'
+          : 'bg-red-50 text-red-400'
       }`}
     >
-      {done ? (
-        <Check size={13} strokeWidth={2.5} />
-      ) : (
-        <X size={13} strokeWidth={2.5} />
-      )}
+      {done ? <Check size={11} strokeWidth={2.5} /> : <X size={11} strokeWidth={2.5} />}
     </div>
   );
 }
 
-function StepCard({
-  title,
-  done,
-  details,
-}: {
-  title: string;
-  done: boolean;
-  details: string;
-}) {
+function SummaryRow({ title, done, details }: { title: string; done: boolean; details: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm">
+    <div className="flex items-center gap-2.5 py-1.5">
       <StepIcon done={done} />
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 text-sm text-muted-foreground">{details}</p>
-      </div>
+      <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{title}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">{details}</span>
     </div>
   );
 }
+
+function buildSummaryRows(summary: AdminOnboardingSummaryDto) {
+  const { users, services, serviceProviders, businessWorkingHours, readiness } = summary;
+  const { checks } = readiness;
+
+  const activeOwner = users.find((u) => u.role === 'OWNER' && u.status === 'ACTIVE');
+  const managers = users.filter((u) => u.role === 'MANAGER' && u.status === 'ACTIVE');
+  const activeServices = services.filter((s) => s.isActive);
+  const activeProviders = serviceProviders.filter((p) => p.isActive);
+  const hasHours = checks.hasBusinessWorkingHours && checks.allActiveProvidersHaveWorkingHours;
+
+  return [
+    {
+      title: 'בעלים',
+      done: checks.hasActiveOwner,
+      details: activeOwner ? activeOwner.user.email ?? activeOwner.user.phone : '—',
+    },
+    {
+      title: 'מנהלים',
+      done: managers.length > 0,
+      details: managers.length > 0 ? `${managers.length}` : '—',
+    },
+    {
+      title: 'שירותים',
+      done: checks.hasActiveService,
+      details: activeServices.length > 0 ? `${activeServices.length}` : '—',
+    },
+    {
+      title: 'יומנים',
+      done: checks.hasActiveServiceProvider,
+      details: activeProviders.length > 0 ? `${activeProviders.length}` : '—',
+    },
+    {
+      title: 'שעות פעילות',
+      done: hasHours,
+      details: businessWorkingHours.length > 0 ? 'מוגדרות' : '—',
+    },
+    {
+      title: 'מוכנות לשימוש',
+      done: readiness.isReady,
+      details: readiness.isReady ? '✓' : `${readiness.blockingReasons.length} חסר`,
+    },
+  ];
+}
+
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
   return (
@@ -90,17 +129,12 @@ function LoadingSkeleton() {
         </div>
       </header>
       <div className="flex-1 overflow-y-auto px-5 pb-36">
-        <div className="animate-pulse space-y-3 py-4">
+        <div className="animate-pulse space-y-2 py-4">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="flex items-start gap-3 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm"
-            >
-              <div className="size-6 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700" />
-              <div className="flex-1 space-y-1.5">
-                <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
-                <div className="h-3 w-40 rounded bg-gray-100 dark:bg-gray-700" />
-              </div>
+            <div key={i} className="flex items-center gap-2.5 py-1.5">
+              <div className="size-5 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700" />
+              <div className="h-4 flex-1 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-3 w-8 shrink-0 rounded bg-gray-100 dark:bg-gray-700" />
             </div>
           ))}
         </div>
@@ -110,76 +144,68 @@ function LoadingSkeleton() {
   );
 }
 
-function buildSteps(summary: AdminOnboardingSummaryDto) {
-  const { business, users, services, serviceProviders, readiness } = summary;
-  const { checks } = readiness;
+// ─── Section divider ──────────────────────────────────────────────────────────
 
-  const activeOwner = users.find(
-    (u) => u.role === 'OWNER' && u.status === 'ACTIVE',
+function SectionDivider({ title }: { title: string }) {
+  return (
+    <div className="mt-6 border-t border-border pt-5">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </p>
+    </div>
   );
-  const activeUsers = users.filter((u) => u.status === 'ACTIVE');
-  const nonOwnerActive = activeUsers.filter((u) => u.role !== 'OWNER').length;
-  const activeServices = services.filter((s) => s.isActive);
-  const activeProviders = serviceProviders.filter((p) => p.isActive);
-
-  const hoursOk =
-    checks.hasBusinessWorkingHours && checks.allActiveProvidersHaveWorkingHours;
-
-  const teamDetails = activeOwner
-    ? `${activeOwner.user.email ?? activeOwner.user.phone}${nonOwnerActive > 0 ? ` · עוד ${nonOwnerActive}` : ''}`
-    : 'טרם נוצר בעלים פעיל';
-
-  const servicesDetails =
-    activeServices.length === 0
-      ? 'אין שירותים פעילים'
-      : `${activeServices.length} שירות${activeServices.length === 1 ? '' : 'ים'} פעיל${activeServices.length === 1 ? '' : 'ים'}`;
-
-  const providersDetails =
-    activeProviders.length === 0
-      ? 'אין יומנים פעילים'
-      : `${activeProviders.length} יומן${activeProviders.length === 1 ? '' : 'ות'} פעיל${activeProviders.length === 1 ? '' : 'ות'}`;
-
-  const hoursDetails = checks.hasBusinessWorkingHours
-    ? checks.allActiveProvidersHaveWorkingHours
-      ? 'שעות עסק וכל היומנים מוגדרים'
-      : 'שעות עסק מוגדרות — חסרות שעות ביומן אחד או יותר'
-    : 'שעות פעילות עסק לא הוגדרו';
-
-  return [
-    {
-      title: 'פרטי עסק',
-      done: true,
-      details: `${business.name} · ${business.timezone}`,
-    },
-    {
-      title: 'בעלים וצוות',
-      done: checks.hasActiveOwner,
-      details: teamDetails,
-    },
-    {
-      title: 'שירותים',
-      done: checks.hasActiveService,
-      details: servicesDetails,
-    },
-    {
-      title: 'יומנים',
-      done: checks.hasActiveServiceProvider,
-      details: providersDetails,
-    },
-    {
-      title: 'שעות פעילות',
-      done: hoursOk,
-      details: hoursDetails,
-    },
-    {
-      title: 'מוכנות לשימוש',
-      done: readiness.isReady,
-      details: readiness.isReady
-        ? 'העסק מוכן לפתיחת גישה לדשבורד'
-        : `${readiness.blockingReasons.length} פריט${readiness.blockingReasons.length === 1 ? '' : 'ים'} חסר${readiness.blockingReasons.length === 1 ? '' : 'ים'}`,
-    },
-  ];
 }
+
+// ─── Owner section (read-only) ────────────────────────────────────────────────
+
+function OwnerSection({ users }: { users: AdminOnboardingSummaryDto['users'] }) {
+  const owner = users.find((u) => u.role === 'OWNER' && u.status === 'ACTIVE');
+  if (!owner) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        בעלים ראשי טרם נוצר
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-foreground">
+            {owner.user.email ?? owner.user.phone}
+          </p>
+          {owner.user.email && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{owner.user.phone}</p>
+          )}
+        </div>
+        <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-600">
+          בעלים
+        </span>
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        כניסה: {owner.user.email ?? '—'} (Clerk)
+      </p>
+    </div>
+  );
+}
+
+// ─── Future step placeholder ──────────────────────────────────────────────────
+
+function FutureStepCard({ title, details }: { title: string; details: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 opacity-60">
+      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-gray-100">
+        <Clock size={11} className="text-gray-400" />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground">{details}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main shell ───────────────────────────────────────────────────────────────
 
 interface Props {
   businessId: string;
@@ -211,45 +237,42 @@ export function AdminOnboardingShell({ businessId }: Props) {
     );
   }
 
-  const { business, readiness } = summary;
+  const { business, users, services, serviceProviders, readiness } = summary;
   const statusCfg = STATUS_CONFIG[business.status] ?? {
     label: business.status,
     className: 'bg-gray-100 text-gray-500',
   };
-  const steps = buildSteps(summary);
+  const summaryRows = buildSummaryRows(summary);
 
   return (
     <MobilePhoneFrame dir="rtl">
       <AdminHeader title="הקמת עסק" subtitle={business.name} />
       <div className="flex-1 overflow-y-auto px-5 pb-36">
-        {/* Status + slug row */}
+
+        {/* Status + meta row */}
         <div className="mb-4 mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span
-            className={`rounded-full px-2.5 py-0.5 font-medium ${statusCfg.className}`}
-          >
+          <span className={`rounded-full px-2.5 py-0.5 font-medium ${statusCfg.className}`}>
             {statusCfg.label}
           </span>
           <span>@{business.slug}</span>
           <span>{business.timezone}</span>
         </div>
 
-        {/* Step cards */}
-        <div className="space-y-3">
-          {steps.map((step) => (
-            <StepCard
-              key={step.title}
-              title={step.title}
-              done={step.done}
-              details={step.details}
-            />
-          ))}
+        {/* At-a-glance summary */}
+        <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+          <p className="mb-1 text-xs font-semibold text-muted-foreground">מצב הקמה</p>
+          <div className="divide-y divide-border">
+            {summaryRows.map((row) => (
+              <SummaryRow key={row.title} title={row.title} done={row.done} details={row.details} />
+            ))}
+          </div>
         </div>
 
-        {/* Blocking reasons detail */}
+        {/* ── Blocking reasons ── */}
         {!readiness.isReady && readiness.blockingReasons.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-border bg-card px-4 py-4">
-            <p className="text-sm font-semibold text-foreground">פריטים חסרים:</p>
-            <ul className="mt-2 space-y-1.5">
+          <div className="mt-3 rounded-2xl border border-border bg-card px-4 py-3">
+            <p className="text-xs font-semibold text-foreground">פריטים חסרים:</p>
+            <ul className="mt-1.5 space-y-1">
               {readiness.blockingReasons.map((reason) => (
                 <li key={reason} className="text-xs text-muted-foreground">
                   · {localizeBlockingReason(reason)}
@@ -259,7 +282,35 @@ export function AdminOnboardingShell({ businessId }: Props) {
           </div>
         )}
 
-        {/* Open dashboard access CTA — read-only in E.1, wired in E.4 */}
+        {/* ══ SETUP SECTIONS ══ */}
+
+        <SectionDivider title="בעלים" />
+        <OwnerSection users={users} />
+
+        <SectionDivider title="מנהלים" />
+        <ManagersSection businessId={businessId} users={users} />
+
+        <SectionDivider title="שירותים" />
+        <ServicesSection businessId={businessId} services={services} />
+
+        <SectionDivider title="יומנים" />
+        <ProvidersSection
+          businessId={businessId}
+          users={users}
+          services={services}
+          serviceProviders={serviceProviders}
+        />
+
+        {/* ── Future steps (E.4) ── */}
+        <SectionDivider title="שלבים הבאים" />
+        <div className="space-y-2">
+          <FutureStepCard
+            title="שעות פעילות"
+            details="שעות עסק + שעות כל יומן — יתאפשר בשלב E.4"
+          />
+        </div>
+
+        {/* ── Dashboard access CTA — disabled until E.4 ── */}
         <div className="mb-4 mt-6">
           <button
             type="button"
@@ -269,7 +320,7 @@ export function AdminOnboardingShell({ businessId }: Props) {
                 ? 'יתאפשר בשלב E.4'
                 : 'יש להשלים את כל הפריטים תחילה'
             }
-            className="w-full cursor-not-allowed rounded-2xl py-4 text-sm font-semibold opacity-40 bg-foreground text-background"
+            className="w-full cursor-not-allowed rounded-2xl bg-foreground py-4 text-sm font-semibold text-background opacity-40"
           >
             פתח גישה לדשבורד
           </button>
