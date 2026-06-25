@@ -314,6 +314,7 @@ export function AdminOnboardingShell({ businessId }: Props) {
         <ProviderHoursSection
           businessId={businessId}
           serviceProviders={serviceProviders}
+          businessWorkingHours={businessWorkingHours}
         />
 
         <SectionDivider title="פתיחת גישה לדשבורד" />

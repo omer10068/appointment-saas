@@ -8,14 +8,17 @@ import {
   fetchAdminServiceProviderWorkingHours,
   setAdminServiceProviderWorkingHours,
   type AdminOnboardingSummaryDto,
+  type AdminWorkingHourDto,
 } from '@/lib/admin-api';
 import { ApiError } from '@/lib/api';
 import { onboardingSummaryKey } from '../_hooks/use-admin-onboarding-summary';
 import {
   WeekHoursEditor,
   defaultHours,
-  initHoursFromData,
+  initHoursFromDataWithConstraints,
+  validateProviderHoursAgainstBusiness,
   type HourRow,
+  type BusinessHourConstraint,
 } from './admin-hours-editor';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -32,6 +35,7 @@ interface EditorState {
 interface Props {
   businessId: string;
   serviceProviders: AdminOnboardingSummaryDto['serviceProviders'];
+  businessWorkingHours: AdminOnboardingSummaryDto['businessWorkingHours'];
 }
 
 // ─── Skeleton for loading state ───────────────────────────────────────────────
@@ -48,11 +52,19 @@ function HoursSkeleton() {
 
 // ─── Main section ─────────────────────────────────────────────────────────────
 
-export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
+export function ProviderHoursSection({ businessId, serviceProviders, businessWorkingHours }: Props) {
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
   const queryClient = useQueryClient();
+
+  // Build a stable BusinessHourConstraint array from the summary's businessWorkingHours
+  const bizConstraints: BusinessHourConstraint[] = businessWorkingHours.map((h) => ({
+    dayOfWeek: h.dayOfWeek,
+    isClosed: h.isClosed,
+    startTime: h.startTime,
+    endTime: h.endTime,
+  }));
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState>({
@@ -62,7 +74,7 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
     errorMsg: '',
   });
 
-  // Fetch hours when a provider is expanded
+  // Fetch hours when a provider is expanded, then merge with business constraints
   useEffect(() => {
     if (!expandedId) return;
 
@@ -70,10 +82,10 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
 
     let cancelled = false;
     fetchAdminServiceProviderWorkingHours(businessId, expandedId, () => getTokenRef.current())
-      .then((data) => {
+      .then((data: AdminWorkingHourDto[]) => {
         if (!cancelled) {
           setEditorState({
-            hours: initHoursFromData(data),
+            hours: initHoursFromDataWithConstraints(data, bizConstraints),
             isDirty: false,
             status: 'ready',
             errorMsg: '',
@@ -82,9 +94,9 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
       })
       .catch(() => {
         if (!cancelled) {
-          // Fall back to defaults on load error — editor is still usable
+          // Fall back to defaults (still constrained by business hours) on load error
           setEditorState({
-            hours: defaultHours(),
+            hours: initHoursFromDataWithConstraints([], bizConstraints),
             isDirty: false,
             status: 'ready',
             errorMsg: '',
@@ -95,6 +107,7 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedId, businessId]);
 
   function handleToggle(spId: string) {
@@ -108,7 +121,6 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
         r.dayOfWeek === dayOfWeek ? { ...r, ...patch } : r,
       ),
       isDirty: true,
-      // Clear result banners on new edit
       status: prev.status === 'error' || prev.status === 'success' ? 'ready' : prev.status,
       errorMsg: '',
     }));
@@ -116,6 +128,16 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
 
   async function handleSave() {
     if (!expandedId) return;
+
+    // Client-side containment guard
+    if (bizConstraints.length > 0) {
+      const validationError = validateProviderHoursAgainstBusiness(editorState.hours, bizConstraints);
+      if (validationError) {
+        setEditorState((prev) => ({ ...prev, status: 'error', errorMsg: validationError }));
+        return;
+      }
+    }
+
     setEditorState((prev) => ({ ...prev, status: 'saving' }));
     try {
       const result = await setAdminServiceProviderWorkingHours(
@@ -132,7 +154,7 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
         () => getTokenRef.current(),
       );
       setEditorState({
-        hours: initHoursFromData(result),
+        hours: initHoursFromDataWithConstraints(result, bizConstraints),
         isDirty: false,
         status: 'success',
         errorMsg: '',
@@ -149,7 +171,9 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
       let msg = 'שגיאה בשמירת שעות הספק';
       if (err instanceof ApiError) {
         if (err.status === 400) {
-          msg = 'שגיאת קלט — בדוק שכל ימי הפתיחה כוללים שעות תקינות וששעת הסגירה אחרי הפתיחה';
+          msg = err.message.includes('within business hours')
+            ? 'שעות הפעילות של נותן השירות חייבות להיות בתוך שעות הפעילות של העסק'
+            : 'שגיאת קלט — בדוק שכל ימי הפתיחה כוללים שעות תקינות וששעת הסגירה אחרי הפתיחה';
         } else if (err.status === 404) {
           msg = 'ספק השירות לא נמצא';
         } else {
@@ -173,7 +197,7 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">
-        כל ספק שירות פעיל חייב שעות עבודה משלו — בנוסף לשעות הכלליות של העסק.
+        כל ספק שירות פעיל חייב שעות עבודה משלו — בתוך שעות הפעילות הכלליות של העסק.
       </p>
 
       {activeProviders.map((sp) => {
@@ -236,6 +260,7 @@ export function ProviderHoursSection({ businessId, serviceProviders }: Props) {
                       hours={editorState.hours}
                       onDayChange={handleDayChange}
                       disabled={isSaving}
+                      businessHours={bizConstraints.length > 0 ? bizConstraints : undefined}
                     />
 
                     {showError && (

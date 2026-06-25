@@ -36,6 +36,19 @@ export class AvailabilityController {
     );
   }
 
+  @Post(':businessId/working-hours/preview')
+  previewBusinessWorkingHours(
+    @Param('businessId') businessId: string,
+    @Body() dto: UpsertWorkingHoursDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.availabilityService.previewBusinessHoursUpdate(
+      req.user.id,
+      businessId,
+      dto,
+    );
+  }
+
   @Put(':businessId/working-hours')
   setBusinessWorkingHours(
     @Param('businessId') businessId: string,

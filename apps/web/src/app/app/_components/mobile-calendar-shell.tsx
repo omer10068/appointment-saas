@@ -7,6 +7,8 @@ import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
+import { useAppBusinessHours } from '../_hooks/useAppBusinessHours';
+import { useAppServiceProviderHours } from '../_hooks/useAppServiceProviderHours';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { appKeys } from '../_lib/query-keys';
 import { addDays, formatMonthYear, isSameDay, startOfWeek } from '../_lib/calendar.utils';
@@ -67,6 +69,13 @@ export function MobileCalendarShell() {
   const { serviceProviders, services, appointments, isLoading, error } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
+  // Business working hours — used as the timeline range anchor in all-team mode.
+  // Errors are silently ignored: the timeline falls back to appointment-derived range.
+  const allBusinessHours = useAppBusinessHours(currentBusinessId);
+  const businessWorkingHours = allBusinessHours
+    .filter((h) => !h.isClosed && h.startTime && h.endTime)
+    .map((h) => ({ startTime: h.startTime!, endTime: h.endTime! }));
+
   // Provider selection — two-variable pattern avoids a useEffect-driven jump:
   //   manualProviderId  — null until the user explicitly taps a filter chip.
   //   defaultProviderId — derived synchronously from loaded providers so the first
@@ -80,6 +89,24 @@ export function MobileCalendarShell() {
   }, [serviceProviders, currentBusiness]);
 
   const selectedServiceProviderId = manualProviderId ?? defaultProviderId;
+
+  // Provider working hours — used as the timeline range anchor in single-provider mode.
+  // Only fetched when a specific provider is selected. Errors are silently ignored.
+  const isSingleProvider = selectedServiceProviderId !== 'all';
+  // Pass null when in all-team mode so the hook's `enabled` guard skips the fetch.
+  const selectedProviderId = isSingleProvider ? selectedServiceProviderId : null;
+  const allProviderHours = useAppServiceProviderHours(currentBusinessId, selectedProviderId);
+  const providerWorkingHours = allProviderHours
+    .filter((h) => !h.isClosed && h.startTime && h.endTime)
+    .map((h) => ({ startTime: h.startTime!, endTime: h.endTime! }));
+
+  // In all-team mode: anchor to business hours (covers the full team window).
+  // In single-provider mode: anchor to that provider's hours (narrower, more precise).
+  // Fall back to business hours if provider hours are not yet loaded.
+  const timelineAnchorHours =
+    isSingleProvider && providerWorkingHours.length > 0
+      ? providerWorkingHours
+      : businessWorkingHours;
 
   // Current user's provider first, then the rest in original API order.
   // RTL renders the first item rightmost, so this also pins the user's lane to the right.
@@ -261,6 +288,7 @@ export function MobileCalendarShell() {
                 ? sortedServiceProviders
                 : sortedServiceProviders.filter((sp) => sp.id === selectedServiceProviderId)
             }
+            businessWorkingHours={timelineAnchorHours}
           />
         </>
       )}

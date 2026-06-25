@@ -489,6 +489,37 @@ export class AdminBusinessesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Re-read business hours inside the tx to prevent TOCTOU race with a
+      // concurrent business-hours update (same principle as dashboard path).
+      const bizHours = await tx.businessWorkingHour.findMany({
+        where: { businessId },
+        select: {
+          dayOfWeek: true,
+          isClosed: true,
+          startTime: true,
+          endTime: true,
+        },
+      });
+      const bizMap = new Map(bizHours.map((h) => [h.dayOfWeek, h]));
+      for (const h of dto.hours) {
+        if (h.isClosed) continue;
+        const biz = bizMap.get(h.dayOfWeek);
+        if (!biz || biz.isClosed) {
+          throw new BadRequestException(
+            `Service provider cannot be open on day ${h.dayOfWeek}: the business is closed on that day`,
+          );
+        }
+        const provStart = h.startTime ?? '';
+        const provEnd = h.endTime ?? '';
+        const bizStart = biz.startTime ?? '';
+        const bizEnd = biz.endTime ?? '';
+        if (provStart < bizStart || provEnd > bizEnd) {
+          throw new BadRequestException(
+            `Service provider hours on day ${h.dayOfWeek} (${provStart}–${provEnd}) must be within business hours (${bizStart}–${bizEnd})`,
+          );
+        }
+      }
+
       await tx.serviceProviderWorkingHour.deleteMany({
         where: { serviceProviderId },
       });

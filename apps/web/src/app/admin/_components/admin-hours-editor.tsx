@@ -12,6 +12,13 @@ export interface HourRow {
   endTime: string;
 }
 
+export interface BusinessHourConstraint {
+  dayOfWeek: number;
+  isClosed: boolean;
+  startTime: string | null;
+  endTime: string | null;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function defaultHours(): HourRow[] {
@@ -37,6 +44,48 @@ export function initHoursFromData(loaded: AdminWorkingHourDto[]): HourRow[] {
       endTime: l.endTime ?? '17:00',
     };
   });
+}
+
+/**
+ * Merges loaded provider hours with business hour constraints:
+ * any day where the business is closed is forced to isClosed=true for the provider.
+ */
+export function initHoursFromDataWithConstraints(
+  loaded: AdminWorkingHourDto[],
+  bizHours: BusinessHourConstraint[],
+): HourRow[] {
+  const rows = initHoursFromData(loaded);
+  const bizMap = new Map(bizHours.map((h) => [h.dayOfWeek, h]));
+  return rows.map((r) => {
+    const biz = bizMap.get(r.dayOfWeek);
+    if (biz?.isClosed) return { ...r, isClosed: true };
+    return r;
+  });
+}
+
+/**
+ * Validates that every open provider row is contained within business hours.
+ * Returns a Hebrew error string, or null when the payload is valid.
+ */
+export function validateProviderHoursAgainstBusiness(
+  hours: HourRow[],
+  bizHours: BusinessHourConstraint[],
+): string | null {
+  const bizMap = new Map(bizHours.map((h) => [h.dayOfWeek, h]));
+  for (const h of hours) {
+    if (h.isClosed) continue;
+    const biz = bizMap.get(h.dayOfWeek);
+    if (!biz || biz.isClosed) {
+      const dayName = HEBREW_DAY_ABBR[h.dayOfWeek] ?? String(h.dayOfWeek);
+      return `ביום ${dayName} העסק סגור — לא ניתן להגדיר שעות לנותן השירות`;
+    }
+    const bizStart = biz.startTime ?? '';
+    const bizEnd   = biz.endTime   ?? '';
+    if (h.startTime < bizStart || h.endTime > bizEnd) {
+      return `שעות הפעילות של נותן השירות חייבות להיות בתוך שעות הפעילות של העסק (${bizStart}–${bizEnd})`;
+    }
+  }
+  return null;
 }
 
 // ─── Toggle switch ────────────────────────────────────────────────────────────
@@ -82,18 +131,35 @@ function DayRow({
   row,
   onDayChange,
   disabled,
+  businessHour,
 }: {
   row: HourRow;
   onDayChange: (dayOfWeek: number, patch: Partial<HourRow>) => void;
   disabled: boolean;
+  businessHour?: BusinessHourConstraint;
 }) {
   const dayName = HEBREW_DAY_ABBR[row.dayOfWeek] ?? String(row.dayOfWeek);
-  const isOpen = !row.isClosed;
+  const bizClosed  = businessHour ? businessHour.isClosed : false;
+  // When business is closed, the toggle must be locked off
+  const toggleDisabled = disabled || bizClosed;
+  const isOpen = !row.isClosed && !bizClosed;
+
+  const minTime = businessHour && !businessHour.isClosed ? (businessHour.startTime ?? undefined) : undefined;
+  const maxTime = businessHour && !businessHour.isClosed ? (businessHour.endTime   ?? undefined) : undefined;
 
   return (
     <div className="space-y-2.5 border-b border-border py-3.5 last:border-0">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">{dayName}</span>
+        <div className="min-w-0">
+          <span className="text-sm font-semibold text-foreground">{dayName}</span>
+          {businessHour && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {bizClosed
+                ? 'העסק סגור ביום זה'
+                : `שעות העסק: ${businessHour.startTime ?? ''}–${businessHour.endTime ?? ''}`}
+            </p>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-2.5">
           <span className="whitespace-nowrap text-xs text-muted-foreground">
             {isOpen ? 'פתוח' : 'סגור'}
@@ -101,7 +167,7 @@ function DayRow({
           <DayToggle
             checked={isOpen}
             onChange={() => onDayChange(row.dayOfWeek, { isClosed: !row.isClosed })}
-            disabled={disabled}
+            disabled={toggleDisabled}
           />
         </div>
       </div>
@@ -116,6 +182,8 @@ function DayRow({
             <input
               type="time"
               value={row.startTime}
+              min={minTime}
+              max={row.endTime}
               onChange={(e) => onDayChange(row.dayOfWeek, { startTime: e.target.value })}
               disabled={disabled}
               className="min-w-0 flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
@@ -124,6 +192,8 @@ function DayRow({
             <input
               type="time"
               value={row.endTime}
+              min={row.startTime}
+              max={maxTime}
               onChange={(e) => onDayChange(row.dayOfWeek, { endTime: e.target.value })}
               disabled={disabled}
               className="min-w-0 flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
@@ -141,9 +211,15 @@ interface WeekHoursEditorProps {
   hours: HourRow[];
   onDayChange: (dayOfWeek: number, patch: Partial<HourRow>) => void;
   disabled: boolean;
+  /** When provided, each day row shows the business constraint and clamps inputs. */
+  businessHours?: BusinessHourConstraint[];
 }
 
-export function WeekHoursEditor({ hours, onDayChange, disabled }: WeekHoursEditorProps) {
+export function WeekHoursEditor({ hours, onDayChange, disabled, businessHours }: WeekHoursEditorProps) {
+  const bizMap = businessHours
+    ? new Map(businessHours.map((h) => [h.dayOfWeek, h]))
+    : null;
+
   return (
     <div className="rounded-2xl border border-border bg-card px-4 py-1">
       {hours.map((row) => (
@@ -152,6 +228,7 @@ export function WeekHoursEditor({ hours, onDayChange, disabled }: WeekHoursEdito
           row={row}
           onDayChange={onDayChange}
           disabled={disabled}
+          businessHour={bizMap?.get(row.dayOfWeek)}
         />
       ))}
     </div>
