@@ -26,6 +26,7 @@ import { useMobileToast } from '../_lib/useMobileToast';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
 import { CalendarProviderFilterSheet } from './calendar-provider-filter-sheet';
+import { MobilePageHeader } from './mobile-page-header';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -213,26 +214,13 @@ export function MobileCalendarShell() {
     // Remove the md: classes when a proper desktop layout is designed.
     <MobilePhoneFrame dir="rtl">
       {/* Page header */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-5 pt-9">
-        <div className="flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">
-                {businessName}
-              </p>
-            )}
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              יומן
-            </h1>
-            <p className="mt-1 text-xs font-medium text-muted-foreground">
-              {formatMonthYear(selectedDate)}
-            </p>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Calendar className="size-5" />
-          </div>
-        </div>
-      </header>
+      <MobilePageHeader
+        title="יומן"
+        icon={Calendar}
+        subtitle={businessName}
+        meta={formatMonthYear(selectedDate)}
+        className="flex-none border-b border-border bg-card px-5 pt-9 pb-5"
+      />
 
       {/* Week strip: nav row + day picker share one card section */}
       <div className="flex-none bg-card px-0 pb-1 pt-2">

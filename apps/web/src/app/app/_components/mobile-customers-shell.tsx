@@ -21,6 +21,7 @@ import { LAYOUT } from '../_lib/calendar.design';
 import { mapDtoToAppointment } from '../_lib/calendar.mappers';
 import type { Appointment } from '../_lib/calendar.types';
 import { appKeys } from '../_lib/query-keys';
+import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -335,27 +336,12 @@ export function MobileCustomersShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header */}
-      <header className="flex-none bg-background px-5 pb-4 pt-9">
-        <div className="flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">
-                {businessName}
-              </p>
-            )}
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              לקוחות
-            </h1>
-            <p className="mt-1 text-xs font-medium text-muted-foreground">
-              {customers.length} לקוחות
-            </p>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Users className="size-5" />
-          </div>
-        </div>
-
-        {/* Search bar */}
+      <MobilePageHeader
+        title="לקוחות"
+        icon={Users}
+        subtitle={businessName}
+        meta={`${customers.length} לקוחות`}
+      >
         <div className="mt-3 flex items-center gap-2 rounded-2xl border border-border bg-muted px-4 py-3">
           <Search size={16} className="shrink-0 text-muted-foreground pointer-events-none" />
           <input
@@ -375,7 +361,7 @@ export function MobileCustomersShell() {
             </button>
           )}
         </div>
-      </header>
+      </MobilePageHeader>
 
       {/* Scrollable content */}
       <div

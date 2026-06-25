@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { AlertTriangle, ChevronRight, Clock } from 'lucide-react';
+import { AlertTriangle, Clock } from 'lucide-react';
 import type {
   DashboardWorkingHourDto,
   UpdateWorkingHoursPayload,
@@ -21,6 +20,7 @@ import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
 import { HEBREW_DAY_ABBR } from '../_lib/calendar.utils';
+import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -253,7 +253,6 @@ function LoadingSkeleton() {
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function MobileBusinessHoursShell() {
-  const router = useRouter();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
@@ -380,29 +379,12 @@ export function MobileBusinessHoursShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none bg-background px-5 pb-4 pt-9">
-        <button
-          onClick={() => router.push('/app/settings')}
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-          aria-label="חזרה"
-        >
-          <ChevronRight className="size-4" />
-          <span>חזרה</span>
-        </button>
-        <div className="mt-2 flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">{businessName}</p>
-            )}
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              שעות פעילות
-            </h1>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Clock className="size-5" />
-          </div>
-        </div>
-      </header>
+      <MobilePageHeader
+        title="שעות פעילות"
+        icon={Clock}
+        subtitle={businessName}
+        backHref="/app/settings"
+      />
 
       {/* ── Section title ────────────────────────────────────────────────── */}
       {!loading && !loadError && currentBusiness && (
