@@ -219,7 +219,7 @@ export function MobileCalendarShell() {
         icon={Calendar}
         subtitle={businessName ? toFriendlyName(businessName) : undefined}
         meta={formatMonthYear(selectedDate)}
-        className="flex-none border-b border-border bg-card px-5 pt-9 pb-5"
+        className="flex-none bg-background px-5 pt-9 pb-5"
       />
 
       {/* Week strip: nav row + day picker share one card section */}
