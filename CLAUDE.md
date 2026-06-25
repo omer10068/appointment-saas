@@ -503,9 +503,33 @@ Key domain facts locked in E.4:
 - `businessWorkingHours` in the summary is used to initialize the business hours editor once (not re-synced on subsequent summary refetches to preserve in-progress edits).
 - SP hours are fetched lazily (on accordion expand) via the new admin GET endpoint.
 
+## Current Admin Frontend Status (Phase E.5)
+
+Phase E.5 complete. Onboarding lifecycle section now covers all three business states with full readiness review and TRIAL → ACTIVE activation.
+
+Updated frontend components (`apps/web/src/app/admin/_components/`):
+
+- `admin-onboarding-lifecycle-section.tsx` (`LifecycleSection`) — rewritten to handle three distinct status states:
+  - **DRAFT**: existing "פתח גישה לדשבורד" CTA unchanged (no readiness gate — backend has no requirement for DRAFT → TRIAL). Informational-only preflight checklist.
+  - **TRIAL**: "הגישה לדשבורד פתוחה" badge + full 7-check readiness checklist sourced from `summary.readiness`. Each failing check shows Hebrew guidance pointing to the relevant onboarding section. "הפעל עסק" CTA shown only when `readiness.isReady === true`; otherwise replaced by "complete required sections" note. On 400/409 activation failure: invalidates `onboardingSummaryKey` to force readiness refetch.
+  - **ACTIVE**: "העסק פעיל" green banner + compact all-green readiness summary. No CTAs.
+- Local `activationStatus === 'success'` used as early ACTIVE indicator before summary refetch completes.
+
+API helper (`apps/web/src/lib/admin-api.ts`) addition:
+
+- `fetchAdminReadiness(businessId, getToken)` — GET `/admin/businesses/:id/readiness` returning `AdminReadinessDto`. Endpoint was already verified in backend; function added as the canonical wrapper. UI uses `summary.readiness` (embedded in the onboarding summary) to avoid an extra network round-trip; `fetchAdminReadiness` is available for direct queries if needed.
+
+Key domain facts locked in E.5:
+
+- TRIAL → ACTIVE requires `readiness.isReady === true` (enforced by backend; UI gates the CTA).
+- The `AdminReadinessChecks` 7-check interface is the sole source of truth — no client-side readiness logic.
+- After successful TRIAL → ACTIVE: `onboardingSummaryKey` is invalidated; the summary refetch returns `business.status === 'ACTIVE'` which switches the component to the ACTIVE view.
+- On 400 activation failure (not ready): summary is invalidated so the checklist reflects any changes made since last load.
+- `setAdminBusinessStatus(businessId, 'ACTIVE', getToken)` (already in `admin-api.ts`) is reused for activation — no new function needed.
+
 Suggested next phase:
 
-- **E.5** — Full QA pass: create business through Admin UI end-to-end, owner/manager login, Business App verified
+- **E.6** — Full QA pass: create business through Admin UI end-to-end, owner/manager login, Business App verified
 
 ## Workflow
 

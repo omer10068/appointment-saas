@@ -311,6 +311,18 @@ export function setAdminServiceProviderWorkingHours(
   );
 }
 
+// ─── Readiness ─────────────────────────────────────────────────────────────────
+
+export function fetchAdminReadiness(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<AdminReadinessDto> {
+  return fetchWithAuth<AdminReadinessDto>(
+    `/admin/businesses/${businessId}/readiness`,
+    getToken,
+  );
+}
+
 // ─── Business status ───────────────────────────────────────────────────────────
 
 export interface AdminSetStatusPayload {
