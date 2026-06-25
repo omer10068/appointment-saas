@@ -15,6 +15,7 @@ import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
 import { appKeys } from '../_lib/query-keys';
+import { toFriendlyName } from '../_lib/calendar.utils';
 import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -309,7 +310,7 @@ export function MobileExceptionsShell() {
       <MobilePageHeader
         title="חריגות וחופשות"
         icon={CalendarOff}
-        subtitle={businessName}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
         backHref="/app/settings"
       >
         <p className="relative mt-3 text-sm leading-relaxed text-muted-foreground">

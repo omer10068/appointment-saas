@@ -22,7 +22,7 @@ import { useTodayAppointments } from '../_hooks/use-today-appointments';
 import { useAppServices } from '../_hooks/useAppServices';
 import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
 import { mapDtoToService, mapDtoToServiceProvider } from '../_lib/calendar.mappers';
-import { formatDate, formatTime } from '../_lib/calendar.utils';
+import { formatDate, formatTime, toFriendlyName } from '../_lib/calendar.utils';
 import type {
   Appointment,
   AppointmentStatus,
@@ -43,15 +43,6 @@ const STATUS_BADGE: Record<AppointmentStatus, BadgeCfg> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** "YUVAL-TURGEMAN" → "Yuval Turgeman", "my salon" → "My Salon" */
-function toFriendlyName(raw: string): string {
-  return raw
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ')
-    .trim();
-}
 
 function getFirstWord(name: string): string {
   return name.split(/\s+/)[0] ?? name;

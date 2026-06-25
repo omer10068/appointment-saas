@@ -5,6 +5,7 @@ import { CalendarOff, ChevronLeft, Clock, Settings, UserCog, Users } from 'lucid
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { toFriendlyName } from '../_lib/calendar.utils';
 import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Items ────────────────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ export function MobileSettingsHubShell() {
       <MobilePageHeader
         title="ניהול והגדרות"
         icon={Settings}
-        subtitle={businessName}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
         className="flex-none bg-background px-5 pt-9 pb-5"
       />
 

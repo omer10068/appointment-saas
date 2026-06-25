@@ -19,7 +19,7 @@ import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
-import { HEBREW_DAY_ABBR } from '../_lib/calendar.utils';
+import { HEBREW_DAY_ABBR, toFriendlyName } from '../_lib/calendar.utils';
 import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -382,7 +382,7 @@ export function MobileBusinessHoursShell() {
       <MobilePageHeader
         title="שעות פעילות"
         icon={Clock}
-        subtitle={businessName}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
         backHref="/app/settings"
       />
 

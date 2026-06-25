@@ -14,6 +14,7 @@ import { ProviderEditSheet } from './provider-edit-sheet';
 import { BottomSheet } from './primitives/bottom-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 import { appKeys } from '../_lib/query-keys';
+import { toFriendlyName } from '../_lib/calendar.utils';
 import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -256,7 +257,7 @@ export function MobileTeamShell() {
       <MobilePageHeader
         title="צוות"
         icon={UsersRound}
-        subtitle={businessName}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
         meta={`${providers.length} נותני שירות`}
         backHref="/app/settings"
       >

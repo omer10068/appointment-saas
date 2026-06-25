@@ -11,7 +11,7 @@ import { useAppBusinessHours } from '../_hooks/useAppBusinessHours';
 import { useAppServiceProviderHours } from '../_hooks/useAppServiceProviderHours';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { appKeys } from '../_lib/query-keys';
-import { addDays, formatMonthYear, isSameDay, startOfWeek } from '../_lib/calendar.utils';
+import { addDays, formatMonthYear, isSameDay, startOfWeek, toFriendlyName } from '../_lib/calendar.utils';
 import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
@@ -217,7 +217,7 @@ export function MobileCalendarShell() {
       <MobilePageHeader
         title="יומן"
         icon={Calendar}
-        subtitle={businessName}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
         meta={formatMonthYear(selectedDate)}
         className="flex-none border-b border-border bg-card px-5 pt-9 pb-5"
       />

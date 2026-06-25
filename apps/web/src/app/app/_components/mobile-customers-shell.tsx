@@ -16,7 +16,7 @@ import { CustomerEditSheet } from './customer-edit-sheet';
 import { CustomerAppointmentHistory } from './customer-appointment-history';
 import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { BottomSheet } from './primitives/bottom-sheet';
-import { formatIsraeliPhone } from '../_lib/calendar.utils';
+import { formatIsraeliPhone, toFriendlyName } from '../_lib/calendar.utils';
 import { LAYOUT } from '../_lib/calendar.design';
 import { mapDtoToAppointment } from '../_lib/calendar.mappers';
 import type { Appointment } from '../_lib/calendar.types';
@@ -339,7 +339,7 @@ export function MobileCustomersShell() {
       <MobilePageHeader
         title="לקוחות"
         icon={Users}
-        subtitle={businessName}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
         meta={`${customers.length} לקוחות`}
       >
         <div className="mt-3 flex items-center gap-2 rounded-2xl border border-border bg-muted px-4 py-3">

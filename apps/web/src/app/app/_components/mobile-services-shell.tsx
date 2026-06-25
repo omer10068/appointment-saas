@@ -15,6 +15,7 @@ import { ServiceEditSheet } from './service-edit-sheet';
 import { BottomSheet } from './primitives/bottom-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 import { appKeys } from '../_lib/query-keys';
+import { toFriendlyName } from '../_lib/calendar.utils';
 import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
@@ -249,7 +250,7 @@ export function MobileServicesShell() {
       <MobilePageHeader
         title="שירותים"
         icon={Scissors}
-        subtitle={businessName}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
         meta={`${services.length} שירותים`}
       >
         <div className="mt-3 flex items-center gap-2 rounded-2xl border border-border bg-muted px-4 py-3">
