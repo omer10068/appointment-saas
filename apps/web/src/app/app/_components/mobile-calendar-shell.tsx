@@ -223,7 +223,7 @@ export function MobileCalendarShell() {
       />
 
       {/* Week strip: nav row + day picker share one card section */}
-      <div className="flex-none bg-card px-0 pb-1 pt-2">
+      <div className="flex-none bg-background px-0 pb-1">
         <CalendarHeader
           selectedDate={selectedDate}
           onToday={handleToday}

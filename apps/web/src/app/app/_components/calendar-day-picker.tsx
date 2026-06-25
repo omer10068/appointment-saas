@@ -20,7 +20,7 @@ export function CalendarDayPicker({ selectedDate, today, onSelect, onPrevWeek, o
       <button
         onClick={onPrevWeek}
         aria-label="שבוע קודם"
-        className="ml-2 flex size-5.5 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted bg-gray-100"
+        className="ml-2 flex size-5.5 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted bg-muted"
       >
         <ChevronRight className="size-3" />
       </button>
@@ -71,7 +71,7 @@ export function CalendarDayPicker({ selectedDate, today, onSelect, onPrevWeek, o
       <button
         onClick={onNextWeek}
         aria-label="שבוע הבא"
-        className="mr-2 flex size-5.5 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted bg-gray-100"
+        className="mr-2 flex size-5.5 shrink-0 items-center justify-center rounded-full border border-border/40 text-muted-foreground/70 transition active:scale-95 active:bg-muted bg-muted"
       >
         <ChevronLeft className="size-3" />
       </button>
