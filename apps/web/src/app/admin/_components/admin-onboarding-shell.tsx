@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Check, Clock, X } from 'lucide-react';
+import { Building2, Check, X } from 'lucide-react';
 import { MobilePhoneFrame } from '@/app/app/_components/mobile-phone-frame';
 import { AdminHeader } from './admin-header';
 import { AdminBottomNav } from './admin-bottom-nav';
@@ -8,6 +8,9 @@ import { useAdminOnboardingSummary } from '../_hooks/use-admin-onboarding-summar
 import { ManagersSection } from './admin-onboarding-managers-section';
 import { ServicesSection } from './admin-onboarding-services-section';
 import { ProvidersSection } from './admin-onboarding-providers-section';
+import { BusinessHoursSection } from './admin-onboarding-business-hours-section';
+import { ProviderHoursSection } from './admin-onboarding-provider-hours-section';
+import { LifecycleSection } from './admin-onboarding-lifecycle-section';
 import type { AdminOnboardingSummaryDto } from '@/lib/admin-api';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -41,15 +44,13 @@ function localizeBlockingReason(reason: string): string {
   return BLOCKING_REASON_HE[reason] ?? reason;
 }
 
-// ─── Summary step cards ───────────────────────────────────────────────────────
+// ─── Summary step row ─────────────────────────────────────────────────────────
 
 function StepIcon({ done }: { done: boolean }) {
   return (
     <div
       className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
-        done
-          ? 'bg-green-100 text-green-600'
-          : 'bg-red-50 text-red-400'
+        done ? 'bg-green-100 text-green-600' : 'bg-red-50 text-red-400'
       }`}
     >
       {done ? <Check size={11} strokeWidth={2.5} /> : <X size={11} strokeWidth={2.5} />}
@@ -57,7 +58,15 @@ function StepIcon({ done }: { done: boolean }) {
   );
 }
 
-function SummaryRow({ title, done, details }: { title: string; done: boolean; details: string }) {
+function SummaryRow({
+  title,
+  done,
+  details,
+}: {
+  title: string;
+  done: boolean;
+  details: string;
+}) {
   return (
     <div className="flex items-center gap-2.5 py-1.5">
       <StepIcon done={done} />
@@ -75,13 +84,12 @@ function buildSummaryRows(summary: AdminOnboardingSummaryDto) {
   const managers = users.filter((u) => u.role === 'MANAGER' && u.status === 'ACTIVE');
   const activeServices = services.filter((s) => s.isActive);
   const activeProviders = serviceProviders.filter((p) => p.isActive);
-  const hasHours = checks.hasBusinessWorkingHours && checks.allActiveProvidersHaveWorkingHours;
 
   return [
     {
       title: 'בעלים',
       done: checks.hasActiveOwner,
-      details: activeOwner ? activeOwner.user.email ?? activeOwner.user.phone : '—',
+      details: activeOwner ? (activeOwner.user.email ?? activeOwner.user.phone) : '—',
     },
     {
       title: 'מנהלים',
@@ -99,9 +107,14 @@ function buildSummaryRows(summary: AdminOnboardingSummaryDto) {
       details: activeProviders.length > 0 ? `${activeProviders.length}` : '—',
     },
     {
-      title: 'שעות פעילות',
-      done: hasHours,
+      title: 'שעות עסק',
+      done: checks.hasBusinessWorkingHours,
       details: businessWorkingHours.length > 0 ? 'מוגדרות' : '—',
+    },
+    {
+      title: 'שעות יומנים',
+      done: checks.allActiveProvidersHaveWorkingHours,
+      details: checks.allActiveProvidersHaveWorkingHours ? 'מוגדרות' : '—',
     },
     {
       title: 'מוכנות לשימוש',
@@ -130,7 +143,7 @@ function LoadingSkeleton() {
       </header>
       <div className="flex-1 overflow-y-auto px-5 pb-36">
         <div className="animate-pulse space-y-2 py-4">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="flex items-center gap-2.5 py-1.5">
               <div className="size-5 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700" />
               <div className="h-4 flex-1 rounded bg-gray-200 dark:bg-gray-700" />
@@ -189,22 +202,6 @@ function OwnerSection({ users }: { users: AdminOnboardingSummaryDto['users'] }) 
   );
 }
 
-// ─── Future step placeholder ──────────────────────────────────────────────────
-
-function FutureStepCard({ title, details }: { title: string; details: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 opacity-60">
-      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-gray-100">
-        <Clock size={11} className="text-gray-400" />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">{details}</p>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main shell ───────────────────────────────────────────────────────────────
 
 interface Props {
@@ -237,7 +234,8 @@ export function AdminOnboardingShell({ businessId }: Props) {
     );
   }
 
-  const { business, users, services, serviceProviders, readiness } = summary;
+  const { business, users, services, serviceProviders, businessWorkingHours, readiness } =
+    summary;
   const statusCfg = STATUS_CONFIG[business.status] ?? {
     label: business.status,
     className: 'bg-gray-100 text-gray-500',
@@ -263,12 +261,17 @@ export function AdminOnboardingShell({ businessId }: Props) {
           <p className="mb-1 text-xs font-semibold text-muted-foreground">מצב הקמה</p>
           <div className="divide-y divide-border">
             {summaryRows.map((row) => (
-              <SummaryRow key={row.title} title={row.title} done={row.done} details={row.details} />
+              <SummaryRow
+                key={row.title}
+                title={row.title}
+                done={row.done}
+                details={row.details}
+              />
             ))}
           </div>
         </div>
 
-        {/* ── Blocking reasons ── */}
+        {/* Blocking reasons */}
         {!readiness.isReady && readiness.blockingReasons.length > 0 && (
           <div className="mt-3 rounded-2xl border border-border bg-card px-4 py-3">
             <p className="text-xs font-semibold text-foreground">פריטים חסרים:</p>
@@ -301,35 +304,23 @@ export function AdminOnboardingShell({ businessId }: Props) {
           serviceProviders={serviceProviders}
         />
 
-        {/* ── Future steps (E.4) ── */}
-        <SectionDivider title="שלבים הבאים" />
-        <div className="space-y-2">
-          <FutureStepCard
-            title="שעות פעילות"
-            details="שעות עסק + שעות כל יומן — יתאפשר בשלב E.4"
-          />
-        </div>
+        <SectionDivider title="שעות פעילות עסק" />
+        <BusinessHoursSection
+          businessId={businessId}
+          businessWorkingHours={businessWorkingHours}
+        />
 
-        {/* ── Dashboard access CTA — disabled until E.4 ── */}
-        <div className="mb-4 mt-6">
-          <button
-            type="button"
-            disabled
-            title={
-              readiness.isReady
-                ? 'יתאפשר בשלב E.4'
-                : 'יש להשלים את כל הפריטים תחילה'
-            }
-            className="w-full cursor-not-allowed rounded-2xl bg-foreground py-4 text-sm font-semibold text-background opacity-40"
-          >
-            פתח גישה לדשבורד
-          </button>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            {readiness.isReady
-              ? 'הכפתור יופעל בשלב E.4 — העסק מוכן לפתיחה'
-              : 'השלם את כל שלבי ההקמה תחילה'}
-          </p>
-        </div>
+        <SectionDivider title="שעות ספקי שירות" />
+        <ProviderHoursSection
+          businessId={businessId}
+          serviceProviders={serviceProviders}
+        />
+
+        <SectionDivider title="פתיחת גישה לדשבורד" />
+        <LifecycleSection businessId={businessId} summary={summary} />
+
+        {/* Bottom padding */}
+        <div className="h-4" />
       </div>
       <AdminBottomNav activeKey="businesses" />
     </MobilePhoneFrame>

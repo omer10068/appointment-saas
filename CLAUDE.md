@@ -424,7 +424,7 @@ UX direction (locked by product decision):
 - Language avoids "public booking" — uses "פתיחת גישה לדשבורד", "העסק מוכן לשימוש פנימי"
 - `publicBookingEnabled` must remain `false`; never referenced in admin onboarding UI
 - New businesses are always created as DRAFT; DRAFT blocks dashboard access
-- "פתח גישה לדשבורד" = DRAFT → TRIAL; disabled until E.4
+- "פתח גישה לדשבורד" = DRAFT → TRIAL; implemented in E.4
 
 ## Current Admin Frontend Status (Phase E.3)
 
@@ -462,10 +462,50 @@ Data consistency pattern:
 - This triggers an automatic refetch of the onboarding summary, updating all sections reactively
 - No page reload needed; TanStack Query handles the reactive chain
 
-Suggested next phases:
+## Current Admin Frontend Status (Phase E.4)
 
-- **E.4** — Set working hours (business + per-provider) + readiness check + open dashboard (DRAFT → TRIAL via PATCH /status)
-- **E.5** — Full QA pass: create business through Admin UI, owner/manager login, Business App verified
+Phase E.4 complete. Onboarding page now includes business working hours, per-provider working hours, and the DRAFT → TRIAL CTA.
+
+Backend additions (concrete frontend blocker):
+
+- `GET /admin/businesses/:businessId/working-hours` — read existing business working hours (admin only)
+- `GET /admin/businesses/:businessId/service-providers/:serviceProviderId/working-hours` — read existing SP working hours (admin only)
+- `getBusinessWorkingHours(businessId)` added to `AdminBusinessesService`
+- `getServiceProviderWorkingHours(businessId, serviceProviderId)` added to `AdminBusinessesService`
+- These are pure Prisma reads with business/SP existence checks; no new business logic
+
+New frontend components (`apps/web/src/app/admin/_components/`):
+
+- `admin-hours-editor.tsx` — shared internal module: `HourRow` type, `defaultHours()`, `initHoursFromData()`, `WeekHoursEditor` component. Used by both hours sections. Internal to admin surface — not coupled to Business App route components.
+- `admin-onboarding-business-hours-section.tsx` (`BusinessHoursSection`) — inline week hours editor initialized from summary's `businessWorkingHours`. Saves via `PUT /admin/businesses/:id/working-hours`. Tracks `isDirty`; save button disabled until dirty. Initializes once from props on mount; not re-synced on summary refetch (avoids wiping in-progress edits).
+- `admin-onboarding-provider-hours-section.tsx` (`ProviderHoursSection`) — accordion list of active SPs. Expanding a provider card loads its hours via `GET /admin/businesses/:id/service-providers/:spId/working-hours` (lazy, per-expand). Collapses others. Saves via `PUT .../working-hours`. Falls back to defaults on load error (editor still usable). Uses `getTokenRef` pattern to avoid stale closure.
+- `admin-onboarding-lifecycle-section.tsx` (`LifecycleSection`) — DRAFT → TRIAL CTA. Shows compact preflight readiness summary (informational only; does not gate the CTA — backend has no readiness requirement for DRAFT → TRIAL). After success: invalidates summary, shows "הגישה לדשבורד פתוחה" state. Handles 409 (not-DRAFT) and generic errors with Hebrew copy. TRIAL/ACTIVE state shows explanation about next steps.
+
+Updated components:
+
+- `admin-onboarding-shell.tsx` — removed `FutureStepCard` and disabled CTA placeholder; replaced with `BusinessHoursSection`, `ProviderHoursSection`, `LifecycleSection`; summary card updated with `שעות עסק` and `שעות יומנים` rows (7 rows total)
+
+API helpers (`apps/web/src/lib/admin-api.ts`) additions:
+
+- `AdminWorkingHourItem`, `AdminWorkingHoursPayload`, `AdminWorkingHourDto` — working hours types
+- `fetchAdminBusinessWorkingHours(businessId, getToken)` — GET
+- `setAdminBusinessWorkingHours(businessId, payload, getToken)` — PUT
+- `fetchAdminServiceProviderWorkingHours(businessId, spId, getToken)` — GET
+- `setAdminServiceProviderWorkingHours(businessId, spId, payload, getToken)` — PUT
+- `AdminSetStatusPayload`, `AdminBusinessStatusDto`, `setAdminBusinessStatus(businessId, status, getToken)` — PATCH /status
+
+Key domain facts locked in E.4:
+
+- DRAFT → TRIAL requires no readiness check on backend. The CTA is always available when status is DRAFT.
+- TRIAL → ACTIVE is NOT implemented in E.4 (out of scope).
+- Business hours and SP hours are separate concepts. SP hours are NOT auto-copied from business hours.
+- The admin hours editor uses `type="time"` inputs. Format is HH:mm as required by backend.
+- `businessWorkingHours` in the summary is used to initialize the business hours editor once (not re-synced on subsequent summary refetches to preserve in-progress edits).
+- SP hours are fetched lazily (on accordion expand) via the new admin GET endpoint.
+
+Suggested next phase:
+
+- **E.5** — Full QA pass: create business through Admin UI end-to-end, owner/manager login, Business App verified
 
 ## Workflow
 

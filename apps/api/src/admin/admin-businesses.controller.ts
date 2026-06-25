@@ -158,4 +158,20 @@ export class AdminBusinessesController {
   getOnboardingSummary(@Param('businessId') businessId: string) {
     return this.adminBusinessesService.getOnboardingSummary(businessId);
   }
+
+  @Get(':businessId/working-hours')
+  getBusinessWorkingHours(@Param('businessId') businessId: string) {
+    return this.adminBusinessesService.getBusinessWorkingHours(businessId);
+  }
+
+  @Get(':businessId/service-providers/:serviceProviderId/working-hours')
+  getServiceProviderWorkingHours(
+    @Param('businessId') businessId: string,
+    @Param('serviceProviderId') serviceProviderId: string,
+  ) {
+    return this.adminBusinessesService.getServiceProviderWorkingHours(
+      businessId,
+      serviceProviderId,
+    );
+  }
 }

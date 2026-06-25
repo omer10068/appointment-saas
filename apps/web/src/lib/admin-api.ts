@@ -243,3 +243,93 @@ export function createAdminServiceProvider(
     { method: 'POST', body: payload },
   );
 }
+
+// ─── Working hours ─────────────────────────────────────────────────────────────
+
+export interface AdminWorkingHourItem {
+  dayOfWeek: number;
+  isClosed: boolean;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+export interface AdminWorkingHoursPayload {
+  hours: AdminWorkingHourItem[];
+}
+
+export interface AdminWorkingHourDto {
+  id: string;
+  dayOfWeek: number;
+  startTime: string | null;
+  endTime: string | null;
+  isClosed: boolean;
+}
+
+export function fetchAdminBusinessWorkingHours(
+  businessId: string,
+  getToken: () => Promise<string | null>,
+): Promise<AdminWorkingHourDto[]> {
+  return fetchWithAuth<AdminWorkingHourDto[]>(
+    `/admin/businesses/${businessId}/working-hours`,
+    getToken,
+  );
+}
+
+export function setAdminBusinessWorkingHours(
+  businessId: string,
+  payload: AdminWorkingHoursPayload,
+  getToken: () => Promise<string | null>,
+): Promise<AdminWorkingHourDto[]> {
+  return fetchWithAuth<AdminWorkingHourDto[]>(
+    `/admin/businesses/${businessId}/working-hours`,
+    getToken,
+    { method: 'PUT', body: payload },
+  );
+}
+
+export function fetchAdminServiceProviderWorkingHours(
+  businessId: string,
+  serviceProviderId: string,
+  getToken: () => Promise<string | null>,
+): Promise<AdminWorkingHourDto[]> {
+  return fetchWithAuth<AdminWorkingHourDto[]>(
+    `/admin/businesses/${businessId}/service-providers/${serviceProviderId}/working-hours`,
+    getToken,
+  );
+}
+
+export function setAdminServiceProviderWorkingHours(
+  businessId: string,
+  serviceProviderId: string,
+  payload: AdminWorkingHoursPayload,
+  getToken: () => Promise<string | null>,
+): Promise<AdminWorkingHourDto[]> {
+  return fetchWithAuth<AdminWorkingHourDto[]>(
+    `/admin/businesses/${businessId}/service-providers/${serviceProviderId}/working-hours`,
+    getToken,
+    { method: 'PUT', body: payload },
+  );
+}
+
+// ─── Business status ───────────────────────────────────────────────────────────
+
+export interface AdminSetStatusPayload {
+  status: 'TRIAL' | 'ACTIVE';
+}
+
+export interface AdminBusinessStatusDto {
+  id: string;
+  status: string;
+}
+
+export function setAdminBusinessStatus(
+  businessId: string,
+  status: AdminSetStatusPayload['status'],
+  getToken: () => Promise<string | null>,
+): Promise<AdminBusinessStatusDto> {
+  return fetchWithAuth<AdminBusinessStatusDto>(
+    `/admin/businesses/${businessId}/status`,
+    getToken,
+    { method: 'PATCH', body: { status } },
+  );
+}

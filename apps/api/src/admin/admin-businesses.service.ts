@@ -346,6 +346,52 @@ export class AdminBusinessesService {
     });
   }
 
+  async getBusinessWorkingHours(businessId: string): Promise<WorkingHourDto[]> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+    return this.prisma.businessWorkingHour.findMany({
+      where: { businessId },
+      orderBy: { dayOfWeek: 'asc' },
+      select: {
+        id: true,
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+        isClosed: true,
+      },
+    });
+  }
+
+  async getServiceProviderWorkingHours(
+    businessId: string,
+    serviceProviderId: string,
+  ): Promise<WorkingHourDto[]> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    });
+    if (!business) throw new NotFoundException('Business not found');
+    const sp = await this.prisma.serviceProvider.findFirst({
+      where: { id: serviceProviderId, businessId },
+      select: { id: true },
+    });
+    if (!sp) throw new NotFoundException('Service provider not found');
+    return this.prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId },
+      orderBy: { dayOfWeek: 'asc' },
+      select: {
+        id: true,
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+        isClosed: true,
+      },
+    });
+  }
+
   async setBusinessWorkingHours(
     businessId: string,
     dto: UpsertWorkingHoursDto,
