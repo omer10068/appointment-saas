@@ -14,6 +14,11 @@
     "turbo": "^2.9.12"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@clerk/shared"]
+    "onlyBuiltDependencies": ["@clerk/shared"],
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "ts-jest>jest": "30"
+      }
+    }
   }
 }
