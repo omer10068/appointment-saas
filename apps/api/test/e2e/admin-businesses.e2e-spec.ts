@@ -2927,6 +2927,11 @@ describe('PUT /admin/businesses/:businessId/service-providers/:spId/working-hour
         businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
       },
     });
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
     await prisma.business.deleteMany({
       where: {
         id: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
@@ -2947,6 +2952,17 @@ describe('PUT /admin/businesses/:businessId/service-providers/:spId/working-hour
         status: 'DRAFT',
         timezone: 'Asia/Jerusalem',
       },
+    });
+    // Seed broad business working hours so SP hours containment checks pass.
+    // Tests use days 1 (Mon), 3 (Wed), 4 (Thu) with times within 08:00–22:00.
+    await prisma.businessWorkingHour.createMany({
+      data: [1, 2, 3, 4, 5].map((day) => ({
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        dayOfWeek: day,
+        isClosed: false,
+        startTime: '08:00',
+        endTime: '22:00',
+      })),
     });
     spwhOwner = await prisma.user.create({
       data: {
@@ -3052,6 +3068,11 @@ describe('PUT /admin/businesses/:businessId/service-providers/:spId/working-hour
       },
     });
     await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessWorkingHour.deleteMany({
       where: {
         businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
       },

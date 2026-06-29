@@ -616,6 +616,23 @@ describe('PUT /dashboard/businesses/:businessId/working-hours', () => {
 // ─── PUT /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours ───
 
 describe('PUT /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours', () => {
+  beforeAll(async () => {
+    // Seed wide business working hours (Mon+Tue 08:00–22:00) so the SP hours
+    // containment validation passes for all success tests in this describe.
+    await prisma.businessWorkingHour.deleteMany({
+      where: { businessId: E2E_WH_MUT_BIZ_ID },
+    });
+    await prisma.businessWorkingHour.createMany({
+      data: [1, 2].map((day) => ({
+        businessId: E2E_WH_MUT_BIZ_ID,
+        dayOfWeek: day,
+        isClosed: false,
+        startTime: '08:00',
+        endTime: '22:00',
+      })),
+    });
+  });
+
   it('owner → 200 with correct WorkingHourDto shape', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     const res = await request(app.getHttpServer())

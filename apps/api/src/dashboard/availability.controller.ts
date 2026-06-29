@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -36,6 +37,7 @@ export class AvailabilityController {
     );
   }
 
+  @HttpCode(HttpStatus.OK)
   @Post(':businessId/working-hours/preview')
   previewBusinessWorkingHours(
     @Param('businessId') businessId: string,
