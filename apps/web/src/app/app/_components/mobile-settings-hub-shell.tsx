@@ -5,6 +5,8 @@ import { CalendarOff, ChevronLeft, Clock, Settings, UserCog, Users } from 'lucid
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { CalendarBottomNav } from './calendar-bottom-nav';
+import { toFriendlyName } from '../_lib/calendar.utils';
+import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Items ────────────────────────────────────────────────────────────────────
 
@@ -45,21 +47,12 @@ export function MobileSettingsHubShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none bg-background px-5 pb-5 pt-9">
-        <div className="flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">{businessName}</p>
-            )}
-            <h1 className={`${businessName ? 'mt-1' : ''} text-2xl font-extrabold tracking-tight text-foreground`}>
-              ניהול והגדרות
-            </h1>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Settings className="size-5" />
-          </div>
-        </div>
-      </header>
+      <MobilePageHeader
+        title="ניהול והגדרות"
+        icon={Settings}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
+        className="flex-none bg-background px-5 pt-9 pb-5"
+      />
 
       {/* ── Settings items ────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-5 pb-32 pt-2">

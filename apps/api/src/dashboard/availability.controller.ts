@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -33,6 +34,20 @@ export class AvailabilityController {
     return this.availabilityService.getBusinessWorkingHours(
       req.user.id,
       businessId,
+    );
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post(':businessId/working-hours/preview')
+  previewBusinessWorkingHours(
+    @Param('businessId') businessId: string,
+    @Body() dto: UpsertWorkingHoursDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.availabilityService.previewBusinessHoursUpdate(
+      req.user.id,
+      businessId,
+      dto,
     );
   }
 

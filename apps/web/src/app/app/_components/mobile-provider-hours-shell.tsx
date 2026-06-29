@@ -1,9 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { ChevronLeft, ChevronRight, Users, X } from 'lucide-react';
+import { ChevronLeft, Users, X } from 'lucide-react';
 import type {
   DashboardServiceProviderDto,
   DashboardWorkingHourDto,
@@ -12,6 +11,7 @@ import type {
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import {
   ApiError,
+  fetchBusinessWorkingHours,
   fetchServiceProviderWorkingHours,
   updateServiceProviderWorkingHours,
 } from '@/lib/api';
@@ -20,7 +20,8 @@ import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
-import { HEBREW_DAY_ABBR } from '../_lib/calendar.utils';
+import { HEBREW_DAY_ABBR, toFriendlyName } from '../_lib/calendar.utils';
+import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,13 @@ interface HourRow {
   isClosed: boolean;
   startTime: string;
   endTime: string;
+}
+
+interface BizHourRow {
+  dayOfWeek: number;
+  isClosed: boolean;
+  startTime: string | null;
+  endTime: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -42,19 +50,45 @@ function defaultHours(): HourRow[] {
   }));
 }
 
-function mergeHours(loaded: DashboardWorkingHourDto[]): HourRow[] {
+function mergeHours(loaded: DashboardWorkingHourDto[], bizRows: BizHourRow[]): HourRow[] {
   const base = defaultHours();
   const map = new Map(loaded.map((h) => [h.dayOfWeek, h]));
+  const bizMap = new Map(bizRows.map((h) => [h.dayOfWeek, h]));
   return base.map((d) => {
     const l = map.get(d.dayOfWeek);
-    if (!l) return d;
-    return {
-      dayOfWeek: l.dayOfWeek,
-      isClosed: l.isClosed,
-      startTime: l.startTime ?? '09:00',
-      endTime: l.endTime ?? '17:00',
-    };
+    const biz = bizMap.get(d.dayOfWeek);
+    const row: HourRow = l
+      ? {
+          dayOfWeek: l.dayOfWeek,
+          isClosed: l.isClosed,
+          startTime: l.startTime ?? '09:00',
+          endTime: l.endTime ?? '17:00',
+        }
+      : d;
+    // If the business is closed on this day, force the provider closed too
+    if (biz?.isClosed) return { ...row, isClosed: true };
+    return row;
   });
+}
+
+/**
+ * Returns a Hebrew error string if any open provider row falls outside business hours,
+ * or null when the payload is valid.
+ */
+function validateAgainstBiz(hours: HourRow[], bizRows: BizHourRow[]): string | null {
+  const bizMap = new Map(bizRows.map((h) => [h.dayOfWeek, h]));
+  for (const h of hours) {
+    if (h.isClosed) continue;
+    const biz = bizMap.get(h.dayOfWeek);
+    if (!biz || biz.isClosed) {
+      const dayName = HEBREW_DAY_ABBR[h.dayOfWeek] ?? String(h.dayOfWeek);
+      return `ביום ${dayName} העסק סגור — לא ניתן להגדיר שעות לנותן השירות`;
+    }
+    if (h.startTime < (biz.startTime ?? '') || h.endTime > (biz.endTime ?? '')) {
+      return `שעות הפעילות של נותן השירות חייבות להיות בתוך שעות הפעילות של העסק (${biz.startTime ?? ''}–${biz.endTime ?? ''})`;
+    }
+  }
+  return null;
 }
 
 // ─── Toggle ───────────────────────────────────────────────────────────────────
@@ -98,18 +132,34 @@ function DayToggle({
 
 interface DayRowProps {
   row: HourRow;
+  bizHour: BizHourRow | undefined;
   onChange: (patch: Partial<HourRow>) => void;
   canMutate: boolean;
 }
 
-function DayRow({ row, onChange, canMutate }: DayRowProps) {
+function DayRow({ row, bizHour, onChange, canMutate }: DayRowProps) {
   const dayName = HEBREW_DAY_ABBR[row.dayOfWeek] ?? String(row.dayOfWeek);
-  const isOpen = !row.isClosed;
+  const bizClosed = bizHour?.isClosed ?? false;
+  // Provider can't be open when business is closed
+  const toggleDisabled = !canMutate || bizClosed;
+  const isOpen = !row.isClosed && !bizClosed;
+
+  const minTime = bizHour && !bizHour.isClosed ? (bizHour.startTime ?? undefined) : undefined;
+  const maxTime = bizHour && !bizHour.isClosed ? (bizHour.endTime   ?? undefined) : undefined;
 
   return (
     <div className="space-y-2.5 border-b border-border py-3.5 last:border-0">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">{dayName}</span>
+        <div className="min-w-0">
+          <span className="text-sm font-semibold text-foreground">{dayName}</span>
+          {bizHour && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {bizClosed
+                ? 'העסק סגור ביום זה'
+                : `שעות העסק: ${bizHour.startTime ?? ''}–${bizHour.endTime ?? ''}`}
+            </p>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-2.5">
           <span className="whitespace-nowrap text-xs text-muted-foreground">
             {isOpen ? 'פתוח' : 'סגור'}
@@ -117,7 +167,7 @@ function DayRow({ row, onChange, canMutate }: DayRowProps) {
           <DayToggle
             checked={isOpen}
             onChange={() => onChange({ isClosed: !row.isClosed })}
-            disabled={!canMutate}
+            disabled={toggleDisabled}
           />
         </div>
       </div>
@@ -132,6 +182,8 @@ function DayRow({ row, onChange, canMutate }: DayRowProps) {
             <input
               type="time"
               value={row.startTime}
+              min={minTime}
+              max={row.endTime}
               onChange={(e) => onChange({ startTime: e.target.value })}
               disabled={!canMutate}
               className="min-w-0 flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
@@ -140,6 +192,8 @@ function DayRow({ row, onChange, canMutate }: DayRowProps) {
             <input
               type="time"
               value={row.endTime}
+              min={row.startTime}
+              max={maxTime}
               onChange={(e) => onChange({ endTime: e.target.value })}
               disabled={!canMutate}
               className="min-w-0 flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
@@ -200,10 +254,12 @@ function ProviderHoursSheet({
   getTokenRef.current             = getToken;
 
   const [hours, setHours]         = useState<HourRow[]>(defaultHours());
+  const [bizHours, setBizHours]   = useState<BizHourRow[]>([]);
   const [isDirty, setIsDirty]     = useState(false);
   const [loading, setLoading]     = useState(false);
   const [saving, setSaving]       = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [retryKey, setRetryKey]   = useState(0);
 
   // Open animation
@@ -214,18 +270,30 @@ function ProviderHoursSheet({
     return () => cancelAnimationFrame(id);
   }, [open]);
 
-  // Fetch hours when the sheet opens or the provider/retryKey changes
+  // Fetch business hours + provider hours in parallel when the sheet opens
   const providerId = provider?.id ?? null;
   useEffect(() => {
     if (!open || !businessId || !providerId) return;
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
+    setSaveError(null);
     setIsDirty(false);
-    fetchServiceProviderWorkingHours(businessId, providerId, () => getTokenRef.current())
-      .then((data) => {
+
+    Promise.all([
+      fetchBusinessWorkingHours(businessId, () => getTokenRef.current()).catch(() => [] as DashboardWorkingHourDto[]),
+      fetchServiceProviderWorkingHours(businessId, providerId, () => getTokenRef.current()),
+    ])
+      .then(([biz, prov]) => {
         if (!cancelled) {
-          setHours(mergeHours(data));
+          const bizRows: BizHourRow[] = biz.map((h) => ({
+            dayOfWeek: h.dayOfWeek,
+            isClosed: h.isClosed,
+            startTime: h.startTime ?? null,
+            endTime: h.endTime ?? null,
+          }));
+          setBizHours(bizRows);
+          setHours(mergeHours(prov, bizRows));
           setIsDirty(false);
         }
       })
@@ -246,6 +314,7 @@ function ProviderHoursSheet({
   }
 
   function updateDay(dayOfWeek: number, patch: Partial<HourRow>) {
+    setSaveError(null);
     setHours((prev) =>
       prev.map((r) => (r.dayOfWeek === dayOfWeek ? { ...r, ...patch } : r)),
     );
@@ -254,7 +323,18 @@ function ProviderHoursSheet({
 
   async function handleSave() {
     if (!businessId || !provider) return;
+
+    // Client-side containment guard (only when biz hours are loaded)
+    if (bizHours.length > 0) {
+      const err = validateAgainstBiz(hours, bizHours);
+      if (err) {
+        setSaveError(err);
+        return;
+      }
+    }
+
     setSaving(true);
+    setSaveError(null);
 
     const payload: UpdateWorkingHoursPayload = {
       hours: hours.map((r) => ({
@@ -272,18 +352,22 @@ function ProviderHoursSheet({
         payload,
         () => getTokenRef.current(),
       );
-      setHours(mergeHours(updated));
+      setHours(mergeHours(updated, bizHours));
       setIsDirty(false);
       showToast('שעות הצוות נשמרו בהצלחה');
     } catch (err) {
-      const isConflict =
-        err instanceof ApiError && (err.status === 409 || err.status === 400);
-      showToast(
-        isConflict
-          ? 'לא ניתן לשמור — קיימים תורים מתוכננים בשעות שנסגרו'
-          : 'שגיאה בשמירת שעות הצוות, נסה שוב',
-        5000,
-      );
+      if (err instanceof ApiError && err.status === 400 && err.message.includes('within business hours')) {
+        setSaveError('שעות הפעילות של נותן השירות חייבות להיות בתוך שעות הפעילות של העסק');
+      } else {
+        const isConflict =
+          err instanceof ApiError && (err.status === 409 || err.status === 400);
+        showToast(
+          isConflict
+            ? 'לא ניתן לשמור — קיימים תורים מתוכננים בשעות שנסגרו'
+            : 'שגיאה בשמירת שעות הצוות, נסה שוב',
+          5000,
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -292,6 +376,7 @@ function ProviderHoursSheet({
   if (!open && !visible) return null;
 
   const showFooter = canMutate && !loading && !loadError;
+  const bizMap = new Map(bizHours.map((h) => [h.dayOfWeek, h]));
 
   return (
     <div className="fixed inset-0 z-60" dir="rtl">
@@ -359,11 +444,19 @@ function ProviderHoursSheet({
                   <DayRow
                     key={row.dayOfWeek}
                     row={row}
+                    bizHour={bizMap.get(row.dayOfWeek)}
                     onChange={(patch) => updateDay(row.dayOfWeek, patch)}
                     canMutate={canMutate}
                   />
                 ))}
               </div>
+
+              {saveError && (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="text-sm text-red-600">{saveError}</p>
+                </div>
+              )}
+
               {!canMutate && (
                 <p className="mt-4 text-center text-xs text-muted-foreground">
                   צפייה בלבד — אין הרשאה לעריכה
@@ -421,7 +514,6 @@ function ProviderCard({ provider, onClick }: ProviderCardProps) {
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function MobileProviderHoursShell() {
-  const router = useRouter();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
@@ -453,32 +545,16 @@ export function MobileProviderHoursShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none bg-background px-5 pb-4 pt-9">
-        <button
-          onClick={() => router.push('/app/settings')}
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-          aria-label="חזרה"
-        >
-          <ChevronRight className="size-4" />
-          <span>חזרה</span>
-        </button>
-        <div className="mt-2 flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">{businessName}</p>
-            )}
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              שעות צוות
-            </h1>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Users className="size-5" />
-          </div>
-        </div>
+      <MobilePageHeader
+        title="שעות צוות"
+        icon={Users}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
+        backHref="/app/settings"
+      >
         <p className="relative mt-3 text-sm leading-relaxed text-muted-foreground">
-          הגדרת שעות עבודה אישיות לכל נותן שירות, בנוסף לשעות הכלליות של העסק.
+          הגדרת שעות עבודה אישיות לכל נותן שירות, בתוך שעות הפעילות הכלליות של העסק.
         </p>
-      </header>
+      </MobilePageHeader>
 
       {/* ── Scrollable body ───────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-5 pb-32 pt-4">

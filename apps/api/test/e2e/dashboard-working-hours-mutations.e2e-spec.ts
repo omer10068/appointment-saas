@@ -69,9 +69,6 @@ type WorkingHourDto = {
 };
 
 // ─── Valid payload helpers ────────────────────────────────────────────────────
-// Both Monday and Tuesday are needed: SP1 has an active Monday appointment and
-// SP2 has an active Tuesday appointment, both of which are checked by the
-// business-level conflict validator when any 200 response is expected.
 const VALID_PAYLOAD = {
   hours: [
     { dayOfWeek: 1, isClosed: false, startTime: '09:00', endTime: '17:00' },
@@ -619,6 +616,23 @@ describe('PUT /dashboard/businesses/:businessId/working-hours', () => {
 // ─── PUT /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours ───
 
 describe('PUT /dashboard/businesses/:businessId/service-providers/:serviceProviderId/working-hours', () => {
+  beforeAll(async () => {
+    // Seed wide business working hours (Mon+Tue 08:00–22:00) so the SP hours
+    // containment validation passes for all success tests in this describe.
+    await prisma.businessWorkingHour.deleteMany({
+      where: { businessId: E2E_WH_MUT_BIZ_ID },
+    });
+    await prisma.businessWorkingHour.createMany({
+      data: [1, 2].map((day) => ({
+        businessId: E2E_WH_MUT_BIZ_ID,
+        dayOfWeek: day,
+        isClosed: false,
+        startTime: '08:00',
+        endTime: '22:00',
+      })),
+    });
+  });
+
   it('owner → 200 with correct WorkingHourDto shape', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
     const res = await request(app.getHttpServer())
@@ -775,50 +789,36 @@ describe('PUT business working hours — appointment conflict checks', () => {
       .expect(200);
   });
 
-  it('returns 409 when proposed hours would invalidate a future active appointment', async () => {
+  it('succeeds even when proposed hours would put a future active appointment outside them → 200', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
-    // Monday closed; active appointment at 10:00-11:00 on Monday → conflict
-    const res = await request(app.getHttpServer())
+    // Monday closed; active appointment at 10:00-11:00 on Monday → no longer blocked.
+    // Business hours PUT is now always allowed; the preview endpoint returns the
+    // warning count and the frontend must confirm before calling PUT.
+    await request(app.getHttpServer())
       .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
       .send({
         hours: [{ dayOfWeek: 1, isClosed: true }],
       })
-      .expect(409);
-
-    const body409 = res.body as unknown as {
-      message: string;
-      conflicts: Array<{ appointmentId: string }>;
-    };
-    expect(body409.message).toContain('invalidate');
-    expect(body409.conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ appointmentId: E2E_WH_MUT_APT_CONFLICT_ID }),
-      ]),
-    );
+      .expect(200);
   });
 
-  it('does not persist working hours when 409 is returned', async () => {
+  it('appointment remains unchanged after hours are narrowed past its time', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
-    // Monday already set to 08:00-17:00 by the first test; 409 must not change that
-    await request(app.getHttpServer())
-      .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
-      .send({ hours: [{ dayOfWeek: 1, isClosed: true }] })
-      .expect(409);
-
-    const getRes = await request(app.getHttpServer())
-      .get(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
-      .expect(200);
-
-    const hours = getRes.body as unknown as WorkingHourDto[];
-    const monday = hours.find((h) => h.dayOfWeek === 1);
-    expect(monday).toBeDefined();
-    expect(monday!.isClosed).toBe(false);
+    // Previous test closed Monday. The appointment on Monday 10:00-11:00 must still exist.
+    const apt = await prisma.appointment.findUnique({
+      where: { id: E2E_WH_MUT_APT_CONFLICT_ID },
+    });
+    expect(apt).not.toBeNull();
+    expect(apt!.status).toBe(AppointmentStatus.SCHEDULED);
+    expect(apt!.startsAt.toISOString()).toBe(
+      new Date(WH_MON_APT_STARTS_AT).toISOString(),
+    );
   });
 
   it('succeeds when only cancelled future appointments exist on the affected day → 200', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
-    // Wednesday closed; only a CANCELLED appointment on Wednesday → no conflict
-    // Monday must also be covered to avoid conflicting with the active Monday appointment
+    // Wednesday closed; only a CANCELLED appointment on Wednesday → fine either way.
+    // Restore Monday open so it is predictable for later tests in this suite.
     await request(app.getHttpServer())
       .put(`/dashboard/businesses/${E2E_WH_MUT_BIZ_ID}/working-hours`)
       .send({

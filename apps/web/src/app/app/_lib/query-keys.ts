@@ -35,4 +35,10 @@ export const appKeys = {
   /** Prefix key — no weekStartISO. Used with invalidateQueries to cover all cached weeks. */
   weekAppointmentsAll: (businessId: string) =>
     ['app', 'appointments', 'week', businessId] as const,
+
+  businessHours: (businessId: string) =>
+    ['app', 'businessHours', businessId] as const,
+
+  serviceProviderHours: (businessId: string, spId: string) =>
+    ['app', 'serviceProviderHours', businessId, spId] as const,
 };

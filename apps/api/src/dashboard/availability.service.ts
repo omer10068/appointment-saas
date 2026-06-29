@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AppointmentStatus,
   BusinessStatus,
   BusinessUserRole,
   BusinessUserStatus,
@@ -14,6 +15,8 @@ import { BookingValidationService } from './booking-validation.service';
 import type { UpsertWorkingHoursDto } from './dto/upsert-working-hours.dto';
 import type { CreateAvailabilityExceptionDto } from './dto/create-availability-exception.dto';
 import type { UpdateAvailabilityExceptionDto } from './dto/update-availability-exception.dto';
+
+// ─── DTOs ─────────────────────────────────────────────────────────────────────
 
 export interface WorkingHourDto {
   id: string;
@@ -34,6 +37,45 @@ export interface AvailabilityExceptionDto {
   reason: string | null;
   createdAt: Date;
 }
+
+// ─── Business hours narrowing preview ─────────────────────────────────────────
+
+export interface ProviderHoursChangeItem {
+  dayOfWeek: number;
+  before: {
+    isClosed: boolean;
+    startTime: string | null;
+    endTime: string | null;
+  };
+  after: {
+    isClosed: boolean;
+    startTime: string | null;
+    endTime: string | null;
+  };
+  /** CLOSED: business day closed so provider must close too. CLAMPED: times trimmed. */
+  reason: 'CLOSED' | 'CLAMPED';
+}
+
+export interface AffectedProviderPreview {
+  id: string;
+  displayName: string;
+  changes: ProviderHoursChangeItem[];
+}
+
+export interface BusinessHoursUpdatePreviewDto {
+  affectedProviders: AffectedProviderPreview[];
+  /** Count of SCHEDULED future appointments whose start/end falls outside the new hours. */
+  futureAppointmentsOutsideNewHoursCount: number;
+}
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+type BizHourEntry = {
+  isClosed: boolean;
+  startTime: string | null;
+  endTime: string | null;
+};
+type NewBizMap = Map<number, BizHourEntry>;
 
 const WORKING_HOUR_SELECT = {
   id: true,
@@ -60,6 +102,8 @@ const ALLOWED_BUSINESS_STATUSES: BusinessStatus[] = [
   BusinessStatus.TRIAL,
 ];
 
+// ─── Service ──────────────────────────────────────────────────────────────────
+
 @Injectable()
 export class AvailabilityService {
   constructor(
@@ -81,6 +125,74 @@ export class AvailabilityService {
     });
   }
 
+  async previewBusinessHoursUpdate(
+    userId: string,
+    businessId: string,
+    dto: UpsertWorkingHoursDto,
+  ): Promise<BusinessHoursUpdatePreviewDto> {
+    await this.assertMutationAccess(userId, businessId);
+    this.validateHoursPayload(dto.hours);
+
+    const newBizMap = this.buildNewBizMap(dto.hours);
+
+    // Fetch current provider hours and SP display names
+    const [sps, allSpHours] = await Promise.all([
+      this.prisma.serviceProvider.findMany({
+        where: { businessId },
+        select: { id: true, displayName: true },
+      }),
+      this.prisma.serviceProviderWorkingHour.findMany({
+        where: { businessId },
+        select: {
+          serviceProviderId: true,
+          dayOfWeek: true,
+          isClosed: true,
+          startTime: true,
+          endTime: true,
+        },
+      }),
+    ]);
+
+    const spDisplayNames = new Map(sps.map((sp) => [sp.id, sp.displayName]));
+    const rows = allSpHours.map((h) => ({
+      spId: h.serviceProviderId,
+      displayName:
+        spDisplayNames.get(h.serviceProviderId) ?? h.serviceProviderId,
+      dayOfWeek: h.dayOfWeek,
+      isClosed: h.isClosed,
+      startTime: h.startTime,
+      endTime: h.endTime,
+    }));
+
+    const clampsMap = this.computeProviderHoursClamps(newBizMap, rows);
+    const affectedProviders: AffectedProviderPreview[] = [];
+    for (const [spId, { displayName, changes }] of clampsMap) {
+      affectedProviders.push({ id: spId, displayName, changes });
+    }
+
+    // Count future SCHEDULED appointments that fall outside the new business hours
+    const biz = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { timezone: true },
+    });
+    const timezone = biz?.timezone ?? 'UTC';
+
+    const futureAppts = await this.prisma.appointment.findMany({
+      where: {
+        businessId,
+        startsAt: { gte: new Date() },
+        status: AppointmentStatus.SCHEDULED,
+      },
+      select: { startsAt: true, endsAt: true },
+    });
+
+    const futureAppointmentsOutsideNewHoursCount = futureAppts.filter((a) =>
+      this.isOutsideNewHours(a.startsAt, a.endsAt, timezone, newBizMap),
+    ).length;
+
+    return { affectedProviders, futureAppointmentsOutsideNewHoursCount };
+  }
+
   async setBusinessWorkingHours(
     userId: string,
     businessId: string,
@@ -88,11 +200,45 @@ export class AvailabilityService {
   ): Promise<WorkingHourDto[]> {
     await this.assertMutationAccess(userId, businessId);
     this.validateHoursPayload(dto.hours);
-    await this.bookingValidation.checkBusinessHoursConflict(
-      businessId,
-      dto.hours,
-    );
+    // Appointment conflicts are now informational only (shown via /preview).
+    // The PUT always applies and never returns 409 for appointment conflicts.
+    // Provider hours that become inconsistent are clamped atomically below.
+
+    const newBizMap = this.buildNewBizMap(dto.hours);
+
     return this.prisma.$transaction(async (tx) => {
+      // Fetch all provider hours inside the tx (consistent snapshot)
+      const [sps, allSpHours] = await Promise.all([
+        tx.serviceProvider.findMany({
+          where: { businessId },
+          select: { id: true, displayName: true },
+        }),
+        tx.serviceProviderWorkingHour.findMany({
+          where: { businessId },
+          select: {
+            serviceProviderId: true,
+            dayOfWeek: true,
+            isClosed: true,
+            startTime: true,
+            endTime: true,
+          },
+        }),
+      ]);
+
+      const spDisplayNames = new Map(sps.map((sp) => [sp.id, sp.displayName]));
+      const rows = allSpHours.map((h) => ({
+        spId: h.serviceProviderId,
+        displayName:
+          spDisplayNames.get(h.serviceProviderId) ?? h.serviceProviderId,
+        dayOfWeek: h.dayOfWeek,
+        isClosed: h.isClosed,
+        startTime: h.startTime,
+        endTime: h.endTime,
+      }));
+
+      const clampsMap = this.computeProviderHoursClamps(newBizMap, rows);
+
+      // 1. Replace business working hours
       await tx.businessWorkingHour.deleteMany({ where: { businessId } });
       await tx.businessWorkingHour.createMany({
         data: dto.hours.map((h) => ({
@@ -103,6 +249,52 @@ export class AvailabilityService {
           isClosed: h.isClosed,
         })),
       });
+
+      // 2. Atomically clamp affected provider hours
+      if (clampsMap.size > 0) {
+        // Group existing SP hours by spId for O(1) lookup
+        const spHoursMap = new Map<string, typeof allSpHours>();
+        for (const h of allSpHours) {
+          const list = spHoursMap.get(h.serviceProviderId) ?? [];
+          list.push(h);
+          spHoursMap.set(h.serviceProviderId, list);
+        }
+
+        for (const [spId, { changes }] of clampsMap) {
+          const changeMap = new Map(changes.map((c) => [c.dayOfWeek, c]));
+          const currentHours = spHoursMap.get(spId) ?? [];
+
+          const newHours = currentHours.map((h) => {
+            const change = changeMap.get(h.dayOfWeek);
+            if (change) {
+              return {
+                businessId,
+                serviceProviderId: spId,
+                dayOfWeek: h.dayOfWeek,
+                isClosed: change.after.isClosed,
+                startTime: change.after.startTime,
+                endTime: change.after.endTime,
+              };
+            }
+            return {
+              businessId,
+              serviceProviderId: spId,
+              dayOfWeek: h.dayOfWeek,
+              isClosed: h.isClosed,
+              startTime: h.startTime,
+              endTime: h.endTime,
+            };
+          });
+
+          await tx.serviceProviderWorkingHour.deleteMany({
+            where: { serviceProviderId: spId },
+          });
+          if (newHours.length > 0) {
+            await tx.serviceProviderWorkingHour.createMany({ data: newHours });
+          }
+        }
+      }
+
       return tx.businessWorkingHour.findMany({
         where: { businessId },
         orderBy: { dayOfWeek: 'asc' },
@@ -136,12 +328,45 @@ export class AvailabilityService {
     await this.assertMutationAccess(userId, businessId);
     await this.assertServiceProviderInBusiness(serviceProviderId, businessId);
     this.validateHoursPayload(dto.hours);
+    // Conflict check (appointments) runs outside the tx — reads appointments, not hours
     await this.bookingValidation.checkServiceProviderHoursConflict(
       businessId,
       serviceProviderId,
       dto.hours,
     );
     return this.prisma.$transaction(async (tx) => {
+      // Re-read business hours inside the tx to prevent TOCTOU race with a
+      // concurrent business-hours update. If business hours changed between the
+      // outer validateHoursPayload call and this write, this check catches it.
+      const bizHours = await tx.businessWorkingHour.findMany({
+        where: { businessId },
+        select: {
+          dayOfWeek: true,
+          isClosed: true,
+          startTime: true,
+          endTime: true,
+        },
+      });
+      const bizMap = new Map(bizHours.map((h) => [h.dayOfWeek, h]));
+      for (const h of dto.hours) {
+        if (h.isClosed) continue;
+        const biz = bizMap.get(h.dayOfWeek);
+        if (!biz || biz.isClosed) {
+          throw new BadRequestException(
+            `Service provider cannot be open on day ${h.dayOfWeek}: the business is closed on that day`,
+          );
+        }
+        const provStart = h.startTime ?? '';
+        const provEnd = h.endTime ?? '';
+        const bizStart = biz.startTime ?? '';
+        const bizEnd = biz.endTime ?? '';
+        if (provStart < bizStart || provEnd > bizEnd) {
+          throw new BadRequestException(
+            `Service provider hours on day ${h.dayOfWeek} (${provStart}–${provEnd}) must be within business hours (${bizStart}–${bizEnd})`,
+          );
+        }
+      }
+
       await tx.serviceProviderWorkingHour.deleteMany({
         where: { serviceProviderId },
       });
@@ -425,5 +650,144 @@ export class AvailabilityService {
         'Cannot create an availability exception for a past date',
       );
     }
+  }
+
+  // ─── Business hours narrowing helpers ────────────────────────────────────────
+
+  private buildNewBizMap(
+    hours: Array<{
+      dayOfWeek: number;
+      isClosed: boolean;
+      startTime?: string | null;
+      endTime?: string | null;
+    }>,
+  ): NewBizMap {
+    return new Map(
+      hours.map((h) => [
+        h.dayOfWeek,
+        {
+          isClosed: h.isClosed,
+          startTime: h.isClosed ? null : (h.startTime ?? null),
+          endTime: h.isClosed ? null : (h.endTime ?? null),
+        },
+      ]),
+    );
+  }
+
+  /**
+   * For each open provider working-hour row, computes what needs to change so
+   * that all provider hours remain within the new business hours. Returns a map
+   * of spId → { displayName, changes[] }. Only providers with at least one
+   * change are included.
+   */
+  private computeProviderHoursClamps(
+    newBizMap: NewBizMap,
+    rows: Array<{
+      spId: string;
+      displayName: string;
+      dayOfWeek: number;
+      isClosed: boolean;
+      startTime: string | null;
+      endTime: string | null;
+    }>,
+  ): Map<string, { displayName: string; changes: ProviderHoursChangeItem[] }> {
+    const result = new Map<
+      string,
+      { displayName: string; changes: ProviderHoursChangeItem[] }
+    >();
+
+    for (const row of rows) {
+      if (row.isClosed) continue; // already closed — nothing to clamp
+
+      const biz = newBizMap.get(row.dayOfWeek);
+      let change: ProviderHoursChangeItem | null = null;
+
+      if (!biz || biz.isClosed) {
+        // Business will be closed on this day → provider must close too
+        change = {
+          dayOfWeek: row.dayOfWeek,
+          before: {
+            isClosed: false,
+            startTime: row.startTime,
+            endTime: row.endTime,
+          },
+          after: { isClosed: true, startTime: null, endTime: null },
+          reason: 'CLOSED',
+        };
+      } else {
+        // Business remains open — clamp times if needed
+        const clampedStart =
+          (row.startTime ?? '') < (biz.startTime ?? '')
+            ? biz.startTime!
+            : row.startTime!;
+        const clampedEnd =
+          (row.endTime ?? '') > (biz.endTime ?? '')
+            ? biz.endTime!
+            : row.endTime!;
+
+        if (clampedStart !== row.startTime || clampedEnd !== row.endTime) {
+          change = {
+            dayOfWeek: row.dayOfWeek,
+            before: {
+              isClosed: false,
+              startTime: row.startTime,
+              endTime: row.endTime,
+            },
+            after: {
+              isClosed: false,
+              startTime: clampedStart,
+              endTime: clampedEnd,
+            },
+            reason: 'CLAMPED',
+          };
+        }
+      }
+
+      if (change) {
+        const entry = result.get(row.spId) ?? {
+          displayName: row.displayName,
+          changes: [],
+        };
+        entry.changes.push(change);
+        result.set(row.spId, entry);
+      }
+    }
+
+    return result;
+  }
+
+  /** Returns true if the appointment falls outside the new business hours window. */
+  private isOutsideNewHours(
+    startsAt: Date,
+    endsAt: Date,
+    timezone: string,
+    newBizMap: NewBizMap,
+  ): boolean {
+    const dow = this.getLocalDayOfWeek(startsAt, timezone);
+    const biz = newBizMap.get(dow);
+    if (!biz || biz.isClosed) return true;
+    const localStart = this.getLocalHHmm(startsAt, timezone);
+    const localEnd = this.getLocalHHmm(endsAt, timezone);
+    return localStart < (biz.startTime ?? '') || localEnd > (biz.endTime ?? '');
+  }
+
+  private getLocalDayOfWeek(date: Date, timezone: string): number {
+    const dayStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'short',
+    }).format(date);
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(dayStr);
+  }
+
+  private getLocalHHmm(date: Date, timezone: string): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+    const h = parts.find((p) => p.type === 'hour')!.value;
+    const m = parts.find((p) => p.type === 'minute')!.value;
+    return `${h}:${m}`;
   }
 }

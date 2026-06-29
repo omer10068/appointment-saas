@@ -817,8 +817,186 @@ Total in `admin-businesses.e2e-spec.ts`: 44 tests.
 
 **Deferred (do not implement without explicit instruction):**
 
-- Admin endpoints for seeding services and working hours during onboarding.
 - `ServiceProvider.businessUserId` nullable (for unlinked providers).
+
+## Phase B — Admin/Ops Onboarding Convenience
+
+Goal: allow Admin to configure a new business during the DRAFT phase, before the OWNER is given dashboard access via DRAFT→TRIAL. This unblocks the SP creation endpoint (`POST /admin/businesses/:businessId/service-providers`) which requires pre-existing services.
+
+### Phase B.1: Admin create service
+
+**Endpoint:** `POST /admin/businesses/:businessId/services`
+
+**Why it's first:** `createServiceProvider` requires `serviceIds[]`. For a fresh DRAFT business, there are no services. The dashboard `POST .../services` endpoint is blocked for DRAFT businesses by `assertMutationAccess`. Admin service creation unblocks the full DRAFT-phase setup sequence.
+
+**Rules:**
+
+- No business status check — DRAFT is explicitly allowed.
+- Behavior and DTO identical to dashboard service creation (`CreateServiceDto`).
+- Response shape identical to dashboard `ServiceDto`.
+- No schema changes, no new DTOs.
+- Does not enable or affect public booking.
+- Dashboard service creation is unchanged.
+
+**Key files:**
+
+| File | Change |
+| --- | --- |
+| `src/admin/admin-businesses.service.ts` | `createService(businessId, dto)` — 404 guard + Prisma create, no status check |
+| `src/admin/admin-businesses.controller.ts` | `POST :businessId/services` route |
+
+**E2E coverage added (`admin-businesses.e2e-spec.ts`, +12 tests, 73 total):**
+
+- Admin creates service for DRAFT business → 201 with correct shape
+- Admin creates inactive service → 201, isActive=false
+- Missing name → 400
+- durationMinutes below min → 400
+- durationMinutes above max → 400
+- Negative priceCents → 400
+- Non-existent businessId → 404
+- Non-admin → 403
+- Missing auth → 401
+- Admin-created service visible in dashboard after DRAFT → TRIAL
+- Tenant isolation: service for biz A not visible in biz B dashboard
+- Admin-created active service contributes to readiness hasActiveService=true
+
+**Decision on SUSPENDED/CANCELLED businesses:** Admin bypass applies — no status restriction enforced. Admin can create services for a suspended business. This is consistent with the pattern on every other admin endpoint.
+
+### Phase B.2: Admin add business user
+
+**Endpoint:** `POST /admin/businesses/:businessId/users`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on DRAFT businesses (no status restriction).
+- Accepts `phone` (required), `email` (optional), `role` (MANAGER | MEMBER). OWNER is rejected at DTO validation level.
+- User upsert: find existing user by normalized phone → find by email → create new. Existing user in a new business creates a new `BusinessUser` row. Same user added twice to the same business → 409.
+- Created `BusinessUser.status` is always `ACTIVE` — no invitation flow. This is consistent with `createOwnerForBusiness`.
+- Reuses `CreateBusinessUserDto` from dashboard (phone, optional email, role MANAGER|MEMBER).
+- Returns `BusinessUserCreatedDto` shape.
+- `addBusinessUser(businessId, dto)` added to `AdminBusinessesService`.
+- Dashboard user creation behavior unchanged.
+
+**E2E coverage:** 13 tests added (86 total in `admin-businesses.e2e-spec.ts`).
+
+### Phase B.3: Admin set business working hours
+
+**Endpoint:** `PUT /admin/businesses/:businessId/working-hours`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on DRAFT businesses (no status restriction).
+- Reuses `UpsertWorkingHoursDto` from dashboard — same request shape: `{ hours: [{ dayOfWeek, isClosed, startTime?, endTime? }] }`.
+- Full-week replacement semantics: deletes all existing rows for the business and inserts the provided set in one transaction (identical to dashboard behavior).
+- Validation: duplicate dayOfWeek → 400; open day missing startTime/endTime → 400; endTime ≤ startTime → 400. Time format validated by DTO `@Matches` pattern (HH:mm).
+- Does not run booking-conflict check (`checkBusinessHoursConflict`) — endpoint targets DRAFT-phase onboarding where no appointments exist yet.
+- Returns `WorkingHourDto[]` sorted by dayOfWeek, same shape as dashboard `GET /working-hours`.
+- `setBusinessWorkingHours(businessId, dto)` added to `AdminBusinessesService`.
+- Dashboard working-hours endpoint behavior unchanged.
+
+**E2E coverage:** 13 tests added (99 total in `admin-businesses.e2e-spec.ts`).
+
+### Phase B.4: Admin set ServiceProvider working hours
+
+**Endpoint:** `PUT /admin/businesses/:businessId/service-providers/:serviceProviderId/working-hours`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on DRAFT businesses (no status restriction).
+- Verifies business exists (404) and that the ServiceProvider exists under that businessId (404 if not found or cross-tenant).
+- Same `UpsertWorkingHoursDto` and full-replacement semantics as B.3 (delete-then-recreate in one transaction).
+- Same inline validation: duplicate dayOfWeek → 400; open day missing startTime/endTime → 400; endTime ≤ startTime → 400. Time format via DTO.
+- Does not run booking-conflict check (`checkServiceProviderHoursConflict`) — targets DRAFT-phase onboarding; no appointments exist yet.
+- Returns `WorkingHourDto[]` sorted by dayOfWeek, same shape as dashboard `GET .../service-providers/:id/working-hours`.
+- `setServiceProviderWorkingHours(businessId, serviceProviderId, dto)` added to `AdminBusinessesService`.
+- Dashboard SP working-hours endpoint behavior unchanged.
+- This does not enable public booking.
+
+**E2E coverage:** 15 tests added (114 total in `admin-businesses.e2e-spec.ts`).
+
+### Phase B.5: Admin onboarding summary
+
+**Endpoint:** `GET /admin/businesses/:businessId/onboarding-summary`
+
+**Status:** Implemented and E2E tested.
+
+**Behavior:**
+
+- Works on any business status including DRAFT (no status restriction).
+- Returns a single compound read — no mutations.
+- Executes one compound Prisma query fetching business metadata, businessUsers (with user phone/email), services, serviceProviders (with service links and a `hasWorkingHours` flag), businessWorkingHours, then calls `computeBusinessReadiness` and embeds the result.
+- `getOnboardingSummary(businessId)` added to `AdminBusinessesService`.
+- `AdminOnboardingSummaryDto` interface defined at the bottom of `admin-businesses.service.ts`.
+- Does NOT replace or expand `GET /admin/businesses/:businessId/readiness` — that endpoint stays lean and is called by `setBusinessStatus`/`setPublicBookingEnabled`.
+- No Prisma schema changes.
+
+**Response shape:**
+
+```json
+{
+  "business": { "id", "name", "slug", "status", "timezone", "publicBookingEnabled" },
+  "users": [{ "id", "role", "status", "user": { "id", "phone", "email" } }],
+  "services": [{ "id", "name", "durationMinutes", "priceCents", "isActive" }],
+  "serviceProviders": [{ "id", "displayName", "isActive", "businessUserId", "serviceIds": [...], "hasWorkingHours" }],
+  "businessWorkingHours": [{ "id", "dayOfWeek", "startTime", "endTime", "isClosed" }],
+  "readiness": { "isReady", "hasActiveServiceProviders", "hasActiveService", "checks": {...}, "blockingReasons": [...] }
+}
+```
+
+**E2E coverage:** 13 tests added (127 total in `admin-businesses.e2e-spec.ts`).
+
+### Full onboarding happy-path E2E test
+
+**Status:** Added.
+
+**Purpose:** Proves the complete Admin/Ops onboarding sequence end-to-end in a single consolidated test. Serves as a living backend runbook for first manual pilot.
+
+**Test location:** `describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)')` in `admin-businesses.e2e-spec.ts`.
+
+**Sequence covered:** Create business (DRAFT) → Create OWNER → Add MANAGER → Create 2 services → Create 2 ServiceProviders with different service assignments → Set business working hours → Set both provider working hours → Verify onboarding summary (all entities, both providers with correct `serviceIds`, `hasWorkingHours`, `isReady=true`) → Verify all 7 readiness checks → DRAFT → TRIAL → TRIAL → ACTIVE → Final summary confirms ACTIVE + `publicBookingEnabled=false`.
+
+**E2E coverage:** 1 consolidated test added (128 total in `admin-businesses.e2e-spec.ts`).
+
+### Phase C: Admin correction endpoints
+
+**Status:** Complete.
+
+**Endpoints added:**
+
+- `PATCH /admin/businesses/:businessId` — update name, timezone, locale, currency
+- `PATCH /admin/businesses/:businessId/services/:serviceId` — update service fields
+- `PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId` — update SP displayName, serviceIds, isActive
+
+**Purpose:** Fix common setup mistakes during DRAFT onboarding without requiring DB edits or an early move to TRIAL.
+
+**Key design decisions:**
+
+- All three endpoints work on any business status (DRAFT/TRIAL/ACTIVE). No status check.
+- `ClerkAuthGuard + PlatformAdminGuard` only — no dashboard guards.
+- Reuse existing dashboard DTOs: `UpdateBusinessSettingsDto`, `UpdateServiceDto`, `UpdateServiceProviderDto`.
+- Slug is intentionally immutable — absent from `UpdateBusinessSettingsDto`; sending it returns 400 (`forbidNonWhitelisted`).
+- Service deactivation has no cascade — if an active SP links the deactivated service, readiness reflects this cleanly.
+- SP update preserves all creation-time invariants (active SP cannot link inactive services; activating with no services → 400).
+- `businessUserId` on SP is immutable — absent from `UpdateServiceProviderDto`.
+- No Prisma schema changes. Dashboard behavior unchanged.
+
+**Methods added to `AdminBusinessesService`:** `updateBusinessMetadata`, `updateService`, `updateServiceProvider`.
+
+**E2E coverage:** 33 tests added (161 total in `admin-businesses.e2e-spec.ts`). `describe('Phase C — Admin correction endpoints')` with 3 nested describes (9 + 11 + 13 tests). Includes a readiness-restore integration test: deactivate service A → check readiness broken → update SP to service B → check readiness restored.
+
+### Admin/Ops Onboarding Runbook
+
+**Status:** Written.
+
+**Document:** [`docs/admin-onboarding-runbook.md`](./admin-onboarding-runbook.md)
+
+Step-by-step operational guide for manually onboarding a business using backend endpoints only. Covers the full 12-step sequence matching the happy-path E2E test: create business → create owner → add manager → create services → create ServiceProviders → set working hours → verify summary + readiness → DRAFT → TRIAL → ACTIVE. Includes example payloads, common mistakes, readiness troubleshooting map, and Phase C correction endpoints for DRAFT-phase corrections.
 
 ## Later — Phase 3 and Beyond
 

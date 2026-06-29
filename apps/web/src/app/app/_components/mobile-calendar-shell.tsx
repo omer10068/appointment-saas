@@ -7,9 +7,11 @@ import { Calendar } from 'lucide-react';
 import type { AppointmentStatus as ContractsStatus } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import { useMobileCalendarData } from '../_lib/useMobileCalendarData';
+import { useAppBusinessHours } from '../_hooks/useAppBusinessHours';
+import { useAppServiceProviderHours } from '../_hooks/useAppServiceProviderHours';
 import { updateDashboardAppointmentStatus } from '@/lib/api';
 import { appKeys } from '../_lib/query-keys';
-import { addDays, formatMonthYear, isSameDay, startOfWeek } from '../_lib/calendar.utils';
+import { addDays, formatMonthYear, isSameDay, startOfWeek, toFriendlyName } from '../_lib/calendar.utils';
 import { CalendarMonthPicker } from './calendar-month-picker';
 import type { Appointment } from '../_lib/calendar.types';
 import { CalendarHeader } from './calendar-header';
@@ -24,6 +26,7 @@ import { useMobileToast } from '../_lib/useMobileToast';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { RescheduleAppointmentSheet } from './reschedule-appointment-sheet';
 import { CalendarProviderFilterSheet } from './calendar-provider-filter-sheet';
+import { MobilePageHeader } from './mobile-page-header';
 
 export function MobileCalendarShell() {
   const { getToken } = useAuth();
@@ -67,6 +70,13 @@ export function MobileCalendarShell() {
   const { serviceProviders, services, appointments, isLoading, error } =
     useMobileCalendarData(currentBusinessId, selectedDate);
 
+  // Business working hours — used as the timeline range anchor in all-team mode.
+  // Errors are silently ignored: the timeline falls back to appointment-derived range.
+  const allBusinessHours = useAppBusinessHours(currentBusinessId);
+  const businessWorkingHours = allBusinessHours
+    .filter((h) => !h.isClosed && h.startTime && h.endTime)
+    .map((h) => ({ startTime: h.startTime!, endTime: h.endTime! }));
+
   // Provider selection — two-variable pattern avoids a useEffect-driven jump:
   //   manualProviderId  — null until the user explicitly taps a filter chip.
   //   defaultProviderId — derived synchronously from loaded providers so the first
@@ -80,6 +90,24 @@ export function MobileCalendarShell() {
   }, [serviceProviders, currentBusiness]);
 
   const selectedServiceProviderId = manualProviderId ?? defaultProviderId;
+
+  // Provider working hours — used as the timeline range anchor in single-provider mode.
+  // Only fetched when a specific provider is selected. Errors are silently ignored.
+  const isSingleProvider = selectedServiceProviderId !== 'all';
+  // Pass null when in all-team mode so the hook's `enabled` guard skips the fetch.
+  const selectedProviderId = isSingleProvider ? selectedServiceProviderId : null;
+  const allProviderHours = useAppServiceProviderHours(currentBusinessId, selectedProviderId);
+  const providerWorkingHours = allProviderHours
+    .filter((h) => !h.isClosed && h.startTime && h.endTime)
+    .map((h) => ({ startTime: h.startTime!, endTime: h.endTime! }));
+
+  // In all-team mode: anchor to business hours (covers the full team window).
+  // In single-provider mode: anchor to that provider's hours (narrower, more precise).
+  // Fall back to business hours if provider hours are not yet loaded.
+  const timelineAnchorHours =
+    isSingleProvider && providerWorkingHours.length > 0
+      ? providerWorkingHours
+      : businessWorkingHours;
 
   // Current user's provider first, then the rest in original API order.
   // RTL renders the first item rightmost, so this also pins the user's lane to the right.
@@ -186,29 +214,16 @@ export function MobileCalendarShell() {
     // Remove the md: classes when a proper desktop layout is designed.
     <MobilePhoneFrame dir="rtl">
       {/* Page header */}
-      <header className="flex-none border-b border-border bg-card px-5 pb-5 pt-9">
-        <div className="flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">
-                {businessName}
-              </p>
-            )}
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              יומן
-            </h1>
-            <p className="mt-1 text-xs font-medium text-muted-foreground">
-              {formatMonthYear(selectedDate)}
-            </p>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Calendar className="size-5" />
-          </div>
-        </div>
-      </header>
+      <MobilePageHeader
+        title="יומן"
+        icon={Calendar}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
+        meta={formatMonthYear(selectedDate)}
+        className="flex-none bg-background px-5 pt-9 pb-5"
+      />
 
       {/* Week strip: nav row + day picker share one card section */}
-      <div className="flex-none bg-card px-0 pb-1 pt-2">
+      <div className="flex-none bg-background px-0 pb-1">
         <CalendarHeader
           selectedDate={selectedDate}
           onToday={handleToday}
@@ -261,6 +276,7 @@ export function MobileCalendarShell() {
                 ? sortedServiceProviders
                 : sortedServiceProviders.filter((sp) => sp.id === selectedServiceProviderId)
             }
+            businessWorkingHours={timelineAnchorHours}
           />
         </>
       )}

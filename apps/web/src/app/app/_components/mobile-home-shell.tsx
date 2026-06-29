@@ -15,13 +15,14 @@ import { CalendarAppointmentSheet } from './calendar-appointment-sheet';
 import { CalendarCreateSheet } from './calendar-create-sheet';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
+import { MobilePageHeader } from './mobile-page-header';
 
 import { useMobileToast } from '../_lib/useMobileToast';
 import { useTodayAppointments } from '../_hooks/use-today-appointments';
 import { useAppServices } from '../_hooks/useAppServices';
 import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
 import { mapDtoToService, mapDtoToServiceProvider } from '../_lib/calendar.mappers';
-import { formatDate, formatTime } from '../_lib/calendar.utils';
+import { formatDate, formatTime, toFriendlyName } from '../_lib/calendar.utils';
 import type {
   Appointment,
   AppointmentStatus,
@@ -42,15 +43,6 @@ const STATUS_BADGE: Record<AppointmentStatus, BadgeCfg> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** "YUVAL-TURGEMAN" → "Yuval Turgeman", "my salon" → "My Salon" */
-function toFriendlyName(raw: string): string {
-  return raw
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ')
-    .trim();
-}
 
 function getFirstWord(name: string): string {
   return name.split(/\s+/)[0] ?? name;
@@ -444,27 +436,13 @@ export function MobileHomeShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="flex-none bg-background px-5 pt-9 pb-5">
-        <div className="flex items-start justify-between">
-          {/* Left side (RTL start = physical right): greeting + title + date */}
-          <div>
-            <p className="text-sm font-semibold text-primary">
-              {greetingName ? `שלום, ${greetingName}` : 'שלום'}
-            </p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              דף הבית
-            </h1>
-            <p className="mt-1 text-xs font-medium text-muted-foreground">
-              {todayLabel}
-            </p>
-          </div>
-
-          {/* Right side (RTL end = physical left): home icon */}
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Home className="size-5" />
-          </div>
-        </div>
-      </header>
+      <MobilePageHeader
+        title="דף הבית"
+        icon={Home}
+        subtitle={greetingName ? `שלום, ${greetingName}` : 'שלום'}
+        meta={todayLabel}
+        className="flex-none bg-background px-5 pt-9 pb-5"
+      />
 
       {/* ── Scrollable body ─────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-5 pb-36">

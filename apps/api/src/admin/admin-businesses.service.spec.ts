@@ -5,6 +5,7 @@ import { type Business, type BusinessUser } from '../generated/prisma/client';
 import { BusinessesService } from '../businesses/businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { BusinessUsersService } from '../business-users/business-users.service';
+import { ClerkProvisioningService } from '../auth/clerk-provisioning.service';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { AdminBusinessesService } from './admin-businesses.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,6 +57,7 @@ describe('AdminBusinessesService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: BusinessesService, useValue: mockBusinessesService },
         { provide: BusinessUsersService, useValue: mockBusinessUsersService },
+        { provide: ClerkProvisioningService, useValue: {} },
       ],
     }).compile();
 

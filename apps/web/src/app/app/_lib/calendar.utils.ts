@@ -304,3 +304,13 @@ export function formatIsraeliPhone(phone: string): string {
   }
   return phone;
 }
+
+/** "my-salon" → "My Salon", "YUVAL_TURGEMAN" → "Yuval Turgeman". Hebrew letters are unchanged. */
+export function toFriendlyName(raw: string): string {
+  return raw
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+    .trim();
+}

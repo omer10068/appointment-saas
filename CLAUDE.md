@@ -196,7 +196,93 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
   - `setPublicBookingEnabled(businessId, enabled)` added to `AdminBusinessesService`.
   - `SetBusinessPublicBookingDto` (`@IsBoolean publicBookingEnabled`) added in `src/admin/dto/`.
   - E2E: `admin-businesses.e2e-spec.ts` +17 tests (61 total).
-- Approximate test counts: 23+ E2E suites / 473+ tests, 17+ unit suites / 293+ unit tests.
+- Phase B — Admin/Ops Onboarding Convenience:
+  - Goal: allow Admin to onboard a new business during DRAFT phase before moving to TRIAL.
+  - Phase B.1 — Admin create service:
+    - `POST /admin/businesses/:businessId/services` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — critical for onboarding because ServiceProvider creation requires serviceIds.
+    - Reuses `CreateServiceDto` (same DTO as dashboard); same response shape as dashboard `ServiceDto`.
+    - No Prisma schema changes. Dashboard service creation behavior unchanged.
+    - `createService(businessId, dto)` added to `AdminBusinessesService`.
+    - Admin-created services are visible via dashboard after DRAFT→TRIAL and contribute to readiness.
+    - E2E: `admin-businesses.e2e-spec.ts` +12 tests (73 total); covers DRAFT creation, inactive service, DTO validation, 404/403/401, dashboard visibility, tenant isolation, readiness contribution.
+  - Phase B.2 — Admin add business user:
+    - `POST /admin/businesses/:businessId/users` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — critical for onboarding because SP creation requires a valid businessUserId.
+    - Reuses `CreateBusinessUserDto` from dashboard (phone, optional email, role: MANAGER|MEMBER). OWNER role blocked by DTO enum validation.
+    - Created `BusinessUser` is immediately `status: ACTIVE` — no invitation flow.
+    - User upsert by normalized phone (find by phone → find by email → create). Existing user with new business → new BusinessUser row. Same user twice in same business → 409.
+    - Returns `BusinessUserCreatedDto` shape (id, userId, businessId, role, status, phoneNormalized, email, serviceProviderId).
+    - `addBusinessUser(businessId, dto)` added to `AdminBusinessesService`.
+    - No Prisma schema changes. Dashboard business-user creation behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +13 tests (86 total); covers DRAFT creation, MEMBER/MANAGER, OWNER blocked, DTO validation, 404/403/401, duplicate 409, cross-business, dashboard DRAFT lock (403), dashboard after TRIAL (200), B.1+B.2+SP integration test.
+  - Phase B.3 — Admin set business working hours:
+    - `PUT /admin/businesses/:businessId/working-hours` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — required for `hasBusinessWorkingHours` readiness check before DRAFT→TRIAL.
+    - Reuses `UpsertWorkingHoursDto` (same DTO as dashboard). Full-week replacement semantics (delete-then-recreate in one transaction), identical to dashboard.
+    - Validation: duplicate dayOfWeek → 400; open day missing startTime/endTime → 400; endTime ≤ startTime → 400. Time format validated by `WorkingHourItemDto` (@Matches HH:mm).
+    - Does not call `bookingValidation.checkBusinessHoursConflict` (admin endpoint is for DRAFT onboarding; no appointments exist in DRAFT phase).
+    - Returns `WorkingHourDto[]` sorted by dayOfWeek.
+    - `setBusinessWorkingHours(businessId, dto)` added to `AdminBusinessesService`.
+    - No Prisma schema changes. Dashboard working-hours behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +13 tests (99 total); covers DRAFT set, mixed open/closed, full replacement, 404/400/403/401, dashboard visibility after TRIAL, readiness contribution, tenant isolation.
+  - Phase B.4 — Admin set ServiceProvider working hours:
+    - `PUT /admin/businesses/:businessId/service-providers/:serviceProviderId/working-hours` added (platform admin only, no business status check).
+    - Works on DRAFT businesses — required for `allActiveProvidersHaveWorkingHours` readiness check before DRAFT→TRIAL.
+    - Verifies SP exists and belongs to `businessId` → 404 if not found or cross-tenant.
+    - Reuses `UpsertWorkingHoursDto`. Full-week replacement semantics, identical to dashboard.
+    - Same inline validation as B.3 (duplicate days, open-day time range, HH:mm format via DTO).
+    - Does not call `bookingValidation.checkServiceProviderHoursConflict` (DRAFT onboarding; no appointments exist).
+    - Returns `WorkingHourDto[]` sorted by dayOfWeek.
+    - `setServiceProviderWorkingHours(businessId, serviceProviderId, dto)` added to `AdminBusinessesService`.
+    - No Prisma schema changes. Dashboard SP working-hours behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +15 tests (114 total); covers DRAFT set, mixed days, full replacement, 404 (biz/SP/cross-tenant), 400 (day/time), 403/401, dashboard visibility after TRIAL, readiness contribution, tenant isolation.
+  - Phase B.5 — Admin onboarding summary:
+    - `GET /admin/businesses/:businessId/onboarding-summary` added (platform admin only, no business status check).
+    - Works on any business status including DRAFT — read-only, no mutations.
+    - Single compound Prisma query + `computeBusinessReadiness` call. Returns `AdminOnboardingSummaryDto` with business metadata, users (with user phone/email), services, serviceProviders (with `serviceIds[]` and `hasWorkingHours`), businessWorkingHours, and embedded `readiness` block.
+    - Does NOT replace or expand `GET /admin/businesses/:businessId/readiness` — that endpoint stays lean and is called by `setBusinessStatus` and `setPublicBookingEnabled`.
+    - `getOnboardingSummary(businessId)` added to `AdminBusinessesService`. `AdminOnboardingSummaryDto` interface defined in same file.
+    - No Prisma schema changes. Dashboard behavior unchanged.
+    - E2E: `admin-businesses.e2e-spec.ts` +13 tests (127 total); covers full DRAFT business (all keys, metadata, users, services, SPs with serviceIds+hasWorkingHours, businessWorkingHours ordering, readiness embed), empty DRAFT business, DRAFT status not blocked, 404/403/401, tenant isolation.
+- Full onboarding happy-path E2E test:
+  - Consolidated test added to `admin-businesses.e2e-spec.ts`: `describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)')`.
+  - One `it` block proves the complete 15-step Admin/Ops sequence: create business → create OWNER → add MANAGER → create 2 services → create 2 ServiceProviders with different service assignments → set business + both provider working hours → verify onboarding summary → verify all 7 readiness checks → DRAFT → TRIAL → ACTIVE.
+  - Asserts publicBookingEnabled remains false throughout and is never accidentally set.
+  - Serves as a living backend runbook for first manual onboarding.
+  - E2E: `admin-businesses.e2e-spec.ts` +1 test (128 total).
+- Phase C — Admin correction endpoints (DRAFT-safe):
+  - Goal: fix common setup mistakes during DRAFT onboarding without DB edits or moving to TRIAL early.
+  - `PATCH /admin/businesses/:businessId` — update name, timezone, locale, currency. Reuses `UpdateBusinessSettingsDto`. At least one field required → 400 otherwise. slug is intentionally immutable (not in DTO; sending it returns 400 due to `forbidNonWhitelisted`). Works on any business status.
+  - `PATCH /admin/businesses/:businessId/services/:serviceId` — update service fields. Reuses `UpdateServiceDto`. Verifies service belongs to businessId → 404 if cross-tenant. No cascade on deactivation (readiness reflects the broken state). Works on any business status.
+  - `PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId` — update SP displayName, serviceIds, isActive. Reuses `UpdateServiceProviderDto`. Preserves all invariants from `createServiceProvider`: active SP cannot link inactive services; activating SP with no services → 400. businessUserId remains immutable. Transaction: delete+recreate service links when serviceIds provided. Works on any business status.
+  - All three: `ClerkAuthGuard + PlatformAdminGuard` only. No dashboard guards. No Prisma schema changes. Dashboard behavior unchanged.
+  - E2E: `admin-businesses.e2e-spec.ts` +33 tests (161 total); `describe('Phase C — Admin correction endpoints')` with 3 nested describes (9 + 11 + 13 tests). Shared `beforeAll`/`afterAll`/`beforeEach` resets mutable state. Covers DRAFT allowed, partial update, invariant validation, cross-tenant 404, 403, 401, readiness-restore integration test.
+- Phase D — Automatic Clerk user provisioning (email-first):
+  - `ClerkProvisioningService` added in `src/auth/clerk-provisioning.service.ts`. Exported from `AuthModule`. Injected into `BusinessUsersService` and `AdminBusinessesService`.
+  - `findOrCreateClerkUser({ email: string })` — searches Clerk by email, creates if not found. No phone-based Clerk calls. Throws `BadGatewayException` (502) on Clerk API failure.
+  - Authentication is **email-only** for business users (OWNER/MANAGER/MEMBER). Clerk phone/SMS auth is not used (Israeli phone numbers not supported by Clerk in current setup).
+  - `POST /admin/businesses/:businessId/owner` (`CreateBusinessOwnerDto`): `email` is now **required** (DTO-level validation). Provisions Clerk before the Prisma transaction. If DB write fails after Clerk creation, next retry finds the orphaned Clerk user by email (idempotent).
+  - `POST /admin/businesses/:businessId/users` (`CreateBusinessUserDto`, shared with dashboard): `email` required at service level (`addBusinessUser` throws 400 if missing). Email is NOT enforced by DTO (DTO is shared with dashboard which still has optional email). Provisions Clerk before the Prisma transaction.
+  - Pre-provision check: if internal `User` already has `clerkUserId`, Clerk is skipped (idempotent on retry). Lookup by phone first, email as fallback.
+  - Module wiring: `AuthModule` imports/exports `ClerkProvisioningService`; `BusinessUsersModule` imports `AuthModule`; `AdminModule` imports `AuthModule`.
+  - E2E mock: `overrideProvider(ClerkProvisioningService)` with `mockClerkProvisioning`. Default implementation returns deterministic clerkUserId from email. Reset via `beforeEach` in Phase D describe block.
+  - E2E: `admin-businesses.e2e-spec.ts` +9 tests (170 total); includes missing-email-400, Clerk-failure-502, skip-if-prelinked, phone-normalization, 403/401.
+  - Unit: `clerk-provisioning.service.spec.ts` 8 tests — email search, email create (verifies no phoneNumber in Clerk payload), error handling.
+  - No Prisma schema changes. No frontend changes. Dashboard behavior unchanged.
+- Phase D.2 — Harden ClerkAuthGuard for email-only business users:
+  - `ClerkAuthGuard` slow path no longer requires a Clerk phone. Business users authenticate by email only; Clerk phone/SMS is not used.
+  - Slow path order: (1) fast path by `clerkUserId` (unchanged); (2) try link by phone (legacy — only if Clerk phone available); (3) try link by email (primary for Phase D users); (4) if phone available and no match → create user (legacy); (5) email-only + no match → 401.
+  - `phoneNormalized` is NOT included in the email-path update: email-only Clerk users have no Clerk phone, and the internal `User.phoneNormalized` (set at provisioning time) is preserved as-is.
+  - Auto-create is only possible when Clerk provides a phone number (legacy path). Email-only users must be provisioned by admin before first login (closed system).
+  - Business users still **must have a phone internally** (`User.phoneNormalized` required by schema). Phone is contact metadata; it is not used for Clerk auth and is never sent to Clerk.
+  - Customers (future `BusinessCustomer` / public booking) are phone-first and do NOT authenticate through Clerk. Customer models and customer auth are NOT part of Phase D/D.2.
+  - Unit: `clerk-auth.guard.spec.ts` +4 D.2 tests (20 total): email-only link success, email lowercase normalization, email-only + no match → 401, email already linked to different Clerk account → 401.
+  - `business-users.service.spec.ts` updated: adds `ClerkProvisioningService` mock, `user.update` mock, and correct assertions after Phase D changed `createOwnerForBusiness` to provision Clerk and use `status: ACTIVE`. 7 tests total (net +2 vs pre-D baseline).
+  - `admin-businesses.service.spec.ts` updated: adds `ClerkProvisioningService` stub provider. 5 tests unchanged.
+  - No Prisma schema changes. No E2E changes. No frontend changes.
+- Approximate test counts: 23+ E2E suites / 582+ tests, 18+ unit suites / 306+ unit tests.
+- Admin/Ops onboarding runbook: `docs/admin-onboarding-runbook.md` — step-by-step guide for manually onboarding a business from DRAFT to ACTIVE using backend endpoints only. Covers the full two-partner setup, working hours, readiness verification, status transitions, common mistakes, and troubleshooting. Phase C and Phase D documented. Email is required for OWNER and MANAGER creation.
 - Next backend focus areas: notifications/outbox, audit logs, billing — see `docs/backend-roadmap.md`.
 
 ## Frontend Route Architecture
@@ -208,7 +294,7 @@ Four product surfaces — each with a distinct route namespace:
 | Marketing site | `/` | Placeholder — redirects to `/app/home` until a real marketing page is built |
 | Public Booking | `/book/[businessSlug]` | Planned — where customers choose service/provider/time and book |
 | Business App | `/app/*` | Live |
-| Internal Admin | `/admin/*` | Placeholder (`פאנל ניהול פנימי`) |
+| Internal Admin | `/admin/*` | Shell live (Phase E.0) — placeholder pages only, no forms yet |
 
 Legacy routes (`/home`, `/calendar`, `/dashboard/*`, `/mobile/*`, `/team`, `/availability`) all redirect permanently to their `/app/*` equivalents via `next.config.ts`. No chains.
 
@@ -264,6 +350,186 @@ ServiceProvider assignment policy (locked — do not change without explicit ins
 Removing a `serviceId` from a `ServiceProvider` does **not** block or cancel existing future appointments for that `(serviceProviderId, serviceId)` pair. Existing appointments remain valid and manageable. The change applies only to new bookings. Do not add blocking confirmation or cascade cancellation without an explicit product decision.
 
 Next focus areas: public booking flow, notifications UI, billing UI.
+
+## Current Admin Frontend Status (Phase E.0)
+
+Admin UI shell is live at `/admin/*`. Placeholder only — no onboarding forms yet. Backend remains the single source of truth for authorization.
+
+Live admin routes:
+
+- `/admin` — redirects to `/admin/businesses` via `next.config.ts`
+- `/admin/businesses` — placeholder business list page
+- `/admin/businesses/[businessId]/onboarding` — placeholder onboarding page with section cards
+- `/admin/settings` — placeholder system settings page
+
+Admin shell components (`apps/web/src/app/admin/_components/`):
+
+- `AdminAccessGate` — client component; calls `GET /admin/businesses` on mount; shows loading → forbidden (403) → children. Non-admin authenticated users see a lock screen.
+- `AdminHeader` — server component; title + subtitle + Building2 icon badge.
+- `AdminBottomNav` — client component; two tabs: עסקים (`/admin/businesses`) and מערכת (`/admin/settings`). Same pill-active pattern as `CalendarBottomNav`.
+
+Admin layout (`apps/web/src/app/admin/layout.tsx`):
+
+- Does NOT call `auth()` or make server-side API calls (avoids Next.js RSC conditional-children build issue).
+- Wraps children in `QueryProvider` + desktop centering wrapper + `AdminAccessGate`.
+- `export const dynamic = 'force-dynamic'` prevents static pre-rendering.
+- Unauthenticated users are redirected by Clerk middleware before reaching the layout.
+
+Admin API helper (`apps/web/src/lib/admin-api.ts`):
+
+- `fetchAdminBusinesses(getToken)` — used by `AdminAccessGate` for access verification.
+- `AdminBusinessListItemDto` interface defined here (no shared contract type yet).
+
+## Current Admin Frontend Status (Phase E.2)
+
+Phases E.1 + E.2 complete. Admin can create a new business and its primary owner from the UI.
+
+Live admin routes:
+
+- `/admin/businesses` — real business list from `GET /admin/businesses`; cards with name, slug, status badge, timezone, publicBookingEnabled, createdAt
+- `/admin/businesses/new` — **guided create form** (Phase E.2): two-section form (פרטי העסק + בעלים ראשי), two-step submission (POST /admin/businesses → POST /admin/businesses/:id/owner), handles partial failure, navigates to onboarding page on full success
+- `/admin/businesses/[businessId]/onboarding` — fetches `GET /admin/businesses/:id/onboarding-summary`; renders 6 step cards (פרטי עסק, בעלים וצוות, שירותים, יומנים, שעות פעילות, מוכנות לשימוש) with done/missing state; shows localized blocking reasons; shows disabled "פתח גישה לדשבורד" CTA (wired in E.4)
+
+Admin hooks (`apps/web/src/app/admin/_hooks/`):
+
+- `use-admin-businesses.ts` — wraps `fetchAdminBusinesses`; key `['admin', 'businesses']` shared with `AdminAccessGate`
+- `use-admin-onboarding-summary.ts` — wraps `fetchAdminOnboardingSummary`; key `['admin', 'onboarding-summary', businessId]`; `staleTime: 30s`; exports `onboardingSummaryKey(businessId)` helper for targeted invalidation from section components
+- `use-create-business-form.ts` — form state + two-step submission logic; handles partial failure (business ok / owner failed); invalidates `['admin', 'businesses']` on success; navigates to onboarding
+
+Admin components (`apps/web/src/app/admin/_components/`):
+
+- `AdminAccessGate` — query key `['admin', 'businesses']` (cache shared with list hook)
+- `AdminBusinessesShell` — real list + empty/error/loading states + "הקמת עסק חדש" link to `/new`
+- `AdminOnboardingShell` — coordinator: fetches summary, renders compact status overview + all setup sections
+- `AdminNewBusinessShell` — two-section guided create form; `FormField`, `SectionLabel`, `ErrorBanner`, `PartialBanner` sub-components
+
+API helpers (`apps/web/src/lib/admin-api.ts`):
+
+- `fetchAdminBusinesses` / `fetchAdminOnboardingSummary` — read queries
+- `createAdminBusiness(payload, getToken)` — POST /admin/businesses; returns `AdminCreatedBusinessDto`
+- `createAdminBusinessOwner(businessId, payload, getToken)` — POST /admin/businesses/:id/owner; returns `AdminCreatedOwnerDto`
+
+Create business form behavior:
+
+- Section 1 fields: name (required), slug (required, lowercase URL-safe, forced-lowercase on input), timezone (required, default `Asia/Jerusalem`)
+- Section 2 fields: email (required, valid email format), phone (required, any non-empty string — backend normalizes)
+- Owner helper copy: "האימייל ישמש להתחברות דרך Clerk" / "הטלפון נשמר כפרטי קשר פנימיים ואינו משמש לאימות ב־Clerk"
+- Submit states: idle → submitting (inputs disabled) → success (redirect) / error (banner) / partial (amber banner + link to onboarding)
+- Partial failure (business created, owner failed): shows businessId + "המשך להקמה" link; does NOT retry business creation
+- 409 slug conflict: localized error message shown inline
+
+UX direction (locked by product decision):
+
+- Admin UI is a **guided onboarding flow**, not a CRUD panel
+- Language avoids "public booking" — uses "פתיחת גישה לדשבורד", "העסק מוכן לשימוש פנימי"
+- `publicBookingEnabled` must remain `false`; never referenced in admin onboarding UI
+- New businesses are always created as DRAFT; DRAFT blocks dashboard access
+- "פתח גישה לדשבורד" = DRAFT → TRIAL; implemented in E.4
+
+## Current Admin Frontend Status (Phase E.3)
+
+Phase E.3 complete. Onboarding page now has interactive setup sections for managers, services, and ServiceProviders.
+
+Live admin routes:
+
+- `/admin/businesses/[businessId]/onboarding` — extended: compact status overview card at top + interactive setup sections (בעלים, מנהלים, שירותים, יומנים) + future steps placeholder + disabled dashboard CTA
+
+Admin components (`apps/web/src/app/admin/_components/`):
+
+- `AdminOnboardingShell` — refactored coordinator: at-a-glance `SummaryRow` compact view + `SectionDivider` layout + `OwnerSection` (read-only) + imports and renders the three section components
+- `admin-onboarding-managers-section.tsx` (`ManagersSection`) — manager list + create-manager form (email+phone, role fixed to MANAGER); invalidates `onboardingSummaryKey` on success; 3s success flash; maps 409/502/400 errors to Hebrew
+- `admin-onboarding-services-section.tsx` (`ServicesSection`) — service list (with inactive visual) + create-service form (name, durationMinutes 5-480, optional price in ₪ → priceCents cents); invalidates `onboardingSummaryKey` on success
+- `admin-onboarding-providers-section.tsx` (`ProvidersSection`) — SP list (with linked user + hours status) + create-SP form (displayName, businessUserId dropdown, service checkboxes); prerequisite gate if no active services or all users taken; 409 mapped to Hebrew; invalidates `onboardingSummaryKey` on success
+
+API helpers (`apps/web/src/lib/admin-api.ts`):
+
+- `createAdminManager(businessId, payload, getToken)` — POST /admin/businesses/:id/users with `{ email, phone, role: 'MANAGER' }`; returns `AdminCreatedManagerDto`
+- `createAdminService(businessId, payload, getToken)` — POST /admin/businesses/:id/services; returns `AdminCreatedServiceDto`
+- `createAdminServiceProvider(businessId, payload, getToken)` — POST /admin/businesses/:id/service-providers with `{ displayName, businessUserId, serviceIds[] }`; returns `AdminCreatedServiceProviderDto`
+
+Key domain facts locked in E.3:
+
+- Each `BusinessUser` can only have one `ServiceProvider` (1:1, enforced by backend 409). The UI hides already-linked users from the SP creation dropdown.
+- `businessUserId` is **required** for SP creation — must link to an existing OWNER or MANAGER.
+- Services must exist (and be active) before a SP can be created (prerequisite gate shown in UI).
+- Manager email is required at service level even though the DTO marks it optional (Clerk provisioning requires it).
+- `ServiceProvider` and `BusinessUser` are separate concepts — manager creation never auto-creates a SP.
+- Only the Admin creates ServiceProviders; no dashboard path exists.
+
+Data consistency pattern:
+
+- Every successful mutation calls `queryClient.invalidateQueries({ queryKey: onboardingSummaryKey(businessId) })`
+- This triggers an automatic refetch of the onboarding summary, updating all sections reactively
+- No page reload needed; TanStack Query handles the reactive chain
+
+## Current Admin Frontend Status (Phase E.4)
+
+Phase E.4 complete. Onboarding page now includes business working hours, per-provider working hours, and the DRAFT → TRIAL CTA.
+
+Backend additions (concrete frontend blocker):
+
+- `GET /admin/businesses/:businessId/working-hours` — read existing business working hours (admin only)
+- `GET /admin/businesses/:businessId/service-providers/:serviceProviderId/working-hours` — read existing SP working hours (admin only)
+- `getBusinessWorkingHours(businessId)` added to `AdminBusinessesService`
+- `getServiceProviderWorkingHours(businessId, serviceProviderId)` added to `AdminBusinessesService`
+- These are pure Prisma reads with business/SP existence checks; no new business logic
+
+New frontend components (`apps/web/src/app/admin/_components/`):
+
+- `admin-hours-editor.tsx` — shared internal module: `HourRow` type, `defaultHours()`, `initHoursFromData()`, `WeekHoursEditor` component. Used by both hours sections. Internal to admin surface — not coupled to Business App route components.
+- `admin-onboarding-business-hours-section.tsx` (`BusinessHoursSection`) — inline week hours editor initialized from summary's `businessWorkingHours`. Saves via `PUT /admin/businesses/:id/working-hours`. Tracks `isDirty`; save button disabled until dirty. Initializes once from props on mount; not re-synced on summary refetch (avoids wiping in-progress edits).
+- `admin-onboarding-provider-hours-section.tsx` (`ProviderHoursSection`) — accordion list of active SPs. Expanding a provider card loads its hours via `GET /admin/businesses/:id/service-providers/:spId/working-hours` (lazy, per-expand). Collapses others. Saves via `PUT .../working-hours`. Falls back to defaults on load error (editor still usable). Uses `getTokenRef` pattern to avoid stale closure.
+- `admin-onboarding-lifecycle-section.tsx` (`LifecycleSection`) — DRAFT → TRIAL CTA. Shows compact preflight readiness summary (informational only; does not gate the CTA — backend has no readiness requirement for DRAFT → TRIAL). After success: invalidates summary, shows "הגישה לדשבורד פתוחה" state. Handles 409 (not-DRAFT) and generic errors with Hebrew copy. TRIAL/ACTIVE state shows explanation about next steps.
+
+Updated components:
+
+- `admin-onboarding-shell.tsx` — removed `FutureStepCard` and disabled CTA placeholder; replaced with `BusinessHoursSection`, `ProviderHoursSection`, `LifecycleSection`; summary card updated with `שעות עסק` and `שעות יומנים` rows (7 rows total)
+
+API helpers (`apps/web/src/lib/admin-api.ts`) additions:
+
+- `AdminWorkingHourItem`, `AdminWorkingHoursPayload`, `AdminWorkingHourDto` — working hours types
+- `fetchAdminBusinessWorkingHours(businessId, getToken)` — GET
+- `setAdminBusinessWorkingHours(businessId, payload, getToken)` — PUT
+- `fetchAdminServiceProviderWorkingHours(businessId, spId, getToken)` — GET
+- `setAdminServiceProviderWorkingHours(businessId, spId, payload, getToken)` — PUT
+- `AdminSetStatusPayload`, `AdminBusinessStatusDto`, `setAdminBusinessStatus(businessId, status, getToken)` — PATCH /status
+
+Key domain facts locked in E.4:
+
+- DRAFT → TRIAL requires no readiness check on backend. The CTA is always available when status is DRAFT.
+- TRIAL → ACTIVE is NOT implemented in E.4 (out of scope).
+- Business hours and SP hours are separate concepts. SP hours are NOT auto-copied from business hours.
+- The admin hours editor uses `type="time"` inputs. Format is HH:mm as required by backend.
+- `businessWorkingHours` in the summary is used to initialize the business hours editor once (not re-synced on subsequent summary refetches to preserve in-progress edits).
+- SP hours are fetched lazily (on accordion expand) via the new admin GET endpoint.
+
+## Current Admin Frontend Status (Phase E.5)
+
+Phase E.5 complete. Onboarding lifecycle section now covers all three business states with full readiness review and TRIAL → ACTIVE activation.
+
+Updated frontend components (`apps/web/src/app/admin/_components/`):
+
+- `admin-onboarding-lifecycle-section.tsx` (`LifecycleSection`) — rewritten to handle three distinct status states:
+  - **DRAFT**: existing "פתח גישה לדשבורד" CTA unchanged (no readiness gate — backend has no requirement for DRAFT → TRIAL). Informational-only preflight checklist.
+  - **TRIAL**: "הגישה לדשבורד פתוחה" badge + full 7-check readiness checklist sourced from `summary.readiness`. Each failing check shows Hebrew guidance pointing to the relevant onboarding section. "הפעל עסק" CTA shown only when `readiness.isReady === true`; otherwise replaced by "complete required sections" note. On 400/409 activation failure: invalidates `onboardingSummaryKey` to force readiness refetch.
+  - **ACTIVE**: "העסק פעיל" green banner + compact all-green readiness summary. No CTAs.
+- Local `activationStatus === 'success'` used as early ACTIVE indicator before summary refetch completes.
+
+API helper (`apps/web/src/lib/admin-api.ts`) addition:
+
+- `fetchAdminReadiness(businessId, getToken)` — GET `/admin/businesses/:id/readiness` returning `AdminReadinessDto`. Endpoint was already verified in backend; function added as the canonical wrapper. UI uses `summary.readiness` (embedded in the onboarding summary) to avoid an extra network round-trip; `fetchAdminReadiness` is available for direct queries if needed.
+
+Key domain facts locked in E.5:
+
+- TRIAL → ACTIVE requires `readiness.isReady === true` (enforced by backend; UI gates the CTA).
+- The `AdminReadinessChecks` 7-check interface is the sole source of truth — no client-side readiness logic.
+- After successful TRIAL → ACTIVE: `onboardingSummaryKey` is invalidated; the summary refetch returns `business.status === 'ACTIVE'` which switches the component to the ACTIVE view.
+- On 400 activation failure (not ready): summary is invalidated so the checklist reflects any changes made since last load.
+- `setAdminBusinessStatus(businessId, 'ACTIVE', getToken)` (already in `admin-api.ts`) is reused for activation — no new function needed.
+
+Suggested next phase:
+
+- **E.6** — Full QA pass: create business through Admin UI end-to-end, owner/manager login, Business App verified
 
 ## Workflow
 

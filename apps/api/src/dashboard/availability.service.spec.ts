@@ -165,6 +165,7 @@ const mockPrisma = {
   serviceProvider: {
     findFirst:
       jest.fn<(...args: unknown[]) => Promise<ServiceProvider | null>>(),
+    findMany: jest.fn<(...args: unknown[]) => Promise<ServiceProvider[]>>(),
   },
   businessWorkingHour: {
     findMany: jest.fn<(...args: unknown[]) => Promise<BusinessWorkingHour[]>>(),
@@ -265,6 +266,8 @@ describe('AvailabilityService', () => {
   describe('setBusinessWorkingHours', () => {
     it('OWNER can update business working hours', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.serviceProvider.findMany.mockResolvedValue([]);
+      mockPrisma.serviceProviderWorkingHour.findMany.mockResolvedValue([]);
       mockPrisma.businessWorkingHour.deleteMany.mockResolvedValue({ count: 0 });
       mockPrisma.businessWorkingHour.createMany.mockResolvedValue({ count: 7 });
       mockPrisma.businessWorkingHour.findMany.mockResolvedValue(
@@ -295,6 +298,8 @@ describe('AvailabilityService', () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(
         mockManagerMembership,
       );
+      mockPrisma.serviceProvider.findMany.mockResolvedValue([]);
+      mockPrisma.serviceProviderWorkingHour.findMany.mockResolvedValue([]);
       mockPrisma.businessWorkingHour.deleteMany.mockResolvedValue({ count: 0 });
       mockPrisma.businessWorkingHour.createMany.mockResolvedValue({ count: 7 });
       mockPrisma.businessWorkingHour.findMany.mockResolvedValue([
@@ -390,6 +395,13 @@ describe('AvailabilityService', () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.serviceProvider.findFirst.mockResolvedValue(
         mockServiceProviderRecord,
+      );
+      mockPrisma.businessWorkingHour.findMany.mockResolvedValue(
+        validHours.map((h, i) => ({
+          ...mockWorkingHour,
+          id: `bwh-${i}`,
+          dayOfWeek: h.dayOfWeek,
+        })),
       );
       mockPrisma.serviceProviderWorkingHour.deleteMany.mockResolvedValue({
         count: 0,

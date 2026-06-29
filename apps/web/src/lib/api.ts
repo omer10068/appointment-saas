@@ -282,6 +282,38 @@ export function updateBusinessWorkingHours(
   );
 }
 
+// ─── Business hours narrowing preview ────────────────────────────────────────
+
+export interface BusinessHoursChangeItem {
+  dayOfWeek: number;
+  before: { isClosed: boolean; startTime: string | null; endTime: string | null };
+  after:  { isClosed: boolean; startTime: string | null; endTime: string | null };
+  reason: 'CLOSED' | 'CLAMPED';
+}
+
+export interface BusinessHoursAffectedProvider {
+  id: string;
+  displayName: string;
+  changes: BusinessHoursChangeItem[];
+}
+
+export interface BusinessHoursUpdatePreview {
+  affectedProviders: BusinessHoursAffectedProvider[];
+  futureAppointmentsOutsideNewHoursCount: number;
+}
+
+export function previewBusinessWorkingHoursUpdate(
+  businessId: string,
+  payload: UpdateWorkingHoursPayload,
+  getToken: () => Promise<string | null>,
+): Promise<BusinessHoursUpdatePreview> {
+  return fetchWithAuth(
+    `/dashboard/businesses/${businessId}/working-hours/preview`,
+    getToken,
+    { method: 'POST', body: payload },
+  );
+}
+
 // ─── Working hours (service provider) ────────────────────────────────────────
 
 export function fetchServiceProviderWorkingHours(

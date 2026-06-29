@@ -1,9 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { ChevronRight, Clock } from 'lucide-react';
+import { AlertTriangle, Clock } from 'lucide-react';
 import type {
   DashboardWorkingHourDto,
   UpdateWorkingHoursPayload,
@@ -12,13 +11,16 @@ import { useBusiness } from '@/app/app/_providers/business/useBusiness';
 import {
   ApiError,
   fetchBusinessWorkingHours,
+  previewBusinessWorkingHoursUpdate,
   updateBusinessWorkingHours,
+  type BusinessHoursUpdatePreview,
 } from '@/lib/api';
 import { CalendarBottomNav } from './calendar-bottom-nav';
 import { MobilePhoneFrame } from './mobile-phone-frame';
 import { MobileToast } from './mobile-toast';
 import { useMobileToast } from '../_lib/useMobileToast';
-import { HEBREW_DAY_ABBR } from '../_lib/calendar.utils';
+import { HEBREW_DAY_ABBR, toFriendlyName } from '../_lib/calendar.utils';
+import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +57,11 @@ function mergeHours(loaded: DashboardWorkingHourDto[]): HourRow[] {
   });
 }
 
+const REASON_LABEL: Record<'CLOSED' | 'CLAMPED', string> = {
+  CLOSED: 'ייסגר',
+  CLAMPED: 'יצומצם',
+};
+
 // ─── Toggle switch ────────────────────────────────────────────────────────────
 
 function DayToggle({
@@ -81,7 +88,6 @@ function DayToggle({
         .filter(Boolean)
         .join(' ')}
     >
-      {/* Absolute left/right avoids RTL transform issues in Tailwind v4. */}
       <span
         className={[
           'pointer-events-none absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-200',
@@ -149,6 +155,89 @@ function DayRow({ row, onChange, canMutate }: DayRowProps) {
   );
 }
 
+// ─── Confirmation dialog ──────────────────────────────────────────────────────
+
+interface ConfirmDialogProps {
+  preview: BusinessHoursUpdatePreview;
+  saving: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmDialog({ preview, saving, onConfirm, onCancel }: ConfirmDialogProps) {
+  const { affectedProviders, futureAppointmentsOutsideNewHoursCount } = preview;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6">
+      <div className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl">
+        <h2 className="text-base font-bold text-foreground">שמירת שינויים בשעות הפעילות</h2>
+
+        {affectedProviders.length > 0 && (
+          <div className="mt-3 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              שינויים אלה ישפיעו על שעות הפעילות של נותני השירות הבאים:
+            </p>
+            <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-border p-3">
+              {affectedProviders.map((sp) => (
+                <div key={sp.id}>
+                  <p className="text-sm font-semibold text-foreground">{sp.displayName}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {sp.changes.map((c) => {
+                      const dayName = HEBREW_DAY_ABBR[c.dayOfWeek] ?? String(c.dayOfWeek);
+                      const beforeStr = c.before.isClosed
+                        ? 'סגור'
+                        : `${c.before.startTime}–${c.before.endTime}`;
+                      const afterStr = c.after.isClosed
+                        ? 'סגור'
+                        : `${c.after.startTime}–${c.after.endTime}`;
+                      return (
+                        <li key={c.dayOfWeek} className="text-xs text-muted-foreground">
+                          {dayName}: {beforeStr} ← {afterStr}{' '}
+                          <span className="font-medium text-foreground">
+                            ({REASON_LABEL[c.reason]})
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {futureAppointmentsOutsideNewHoursCount > 0 && (
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <p className="text-xs leading-snug">
+              {futureAppointmentsOutsideNewHoursCount === 1
+                ? 'תור עתידי אחד יהיה מחוץ לשעות הפעילות החדשות.'
+                : `${futureAppointmentsOutsideNewHoursCount} תורים עתידיים יהיו מחוץ לשעות הפעילות החדשות.`}{' '}
+              התורים לא יבוטלו, יועברו או ישונו — הם ישארו כפי שהם.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={onCancel}
+            disabled={saving}
+            className="flex-1 rounded-2xl border border-border py-3 text-sm font-semibold text-foreground transition active:opacity-70 disabled:opacity-40"
+          >
+            ביטול
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={saving}
+            className="flex-1 rounded-2xl bg-primary py-3 text-sm font-bold text-primary-foreground transition active:opacity-80 disabled:opacity-40"
+          >
+            {saving ? 'שומר...' : 'שמירה'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
@@ -164,7 +253,6 @@ function LoadingSkeleton() {
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function MobileBusinessHoursShell() {
-  const router = useRouter();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
@@ -177,12 +265,14 @@ export function MobileBusinessHoursShell() {
 
   const { message: toastMessage, showToast } = useMobileToast();
 
-  const [hours, setHours]       = useState<HourRow[]>(defaultHours());
-  const [isDirty, setIsDirty]   = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
+  const [hours, setHours]             = useState<HourRow[]>(defaultHours());
+  const [isDirty, setIsDirty]         = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [previewing, setPreviewing]   = useState(false);
+  const [loadError, setLoadError]     = useState<string | null>(null);
+  const [retryKey, setRetryKey]       = useState(0);
+  const [pendingPreview, setPendingPreview] = useState<BusinessHoursUpdatePreview | null>(null);
 
   useEffect(() => {
     if (!businessId) {
@@ -215,11 +305,8 @@ export function MobileBusinessHoursShell() {
     setIsDirty(true);
   }
 
-  async function handleSave() {
-    if (!businessId) return;
-    setSaving(true);
-
-    const payload: UpdateWorkingHoursPayload = {
+  function buildPayload(): UpdateWorkingHoursPayload {
+    return {
       hours: hours.map((r) => ({
         dayOfWeek: r.dayOfWeek,
         isClosed: r.isClosed,
@@ -227,7 +314,45 @@ export function MobileBusinessHoursShell() {
         endTime: r.isClosed ? null : r.endTime,
       })),
     };
+  }
 
+  async function handleSave() {
+    if (!businessId) return;
+    const payload = buildPayload();
+
+    // Step 1: fetch preview
+    setPreviewing(true);
+    let preview: BusinessHoursUpdatePreview;
+    try {
+      preview = await previewBusinessWorkingHoursUpdate(
+        businessId,
+        payload,
+        () => getTokenRef.current(),
+      );
+    } catch {
+      showToast('שגיאה בבדיקת ההשפעות — נסה שוב', 5000);
+      setPreviewing(false);
+      return;
+    } finally {
+      setPreviewing(false);
+    }
+
+    // Step 2: if nothing is affected, save immediately without confirmation
+    if (
+      preview.affectedProviders.length === 0 &&
+      preview.futureAppointmentsOutsideNewHoursCount === 0
+    ) {
+      await applyUpdate(payload);
+      return;
+    }
+
+    // Step 3: show confirmation dialog
+    setPendingPreview(preview);
+  }
+
+  async function applyUpdate(payload: UpdateWorkingHoursPayload) {
+    if (!businessId) return;
+    setSaving(true);
     try {
       const updated = await updateBusinessWorkingHours(
         businessId,
@@ -236,16 +361,14 @@ export function MobileBusinessHoursShell() {
       );
       setHours(mergeHours(updated));
       setIsDirty(false);
+      setPendingPreview(null);
       showToast('שעות העבודה נשמרו בהצלחה');
     } catch (err) {
-      const isConflict =
-        err instanceof ApiError && (err.status === 409 || err.status === 400);
-      showToast(
-        isConflict
-          ? 'לא ניתן לשמור — קיימים תורים מתוכננים בשעות שנסגרו'
-          : 'שגיאה בשמירת שעות העסק',
-        5000,
-      );
+      const msg =
+        err instanceof ApiError
+          ? 'שגיאה בשמירת שעות העסק'
+          : 'שגיאה בשמירת שעות העסק';
+      showToast(msg, 5000);
     } finally {
       setSaving(false);
     }
@@ -256,31 +379,14 @@ export function MobileBusinessHoursShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex-none bg-background px-5 pb-4 pt-9">
-        <button
-          onClick={() => router.push('/app/settings')}
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-          aria-label="חזרה"
-        >
-          <ChevronRight className="size-4" />
-          <span>חזרה</span>
-        </button>
-        <div className="mt-2 flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">{businessName}</p>
-            )}
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              שעות פעילות
-            </h1>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <Clock className="size-5" />
-          </div>
-        </div>
-      </header>
+      <MobilePageHeader
+        title="שעות פעילות"
+        icon={Clock}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
+        backHref="/app/settings"
+      />
 
-      {/* ── Section title — flex-none, does not scroll ───────────────────── */}
+      {/* ── Section title ────────────────────────────────────────────────── */}
       {!loading && !loadError && currentBusiness && (
         <div className="flex-none px-5 pb-2 pt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -329,21 +435,31 @@ export function MobileBusinessHoursShell() {
         )}
       </div>
 
-      {/* ── Save button — outside scroll, sits above bottom nav ──────────── */}
+      {/* ── Save button ──────────────────────────────────────────────────── */}
       {canMutate && !loading && !loadError && currentBusiness && (
         <div className="flex-none px-5 pb-24 pt-3">
           <button
             onClick={() => void handleSave()}
-            disabled={saving || !isDirty}
+            disabled={saving || previewing || !isDirty}
             className="w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition active:opacity-80 disabled:opacity-40"
           >
-            {saving ? 'שומר...' : 'שמירת שעות'}
+            {previewing ? 'בודק השפעות...' : saving ? 'שומר...' : 'שמירת שעות'}
           </button>
         </div>
       )}
 
       <MobileToast message={toastMessage} />
       <CalendarBottomNav activeKey="settings" />
+
+      {/* ── Confirmation dialog (portal-free overlay) ─────────────────────── */}
+      {pendingPreview && (
+        <ConfirmDialog
+          preview={pendingPreview}
+          saving={saving}
+          onConfirm={() => void applyUpdate(buildPayload())}
+          onCancel={() => setPendingPreview(null)}
+        />
+      )}
     </MobilePhoneFrame>
   );
 }

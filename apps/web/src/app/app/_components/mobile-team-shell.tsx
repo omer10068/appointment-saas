@@ -1,9 +1,8 @@
 ﻿'use client';
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { ChevronRight, Scissors, Search, UsersRound, X } from 'lucide-react';
+import { Scissors, Search, UsersRound, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DashboardServiceProviderDto } from '@appointment/contracts';
 import { useBusiness } from '@/app/app/_providers/business/useBusiness';
@@ -15,6 +14,8 @@ import { ProviderEditSheet } from './provider-edit-sheet';
 import { BottomSheet } from './primitives/bottom-sheet';
 import { LAYOUT } from '../_lib/calendar.design';
 import { appKeys } from '../_lib/query-keys';
+import { toFriendlyName } from '../_lib/calendar.utils';
+import { MobilePageHeader } from './mobile-page-header';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -185,7 +186,6 @@ function ProviderDetailSheet({ provider, serviceMap, onClosed }: ProviderDetailS
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export function MobileTeamShell() {
-  const router = useRouter();
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
@@ -254,35 +254,13 @@ export function MobileTeamShell() {
   return (
     <MobilePhoneFrame dir="rtl">
       {/* Header */}
-      <div className="flex-none bg-background px-5 pb-4 pt-9">
-        <button
-          onClick={() => router.push('/app/settings')}
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-muted-foreground transition-opacity active:opacity-60"
-          aria-label="חזרה"
-        >
-          <ChevronRight className="size-4" />
-          <span>חזרה</span>
-        </button>
-        <div className="mt-2 flex items-start justify-between">
-          <div>
-            {businessName && (
-              <p className="text-sm font-semibold text-primary">
-                {businessName}
-              </p>
-            )}
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-              צוות
-            </h1>
-            <p className="mt-1 text-xs font-medium text-muted-foreground">
-              {providers.length} נותני שירות
-            </p>
-          </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground ring-1 ring-primary/10">
-            <UsersRound className="size-5" />
-          </div>
-        </div>
-
-        {/* Search bar */}
+      <MobilePageHeader
+        title="צוות"
+        icon={UsersRound}
+        subtitle={businessName ? toFriendlyName(businessName) : undefined}
+        meta={`${providers.length} נותני שירות`}
+        backHref="/app/settings"
+      >
         <div className="mt-3 flex items-center gap-2 rounded-2xl border border-border bg-muted px-4 py-3">
           <Search size={16} className="shrink-0 text-muted-foreground pointer-events-none" />
           <input
@@ -302,7 +280,7 @@ export function MobileTeamShell() {
             </button>
           )}
         </div>
-      </div>
+      </MobilePageHeader>
 
       {/* Scrollable content */}
       <div

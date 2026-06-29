@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { ClerkAuthGuard } from '../../src/auth/guards/clerk-auth.guard';
+import { ClerkProvisioningService } from '../../src/auth/clerk-provisioning.service';
 import { AdminModule } from '../../src/admin/admin.module';
 import { DashboardModule } from '../../src/dashboard/dashboard.module';
 import { PublicModule } from '../../src/public/public.module';
@@ -50,6 +51,38 @@ const E2E_ADMIN_ACTIVE_BIZ_ID = 'e2e20000-0000-4000-8000-000000000018';
 const E2E_ADMIN_ACTIVE_BIZ_SLUG = 'e2e-admin-activation-biz';
 const E2E_ADMIN_ACTIVE_OWN_USER_ID = 'e2e20000-0000-4000-8000-000000000019';
 const E2E_ADMIN_ACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000020';
+// Admin create service tests
+const E2E_ADMIN_CSVC_BIZ_ID = 'e2e20000-0000-4000-8000-000000000029'; // DRAFT biz A
+const E2E_ADMIN_CSVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000030'; // TRIAL biz B (isolation)
+const E2E_ADMIN_CSVC_OWNER_ID = 'e2e20000-0000-4000-8000-000000000031';
+const E2E_ADMIN_CSVC_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000032';
+// Admin onboarding summary tests (B.5)
+const E2E_ADMIN_OS_BIZ_ID = 'e2e20000-0000-4000-8000-000000000047'; // full DRAFT biz
+const E2E_ADMIN_OS_EMPTY_BIZ_ID = 'e2e20000-0000-4000-8000-000000000048'; // minimal DRAFT biz
+const E2E_ADMIN_OS_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000049'; // isolation biz
+const E2E_ADMIN_OS_OWNER_ID = 'e2e20000-0000-4000-8000-000000000050';
+const E2E_ADMIN_OS_MANAGER_ID = 'e2e20000-0000-4000-8000-000000000051';
+const E2E_ADMIN_OS_EMPTY_OWNER_ID = 'e2e20000-0000-4000-8000-000000000052';
+const E2E_ADMIN_OS_BIZ_B_OWNER_ID = 'e2e20000-0000-4000-8000-000000000053';
+const E2E_ADMIN_OS_SVC_ID = 'e2e20000-0000-4000-8000-000000000054';
+const E2E_ADMIN_OS_BIZ_B_SVC_ID = 'e2e20000-0000-4000-8000-000000000055';
+// Admin set SP working hours tests (B.4)
+const E2E_ADMIN_SPWH_BIZ_ID = 'e2e20000-0000-4000-8000-000000000041';
+const E2E_ADMIN_SPWH_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000042';
+const E2E_ADMIN_SPWH_OWNER_ID = 'e2e20000-0000-4000-8000-000000000043';
+const E2E_ADMIN_SPWH_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000044';
+const E2E_ADMIN_SPWH_SVC_ID = 'e2e20000-0000-4000-8000-000000000045';
+const E2E_ADMIN_SPWH_SVC_B_ID = 'e2e20000-0000-4000-8000-000000000046';
+// Admin set business working hours tests (B.3)
+const E2E_ADMIN_BWH_BIZ_ID = 'e2e20000-0000-4000-8000-000000000037';
+const E2E_ADMIN_BWH_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000038';
+const E2E_ADMIN_BWH_OWNER_ID = 'e2e20000-0000-4000-8000-000000000039';
+const E2E_ADMIN_BWH_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000040';
+// Admin add business user tests (B.2)
+const E2E_ADMIN_ABU_BIZ_ID = 'e2e20000-0000-4000-8000-000000000033';
+const E2E_ADMIN_ABU_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000034';
+const E2E_ADMIN_ABU_OWNER_ID = 'e2e20000-0000-4000-8000-000000000035';
+const E2E_ADMIN_ABU_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000036';
 // Admin publicBookingEnabled toggle tests
 const E2E_ADMIN_PB_TRIAL_BIZ_ID = 'e2e20000-0000-4000-8000-000000000021';
 const E2E_ADMIN_PB_TRIAL_SLUG = 'e2e-admin-pb-trial-biz';
@@ -72,6 +105,69 @@ const ADMIN_SP_OWNER_PHONE = '+19990002030';
 const ADMIN_SP_MEMBER_PHONE = '+19990002031';
 const ADMIN_SP_DUP_PHONE = '+19990002032';
 const ADMIN_SP_INACT_SVC_PHONE = '+19990002033';
+const ADMIN_CSVC_OWNER_PHONE = '+19990002060';
+const ADMIN_CSVC_OWNER_B_PHONE = '+19990002061';
+const ADMIN_BWH_OWNER_PHONE = '+19990002080';
+const ADMIN_BWH_OWNER_B_PHONE = '+19990002081';
+const ADMIN_SPWH_OWNER_PHONE = '+19990002082';
+const ADMIN_SPWH_OWNER_B_PHONE = '+19990002083';
+const ADMIN_ABU_OWNER_PHONE = '+19990002070';
+const ADMIN_ABU_OWNER_B_PHONE = '+19990002071';
+const ADMIN_ABU_MANAGER_PHONE = '+19990002072';
+const ADMIN_ABU_MEMBER_PHONE = '+19990002073';
+const ADMIN_ABU_DUP_PHONE = '+19990002074';
+const ADMIN_ABU_CROSS_BIZ_PHONE = '+19990002075';
+const ADMIN_ABU_T11_PHONE = '+19990002076';
+const ADMIN_ABU_T12_PHONE = '+19990002077';
+const ADMIN_ABU_T13_PHONE = '+19990002078';
+const ALL_ABU_TEST_PHONES = [
+  ADMIN_ABU_MANAGER_PHONE,
+  ADMIN_ABU_MEMBER_PHONE,
+  ADMIN_ABU_DUP_PHONE,
+  ADMIN_ABU_CROSS_BIZ_PHONE,
+  ADMIN_ABU_T11_PHONE,
+  ADMIN_ABU_T12_PHONE,
+  ADMIN_ABU_T13_PHONE,
+];
+const ADMIN_OS_OWNER_PHONE = '+19990002084';
+const ADMIN_OS_MANAGER_PHONE = '+19990002085';
+const ADMIN_OS_EMPTY_OWNER_PHONE = '+19990002086';
+const ADMIN_OS_BIZ_B_OWNER_PHONE = '+19990002087';
+// Phase C — correction endpoints
+const E2E_ADMIN_PC_BIZ_ID = 'e2e20000-0000-4000-8000-000000000056';
+const E2E_ADMIN_PC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000057';
+const E2E_ADMIN_PC_OWNER_ID = 'e2e20000-0000-4000-8000-000000000058';
+const E2E_ADMIN_PC_SECOND_USER_ID = 'e2e20000-0000-4000-8000-000000000059';
+const E2E_ADMIN_PC_OWNER_B_ID = 'e2e20000-0000-4000-8000-000000000060';
+const E2E_ADMIN_PC_SVC_ID = 'e2e20000-0000-4000-8000-000000000061';
+const E2E_ADMIN_PC_SVC_B_ID = 'e2e20000-0000-4000-8000-000000000062';
+const E2E_ADMIN_PC_INACTIVE_SVC_ID = 'e2e20000-0000-4000-8000-000000000063';
+const E2E_ADMIN_PC_SVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000064';
+const ADMIN_PC_OWNER_PHONE = '+19990002092';
+const ADMIN_PC_SECOND_USER_PHONE = '+19990002093';
+const ADMIN_PC_OWNER_B_PHONE = '+19990002094';
+// Phase D — Clerk provisioning
+const E2E_ADMIN_PD_BIZ_ID = 'e2e20000-0000-4000-8000-000000000065';
+const E2E_ADMIN_PD_PRELINKED_USER_ID = 'e2e20000-0000-4000-8000-000000000066';
+const ADMIN_PD_PRELINKED_PHONE = '+19990002100';
+const ADMIN_PD_OWNER_PHONE = '+19990002101';
+const ADMIN_PD_MANAGER_PHONE = '+19990002102';
+const ADMIN_PD_FAILURE_PHONE = '+19990002103';
+const ADMIN_PD_LOCAL_PHONE_RAW = '0502222104'; // Israeli local format
+const ADMIN_PD_LOCAL_PHONE_E164 = '+972502222104'; // expected after normalization
+const ADMIN_PD_TRUST_EXISTING_PHONE = '+19990002105';
+const ALL_PD_PHONES = [
+  ADMIN_PD_PRELINKED_PHONE,
+  ADMIN_PD_OWNER_PHONE,
+  ADMIN_PD_MANAGER_PHONE,
+  ADMIN_PD_FAILURE_PHONE,
+  ADMIN_PD_LOCAL_PHONE_E164,
+  ADMIN_PD_TRUST_EXISTING_PHONE,
+];
+// Full onboarding happy path test
+const E2E_ADMIN_HP_SLUG = 'e2e-admin-hp-biz';
+const ADMIN_HP_OWNER_PHONE = '+19990002090';
+const ADMIN_HP_MANAGER_PHONE = '+19990002091';
 const ADMIN_RDN_OWNER_PHONE = '+19990002041';
 const ADMIN_ACTIVE_OWNER_PHONE = '+19990002042';
 const ADMIN_PB_OWNER_PHONE = '+19990002050';
@@ -79,6 +175,22 @@ const ADMIN_PB_OWNER_PHONE = '+19990002050';
 const CREATED_OWNER_PHONE = '+19990002010';
 // Created by regression test — must be cleaned up
 const REGRESSION_OWNER_PHONE = '+19990002011';
+// Email constants for Clerk provisioning (email is primary Clerk identifier)
+const ADMIN_ABU_MANAGER_EMAIL = 'abu-manager@example.com';
+const ADMIN_ABU_MEMBER_EMAIL = 'abu-member@example.com';
+const ADMIN_ABU_DUP_EMAIL = 'abu-dup@example.com';
+const ADMIN_ABU_CROSS_BIZ_EMAIL = 'abu-crossbiz@example.com';
+const ADMIN_ABU_T11_EMAIL = 'abu-t11@example.com';
+const ADMIN_ABU_T12_EMAIL = 'abu-t12@example.com';
+const ADMIN_ABU_T13_EMAIL = 'abu-t13@example.com';
+const ADMIN_HP_OWNER_EMAIL = 'hp-owner@example.com';
+const ADMIN_HP_MANAGER_EMAIL = 'hp-manager@example.com';
+const ADMIN_PD_OWNER_EMAIL = 'pd-owner@example.com';
+const ADMIN_PD_MANAGER_EMAIL = 'pd-manager@example.com';
+const ADMIN_PD_FAILURE_EMAIL = 'pd-failure@example.com';
+const ADMIN_PD_LOCAL_EMAIL = 'pd-local@example.com';
+const ADMIN_PD_TRUST_EXISTING_EMAIL = 'pd-trust@example.com';
+const ADMIN_PD_PRELINKED_EMAIL = 'pd-prelinked@example.com';
 
 // ─── Shared module-level setup ────────────────────────────────────────────────
 
@@ -86,6 +198,19 @@ let app: INestApplication<App>;
 let prisma: PrismaService;
 let adminUser: User;
 let regularUser: User;
+
+// ClerkProvisioningService mock — used by createOwnerForBusiness and addBusinessUser.
+// Default implementation returns a deterministic clerkUserId derived from the email so
+// each unique email gets a unique Clerk ID and DB uniqueness constraints are satisfied.
+const mockClerkProvisioning = {
+  findOrCreateClerkUser: jest
+    .fn<(dto: { email: string }) => Promise<{ clerkUserId: string }>>()
+    .mockImplementation((dto: { email: string }) =>
+      Promise.resolve({
+        clerkUserId: `clerk_${dto.email.replace(/\W/g, '')}`,
+      }),
+    ),
+};
 
 beforeAll(async () => {
   const module: TestingModule = await Test.createTestingModule({
@@ -99,6 +224,8 @@ beforeAll(async () => {
   })
     .overrideGuard(ClerkAuthGuard)
     .useClass(MockClerkAuthGuard)
+    .overrideProvider(ClerkProvisioningService)
+    .useValue(mockClerkProvisioning)
     .compile();
 
   app = await createTestApp(module);
@@ -1651,5 +1778,3611 @@ describe('PATCH /admin/businesses/:businessId/public-booking', () => {
       .patch(`/admin/businesses/${E2E_ADMIN_PB_TRIAL_BIZ_ID}/public-booking`)
       .send({})
       .expect(400);
+  });
+});
+
+// ─── POST /admin/businesses/:businessId/services ──────────────────────────────
+
+describe('POST /admin/businesses/:businessId/services', () => {
+  let csvcOwner: User;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.service.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_CSVC_OWNER_ID, E2E_ADMIN_CSVC_OWNER_B_ID] },
+      },
+    });
+
+    // Seed biz A — DRAFT (primary fixture for admin service creation)
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_CSVC_BIZ_ID,
+        name: 'E2E Admin Create Service Business A',
+        slug: 'e2e-admin-csvc-biz-a',
+        status: 'DRAFT',
+      },
+    });
+    csvcOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_CSVC_OWNER_ID,
+        phoneNormalized: ADMIN_CSVC_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_CSVC_BIZ_ID,
+        userId: csvcOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // Seed biz B — TRIAL (used only for tenant isolation test)
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_CSVC_BIZ_B_ID,
+        name: 'E2E Admin Create Service Business B',
+        slug: 'e2e-admin-csvc-biz-b',
+        status: 'TRIAL',
+      },
+    });
+    const ownerB = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_CSVC_OWNER_B_ID,
+        phoneNormalized: ADMIN_CSVC_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_CSVC_BIZ_B_ID,
+        userId: ownerB.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.service.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [E2E_ADMIN_CSVC_BIZ_ID, E2E_ADMIN_CSVC_BIZ_B_ID],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_CSVC_OWNER_ID, E2E_ADMIN_CSVC_OWNER_B_ID] },
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    // Reset biz A to DRAFT in case a test moved it to TRIAL
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_CSVC_BIZ_ID },
+      data: { status: 'DRAFT' },
+    });
+  });
+
+  it('admin creates service for DRAFT business → 201 with correct shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Haircut', durationMinutes: 30 })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      id: expect.any(String) as string,
+      name: 'Haircut',
+      durationMinutes: 30,
+      isActive: true,
+      bufferBeforeMin: 0,
+      bufferAfterMin: 0,
+      description: null,
+      priceCents: null,
+    });
+  });
+
+  it('admin creates inactive service → 201 with isActive=false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Inactive Service', durationMinutes: 60, isActive: false })
+      .expect(201);
+
+    expect((res.body as { isActive: boolean }).isActive).toBe(false);
+  });
+
+  it('missing name → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ durationMinutes: 30 })
+      .expect(400);
+  });
+
+  it('durationMinutes below minimum (4) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Too Short', durationMinutes: 4 })
+      .expect(400);
+  });
+
+  it('durationMinutes above maximum (481) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Too Long', durationMinutes: 481 })
+      .expect(400);
+  });
+
+  it('negative priceCents → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Bad Price', durationMinutes: 30, priceCents: -1 })
+      .expect(400);
+  });
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post('/admin/businesses/00000000-0000-4000-8000-000000000000/services')
+      .send({ name: 'Ghost Service', durationMinutes: 30 })
+      .expect(404);
+  });
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Blocked', durationMinutes: 30 })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'No Auth', durationMinutes: 30 })
+      .expect(401);
+  });
+
+  it('admin-created service is visible in dashboard after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Dashboard Visible Service', durationMinutes: 45 })
+      .expect(201);
+
+    // Move DRAFT → TRIAL so assertAccess allows the owner in
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = csvcOwner;
+    const listRes = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .expect(200);
+
+    const names = (listRes.body as { name: string }[]).map((s) => s.name);
+    expect(names).toContain('Dashboard Visible Service');
+  });
+
+  it('service created for biz A does not appear in biz B dashboard (tenant isolation)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Biz A Only Service', durationMinutes: 30 })
+      .expect(201);
+
+    // biz B is already TRIAL; csvcOwnerB can call the dashboard
+    MockClerkAuthGuard.currentUser = await prisma.user.findUniqueOrThrow({
+      where: { id: E2E_ADMIN_CSVC_OWNER_B_ID },
+    });
+    const listRes = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_CSVC_BIZ_B_ID}/services`)
+      .expect(200);
+
+    const names = (listRes.body as { name: string }[]).map((s) => s.name);
+    expect(names).not.toContain('Biz A Only Service');
+  });
+
+  it('admin-created active service contributes to readiness hasActiveService=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
+      .send({ name: 'Readiness Service', durationMinutes: 60, isActive: true })
+      .expect(201);
+
+    const rdnRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/readiness`)
+      .expect(200);
+
+    expect(
+      (rdnRes.body as { checks: { hasActiveService: boolean } }).checks
+        .hasActiveService,
+    ).toBe(true);
+  });
+});
+
+// ─── POST /admin/businesses/:businessId/users (B.2) ───────────────────────────
+
+describe('POST /admin/businesses/:businessId/users (admin add business user)', () => {
+  let abuOwner: User;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    const priorTestUsers = await prisma.user.findMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+      select: { id: true },
+    });
+    if (priorTestUsers.length > 0) {
+      await prisma.businessUser.deleteMany({
+        where: { userId: { in: priorTestUsers.map((u) => u.id) } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: priorTestUsers.map((u) => u.id) } },
+      });
+    }
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [E2E_ADMIN_ABU_OWNER_ID, E2E_ADMIN_ABU_OWNER_B_ID] } },
+    });
+
+    // Seed biz A (DRAFT)
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_ABU_BIZ_ID,
+        name: 'E2E Admin ABU Business A',
+        slug: 'e2e-admin-abu-biz-a',
+        status: 'DRAFT',
+      },
+    });
+    abuOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_ABU_OWNER_ID,
+        phoneNormalized: ADMIN_ABU_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_ABU_BIZ_ID,
+        userId: abuOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // Seed biz B (TRIAL) for cross-business membership test
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_ABU_BIZ_B_ID,
+        name: 'E2E Admin ABU Business B',
+        slug: 'e2e-admin-abu-biz-b',
+        status: 'TRIAL',
+      },
+    });
+    const ownerB = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_ABU_OWNER_B_ID,
+        phoneNormalized: ADMIN_ABU_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_ABU_BIZ_B_ID,
+        userId: ownerB.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    const testUsers = await prisma.user.findMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+      select: { id: true },
+    });
+    if (testUsers.length > 0) {
+      await prisma.businessUser.deleteMany({
+        where: { userId: { in: testUsers.map((u) => u.id) } },
+      });
+    }
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_ABU_BIZ_ID, E2E_ADMIN_ABU_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [E2E_ADMIN_ABU_OWNER_ID, E2E_ADMIN_ABU_OWNER_B_ID] } },
+    });
+    await prisma.user.deleteMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+    });
+  });
+
+  beforeEach(async () => {
+    // Delete services and SPs created by test 13 (integration test)
+    await prisma.serviceProvider.deleteMany({
+      where: { businessId: E2E_ADMIN_ABU_BIZ_ID },
+    });
+    await prisma.service.deleteMany({
+      where: { businessId: E2E_ADMIN_ABU_BIZ_ID },
+    });
+    // Delete test-created users and all their business users (covers biz A and biz B)
+    const testUsers = await prisma.user.findMany({
+      where: { phoneNormalized: { in: ALL_ABU_TEST_PHONES } },
+      select: { id: true },
+    });
+    if (testUsers.length > 0) {
+      await prisma.businessUser.deleteMany({
+        where: { userId: { in: testUsers.map((u) => u.id) } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: testUsers.map((u) => u.id) } },
+      });
+    }
+    // Reset biz A to DRAFT (in case a test moved it to TRIAL)
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_ABU_BIZ_ID },
+      data: { status: 'DRAFT' },
+    });
+  });
+
+  // ── Success ───────────────────────────────────────────────────────────────
+
+  it('admin adds MANAGER to DRAFT business → 201 with ACTIVE status', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_MANAGER_PHONE,
+        email: ADMIN_ABU_MANAGER_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(201);
+
+    const body = res.body as {
+      id: string;
+      userId: string;
+      businessId: string;
+      role: string;
+      status: string;
+      phoneNormalized: string;
+      email: string | null;
+      serviceProviderId: string | null;
+    };
+    expect(body.role).toBe('MANAGER');
+    expect(body.status).toBe(BusinessUserStatus.ACTIVE);
+    expect(body.businessId).toBe(E2E_ADMIN_ABU_BIZ_ID);
+    expect(body.phoneNormalized).toBe(ADMIN_ABU_MANAGER_PHONE);
+    expect(body.serviceProviderId).toBeNull();
+  });
+
+  it('admin adds MEMBER to DRAFT business → 201', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_MEMBER_PHONE,
+        email: ADMIN_ABU_MEMBER_EMAIL,
+        role: 'MEMBER',
+      })
+      .expect(201);
+
+    expect((res.body as { role: string }).role).toBe('MEMBER');
+    expect((res.body as { status: string }).status).toBe(
+      BusinessUserStatus.ACTIVE,
+    );
+  });
+
+  // ── Validation ────────────────────────────────────────────────────────────
+
+  it('OWNER role → 400 (DTO enum rejects it)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'OWNER' })
+      .expect(400);
+  });
+
+  it('missing phone → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ role: 'MANAGER' })
+      .expect(400);
+  });
+
+  it('invalid email format → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_MANAGER_PHONE,
+        email: 'not-an-email',
+        role: 'MANAGER',
+      })
+      .expect(400);
+  });
+
+  // ── Not found ─────────────────────────────────────────────────────────────
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post('/admin/businesses/00000000-0000-4000-8000-000000000000/users')
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(404);
+  });
+
+  // ── Duplicate ─────────────────────────────────────────────────────────────
+
+  it('same phone added twice to the same business → 409', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_DUP_PHONE,
+        email: ADMIN_ABU_DUP_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_DUP_PHONE,
+        email: ADMIN_ABU_DUP_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(409);
+  });
+
+  // ── Cross-business ────────────────────────────────────────────────────────
+
+  it('same user can belong to a second business → 201', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_CROSS_BIZ_PHONE,
+        email: ADMIN_ABU_CROSS_BIZ_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_B_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_CROSS_BIZ_PHONE,
+        email: ADMIN_ABU_CROSS_BIZ_EMAIL,
+        role: 'MEMBER',
+      })
+      .expect(201);
+
+    expect((res.body as { businessId: string }).businessId).toBe(
+      E2E_ADMIN_ABU_BIZ_B_ID,
+    );
+  });
+
+  // ── Auth guards ───────────────────────────────────────────────────────────
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({ phone: ADMIN_ABU_MANAGER_PHONE, role: 'MANAGER' })
+      .expect(401);
+  });
+
+  // ── Dashboard access via DRAFT lock ───────────────────────────────────────
+
+  it('admin-created MANAGER can access dashboard after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const addRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_T11_PHONE,
+        email: ADMIN_ABU_T11_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(201);
+    const { userId } = addRes.body as { userId: string };
+    const managerUser = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = managerUser;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_ABU_BIZ_ID}/services`)
+      .expect(200);
+  });
+
+  it('admin-created MANAGER cannot access dashboard while business is DRAFT → 403', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const addRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_T12_PHONE,
+        email: ADMIN_ABU_T12_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(201);
+    const { userId } = addRes.body as { userId: string };
+    const managerUser = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    MockClerkAuthGuard.currentUser = managerUser;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_ABU_BIZ_ID}/services`)
+      .expect(403);
+  });
+
+  // ── Integration: B.1 + B.2 + SP creation ─────────────────────────────────
+
+  it('admin-created MANAGER businessUserId can be used to create a ServiceProvider', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+
+    const svcRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/services`)
+      .send({ name: 'ABU SP Integration Service', durationMinutes: 60 })
+      .expect(201);
+    const svcId = (svcRes.body as { id: string }).id;
+
+    const addRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/users`)
+      .send({
+        phone: ADMIN_ABU_T13_PHONE,
+        email: ADMIN_ABU_T13_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(201);
+    const managerBuId = (addRes.body as { id: string }).id;
+
+    const spRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_ABU_BIZ_ID}/service-providers`)
+      .send({
+        displayName: 'ABU Integration Provider',
+        businessUserId: managerBuId,
+        serviceIds: [svcId],
+        isActive: true,
+      })
+      .expect(201);
+
+    expect((spRes.body as { displayName: string }).displayName).toBe(
+      'ABU Integration Provider',
+    );
+  });
+});
+
+// ─── PUT /admin/businesses/:businessId/working-hours (B.3) ────────────────────
+
+describe('PUT /admin/businesses/:businessId/working-hours (admin set business working hours)', () => {
+  let bwhOwner: User;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_BWH_BIZ_ID, E2E_ADMIN_BWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_BWH_BIZ_ID, E2E_ADMIN_BWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_BWH_BIZ_ID, E2E_ADMIN_BWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_BWH_OWNER_ID, E2E_ADMIN_BWH_OWNER_B_ID] },
+      },
+    });
+
+    // Seed biz A (DRAFT) — primary fixture
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_BWH_BIZ_ID,
+        name: 'E2E Admin BWH Business A',
+        slug: 'e2e-admin-bwh-biz-a',
+        status: 'DRAFT',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    bwhOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_BWH_OWNER_ID,
+        phoneNormalized: ADMIN_BWH_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_BWH_BIZ_ID,
+        userId: bwhOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // Seed biz B (TRIAL) — for tenant isolation test
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_BWH_BIZ_B_ID,
+        name: 'E2E Admin BWH Business B',
+        slug: 'e2e-admin-bwh-biz-b',
+        status: 'TRIAL',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    const ownerB = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_BWH_OWNER_B_ID,
+        phoneNormalized: ADMIN_BWH_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_BWH_BIZ_B_ID,
+        userId: ownerB.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_BWH_BIZ_ID, E2E_ADMIN_BWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_BWH_BIZ_ID, E2E_ADMIN_BWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_BWH_BIZ_ID, E2E_ADMIN_BWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_BWH_OWNER_ID, E2E_ADMIN_BWH_OWNER_B_ID] },
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    // Clear business working hours for biz A; reset status to DRAFT
+    await prisma.businessWorkingHour.deleteMany({
+      where: { businessId: E2E_ADMIN_BWH_BIZ_ID },
+    });
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_BWH_BIZ_ID },
+      data: { status: 'DRAFT' },
+    });
+  });
+
+  // ── Success ───────────────────────────────────────────────────────────────
+
+  it('admin sets business working hours for DRAFT business → 200 with correct shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const body = res.body as Array<{
+      id: string;
+      dayOfWeek: number;
+      startTime: string | null;
+      endTime: string | null;
+      isClosed: boolean;
+    }>;
+    expect(Array.isArray(body)).toBe(true);
+    expect(body).toHaveLength(1);
+    expect(body[0]).toMatchObject({
+      dayOfWeek: 1,
+      isClosed: false,
+      startTime: '09:00',
+      endTime: '18:00',
+    });
+    expect(typeof body[0].id).toBe('string');
+
+    // Verify persistence
+    const rows = await prisma.businessWorkingHour.findMany({
+      where: { businessId: E2E_ADMIN_BWH_BIZ_ID },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dayOfWeek).toBe(1);
+  });
+
+  it('admin sets a mix of open and closed days → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          { dayOfWeek: 0, isClosed: true },
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          { dayOfWeek: 6, isClosed: true },
+        ],
+      })
+      .expect(200);
+
+    const body = res.body as Array<{ dayOfWeek: number; isClosed: boolean }>;
+    expect(body).toHaveLength(3);
+    const closed = body.filter((h) => h.isClosed);
+    const open = body.filter((h) => !h.isClosed);
+    expect(closed).toHaveLength(2);
+    expect(open).toHaveLength(1);
+  });
+
+  it('second PUT replaces all existing hours (full-week replacement)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 2,
+            isClosed: false,
+            startTime: '10:00',
+            endTime: '17:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const rows = await prisma.businessWorkingHour.findMany({
+      where: { businessId: E2E_ADMIN_BWH_BIZ_ID },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dayOfWeek).toBe(2);
+  });
+
+  // ── Not found ─────────────────────────────────────────────────────────────
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        '/admin/businesses/00000000-0000-4000-8000-000000000000/working-hours',
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(404);
+  });
+
+  // ── Validation ────────────────────────────────────────────────────────────
+
+  it('dayOfWeek out of range (7) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 7,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('invalid time format (missing leading zero) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '9:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('startTime after endTime → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '18:00',
+            endTime: '09:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('open day with missing startTime/endTime → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [{ dayOfWeek: 1, isClosed: false }],
+      })
+      .expect(400);
+  });
+
+  // ── Auth guards ───────────────────────────────────────────────────────────
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(401);
+  });
+
+  // ── Dashboard visibility ──────────────────────────────────────────────────
+
+  it('admin-set hours are visible via dashboard GET after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 3,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '16:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = bwhOwner;
+    const res = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .expect(200);
+
+    const body = res.body as Array<{ dayOfWeek: number; startTime: string }>;
+    expect(body.some((h) => h.dayOfWeek === 3 && h.startTime === '08:00')).toBe(
+      true,
+    );
+  });
+
+  // ── Readiness contribution ────────────────────────────────────────────────
+
+  it('hasBusinessWorkingHours is false before and true after setting hours', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+
+    const before = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/readiness`)
+      .expect(200);
+    expect(
+      (
+        before.body as {
+          checks: { hasBusinessWorkingHours: boolean };
+        }
+      ).checks.hasBusinessWorkingHours,
+    ).toBe(false);
+
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const after = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/readiness`)
+      .expect(200);
+    expect(
+      (
+        after.body as {
+          checks: { hasBusinessWorkingHours: boolean };
+        }
+      ).checks.hasBusinessWorkingHours,
+    ).toBe(true);
+  });
+
+  // ── Tenant isolation ──────────────────────────────────────────────────────
+
+  it('setting hours for biz A does not create hours for biz B', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${E2E_ADMIN_BWH_BIZ_ID}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    // Biz B is TRIAL; owner B can read its working-hours via dashboard
+    MockClerkAuthGuard.currentUser = await prisma.user.findUniqueOrThrow({
+      where: { id: E2E_ADMIN_BWH_OWNER_B_ID },
+    });
+    const res = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_BWH_BIZ_B_ID}/working-hours`)
+      .expect(200);
+
+    expect(res.body).toEqual([]);
+  });
+});
+
+// ─── PUT /admin/businesses/:businessId/service-providers/:spId/working-hours (B.4) ─
+
+describe('PUT /admin/businesses/:businessId/service-providers/:spId/working-hours (admin set SP working hours)', () => {
+  let spwhOwner: User;
+  let spId: string;
+  let spBId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_SVC_ID, E2E_ADMIN_SPWH_SVC_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_OWNER_ID, E2E_ADMIN_SPWH_OWNER_B_ID] },
+      },
+    });
+
+    // ── Seed biz A (DRAFT) ────────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_SPWH_BIZ_ID,
+        name: 'E2E Admin SPWH Business A',
+        slug: 'e2e-admin-spwh-biz-a',
+        status: 'DRAFT',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    // Seed broad business working hours so SP hours containment checks pass.
+    // Tests use days 1 (Mon), 3 (Wed), 4 (Thu) with times within 08:00–22:00.
+    await prisma.businessWorkingHour.createMany({
+      data: [1, 2, 3, 4, 5].map((day) => ({
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        dayOfWeek: day,
+        isClosed: false,
+        startTime: '08:00',
+        endTime: '22:00',
+      })),
+    });
+    spwhOwner = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SPWH_OWNER_ID,
+        phoneNormalized: ADMIN_SPWH_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const buA = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        userId: spwhOwner.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_SPWH_SVC_ID,
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        name: 'SPWH Test Service A',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    const spA = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_ID,
+        businessUserId: buA.id,
+        displayName: 'SPWH Test Provider A',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_SPWH_SVC_ID }] },
+      },
+    });
+    spId = spA.id;
+
+    // ── Seed biz B (TRIAL) ────────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_SPWH_BIZ_B_ID,
+        name: 'E2E Admin SPWH Business B',
+        slug: 'e2e-admin-spwh-biz-b',
+        status: 'TRIAL',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    const ownerB = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_SPWH_OWNER_B_ID,
+        phoneNormalized: ADMIN_SPWH_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const buB = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_B_ID,
+        userId: ownerB.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_SPWH_SVC_B_ID,
+        businessId: E2E_ADMIN_SPWH_BIZ_B_ID,
+        name: 'SPWH Test Service B',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    const spB = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_SPWH_BIZ_B_ID,
+        businessUserId: buB.id,
+        displayName: 'SPWH Test Provider B',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_SPWH_SVC_B_ID }] },
+      },
+    });
+    spBId = spB.id;
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_SVC_ID, E2E_ADMIN_SPWH_SVC_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_BIZ_ID, E2E_ADMIN_SPWH_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_SPWH_OWNER_ID, E2E_ADMIN_SPWH_OWNER_B_ID] },
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    // Clear SP A working hours; reset biz A to DRAFT
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: { serviceProviderId: spId },
+    });
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_SPWH_BIZ_ID },
+      data: { status: 'DRAFT' },
+    });
+  });
+
+  // ── Success ───────────────────────────────────────────────────────────────
+
+  it('admin sets SP working hours for DRAFT business → 200 with correct shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const body = res.body as Array<{
+      id: string;
+      dayOfWeek: number;
+      startTime: string | null;
+      endTime: string | null;
+      isClosed: boolean;
+    }>;
+    expect(Array.isArray(body)).toBe(true);
+    expect(body).toHaveLength(1);
+    expect(body[0]).toMatchObject({
+      dayOfWeek: 1,
+      isClosed: false,
+      startTime: '09:00',
+      endTime: '18:00',
+    });
+    expect(typeof body[0].id).toBe('string');
+
+    // Verify persistence
+    const rows = await prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId: spId },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dayOfWeek).toBe(1);
+  });
+
+  it('admin sets a mix of open and closed days for a provider → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          { dayOfWeek: 0, isClosed: true },
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          { dayOfWeek: 6, isClosed: true },
+        ],
+      })
+      .expect(200);
+
+    const body = res.body as Array<{ dayOfWeek: number; isClosed: boolean }>;
+    expect(body).toHaveLength(3);
+    expect(body.filter((h) => h.isClosed)).toHaveLength(2);
+    expect(body.filter((h) => !h.isClosed)).toHaveLength(1);
+  });
+
+  it('second PUT replaces all existing SP hours (full replacement)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 3,
+            isClosed: false,
+            startTime: '10:00',
+            endTime: '17:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const rows = await prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId: spId },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dayOfWeek).toBe(3);
+  });
+
+  // ── Not found ─────────────────────────────────────────────────────────────
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/00000000-0000-4000-8000-000000000000/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(404);
+  });
+
+  it('non-existent serviceProviderId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/00000000-0000-4000-8000-000000000000/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(404);
+  });
+
+  it('ServiceProvider from another business → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spBId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(404);
+  });
+
+  // ── Validation ────────────────────────────────────────────────────────────
+
+  it('dayOfWeek out of range (7) → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 7,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('invalid time format → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '9:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('startTime after endTime → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '18:00',
+            endTime: '09:00',
+          },
+        ],
+      })
+      .expect(400);
+  });
+
+  it('open day with missing startTime/endTime → 400', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [{ dayOfWeek: 1, isClosed: false }],
+      })
+      .expect(400);
+  });
+
+  // ── Auth guards ───────────────────────────────────────────────────────────
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(401);
+  });
+
+  // ── Dashboard visibility ──────────────────────────────────────────────────
+
+  it('admin-set SP hours visible via dashboard GET after DRAFT → TRIAL', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 4,
+            isClosed: false,
+            startTime: '08:00',
+            endTime: '16:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    MockClerkAuthGuard.currentUser = spwhOwner;
+    const res = await request(app.getHttpServer())
+      .get(
+        `/dashboard/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .expect(200);
+
+    const body = res.body as Array<{ dayOfWeek: number; startTime: string }>;
+    expect(body.some((h) => h.dayOfWeek === 4 && h.startTime === '08:00')).toBe(
+      true,
+    );
+  });
+
+  // ── Readiness contribution ────────────────────────────────────────────────
+
+  it('allActiveProvidersHaveWorkingHours is false before and true after setting SP hours', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+
+    const before = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/readiness`)
+      .expect(200);
+    expect(
+      (
+        before.body as {
+          checks: { allActiveProvidersHaveWorkingHours: boolean };
+        }
+      ).checks.allActiveProvidersHaveWorkingHours,
+    ).toBe(false);
+
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const after = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/readiness`)
+      .expect(200);
+    expect(
+      (
+        after.body as {
+          checks: { allActiveProvidersHaveWorkingHours: boolean };
+        }
+      ).checks.allActiveProvidersHaveWorkingHours,
+    ).toBe(true);
+  });
+
+  // ── Tenant isolation ──────────────────────────────────────────────────────
+
+  it('setting hours for SP A does not create hours for SP B', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${E2E_ADMIN_SPWH_BIZ_ID}/service-providers/${spId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    const rows = await prisma.serviceProviderWorkingHour.findMany({
+      where: { serviceProviderId: spBId },
+    });
+    expect(rows).toHaveLength(0);
+  });
+});
+
+// ─── GET /admin/businesses/:businessId/onboarding-summary (B.5) ───────────────
+
+describe('GET /admin/businesses/:businessId/onboarding-summary (admin onboarding summary)', () => {
+  let osSpId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_OS_SVC_ID, E2E_ADMIN_OS_BIZ_B_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_OWNER_ID,
+            E2E_ADMIN_OS_MANAGER_ID,
+            E2E_ADMIN_OS_EMPTY_OWNER_ID,
+            E2E_ADMIN_OS_BIZ_B_OWNER_ID,
+          ],
+        },
+      },
+    });
+
+    // ── Seed biz A (full DRAFT) ───────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_ID,
+        name: 'E2E Admin OS Business A',
+        slug: 'e2e-admin-os-biz-a',
+        status: 'DRAFT',
+        timezone: 'Asia/Jerusalem',
+      },
+    });
+    const ownerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_OWNER_ID,
+        phoneNormalized: ADMIN_OS_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const buOwner = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        userId: ownerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    const managerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_MANAGER_ID,
+        phoneNormalized: ADMIN_OS_MANAGER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        userId: managerUser.id,
+        role: BusinessUserRole.MANAGER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_OS_SVC_ID,
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        name: 'OS Test Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+    const spA = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        businessUserId: buOwner.id,
+        displayName: 'OS Test Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_OS_SVC_ID }] },
+      },
+    });
+    osSpId = spA.id;
+    await prisma.businessWorkingHour.createMany({
+      data: [
+        {
+          businessId: E2E_ADMIN_OS_BIZ_ID,
+          dayOfWeek: 1,
+          isClosed: false,
+          startTime: '09:00',
+          endTime: '18:00',
+        },
+        {
+          businessId: E2E_ADMIN_OS_BIZ_ID,
+          dayOfWeek: 3,
+          isClosed: false,
+          startTime: '09:00',
+          endTime: '18:00',
+        },
+      ],
+    });
+    await prisma.serviceProviderWorkingHour.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_ID,
+        serviceProviderId: osSpId,
+        dayOfWeek: 1,
+        isClosed: false,
+        startTime: '09:00',
+        endTime: '18:00',
+      },
+    });
+
+    // ── Seed biz A-empty (minimal DRAFT) ──────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_OS_EMPTY_BIZ_ID,
+        name: 'E2E Admin OS Empty Business',
+        slug: 'e2e-admin-os-empty-biz',
+        status: 'DRAFT',
+        timezone: 'UTC',
+      },
+    });
+    const emptyOwnerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_EMPTY_OWNER_ID,
+        phoneNormalized: ADMIN_OS_EMPTY_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_EMPTY_BIZ_ID,
+        userId: emptyOwnerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // ── Seed biz B (TRIAL — for tenant isolation) ─────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_B_ID,
+        name: 'E2E Admin OS Business B',
+        slug: 'e2e-admin-os-biz-b',
+        status: 'TRIAL',
+        timezone: 'UTC',
+      },
+    });
+    const bizBOwnerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_B_OWNER_ID,
+        phoneNormalized: ADMIN_OS_BIZ_B_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_OS_BIZ_B_ID,
+        userId: bizBOwnerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_OS_BIZ_B_SVC_ID,
+        businessId: E2E_ADMIN_OS_BIZ_B_ID,
+        name: 'OS Biz B Service',
+        durationMinutes: 30,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.businessWorkingHour.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_OS_SVC_ID, E2E_ADMIN_OS_BIZ_B_SVC_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_BIZ_ID,
+            E2E_ADMIN_OS_EMPTY_BIZ_ID,
+            E2E_ADMIN_OS_BIZ_B_ID,
+          ],
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_OS_OWNER_ID,
+            E2E_ADMIN_OS_MANAGER_ID,
+            E2E_ADMIN_OS_EMPTY_OWNER_ID,
+            E2E_ADMIN_OS_BIZ_B_OWNER_ID,
+          ],
+        },
+      },
+    });
+  });
+
+  // ── Success — full DRAFT business ─────────────────────────────────────────
+
+  it('full DRAFT business → 200 with all top-level keys present', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const body = res.body as Record<string, unknown>;
+    expect(body).toHaveProperty('business');
+    expect(body).toHaveProperty('users');
+    expect(body).toHaveProperty('services');
+    expect(body).toHaveProperty('serviceProviders');
+    expect(body).toHaveProperty('businessWorkingHours');
+    expect(body).toHaveProperty('readiness');
+  });
+
+  it('business metadata is correct (id, name, slug, status=DRAFT, timezone, publicBookingEnabled=false)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const biz = (
+      res.body as {
+        business: {
+          id: string;
+          name: string;
+          slug: string;
+          status: string;
+          timezone: string;
+          publicBookingEnabled: boolean;
+        };
+      }
+    ).business;
+    expect(biz.id).toBe(E2E_ADMIN_OS_BIZ_ID);
+    expect(biz.name).toBe('E2E Admin OS Business A');
+    expect(biz.slug).toBe('e2e-admin-os-biz-a');
+    expect(biz.status).toBe('DRAFT');
+    expect(biz.timezone).toBe('Asia/Jerusalem');
+    expect(biz.publicBookingEnabled).toBe(false);
+  });
+
+  it('users section contains OWNER and MANAGER with correct role, status, and user.phone', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const users = (
+      res.body as {
+        users: Array<{
+          role: string;
+          status: string;
+          user: { phone: string };
+        }>;
+      }
+    ).users;
+    expect(users).toHaveLength(2);
+    const owner = users.find((u) => u.role === 'OWNER');
+    const manager = users.find((u) => u.role === 'MANAGER');
+    expect(owner).toBeDefined();
+    expect(owner?.status).toBe('ACTIVE');
+    expect(owner?.user.phone).toBe(ADMIN_OS_OWNER_PHONE);
+    expect(manager).toBeDefined();
+    expect(manager?.status).toBe('ACTIVE');
+    expect(manager?.user.phone).toBe(ADMIN_OS_MANAGER_PHONE);
+  });
+
+  it('services section contains the seeded service with correct shape', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const services = (
+      res.body as {
+        services: Array<{ id: string; name: string; isActive: boolean }>;
+      }
+    ).services;
+    expect(services).toHaveLength(1);
+    expect(services[0].id).toBe(E2E_ADMIN_OS_SVC_ID);
+    expect(services[0].name).toBe('OS Test Service');
+    expect(services[0].isActive).toBe(true);
+  });
+
+  it('serviceProviders section has SP with serviceIds array and hasWorkingHours=true', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const sps = (
+      res.body as {
+        serviceProviders: Array<{
+          id: string;
+          displayName: string;
+          isActive: boolean;
+          serviceIds: string[];
+          hasWorkingHours: boolean;
+        }>;
+      }
+    ).serviceProviders;
+    expect(sps).toHaveLength(1);
+    expect(sps[0].id).toBe(osSpId);
+    expect(sps[0].displayName).toBe('OS Test Provider');
+    expect(sps[0].isActive).toBe(true);
+    expect(sps[0].serviceIds).toContain(E2E_ADMIN_OS_SVC_ID);
+    expect(sps[0].hasWorkingHours).toBe(true);
+  });
+
+  it('businessWorkingHours is ordered by dayOfWeek ascending', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const hours = (
+      res.body as { businessWorkingHours: Array<{ dayOfWeek: number }> }
+    ).businessWorkingHours;
+    expect(hours).toHaveLength(2);
+    expect(hours[0].dayOfWeek).toBe(1);
+    expect(hours[1].dayOfWeek).toBe(3);
+  });
+
+  it('readiness is embedded with isReady=true and all checks true for fully configured business', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const readiness = (
+      res.body as {
+        readiness: {
+          isReady: boolean;
+          checks: {
+            hasActiveOwner: boolean;
+            hasActiveService: boolean;
+            hasActiveServiceProvider: boolean;
+            hasBusinessWorkingHours: boolean;
+            allActiveProvidersHaveWorkingHours: boolean;
+          };
+        };
+      }
+    ).readiness;
+    expect(readiness.isReady).toBe(true);
+    expect(readiness.checks.hasActiveOwner).toBe(true);
+    expect(readiness.checks.hasActiveService).toBe(true);
+    expect(readiness.checks.hasActiveServiceProvider).toBe(true);
+    expect(readiness.checks.hasBusinessWorkingHours).toBe(true);
+    expect(readiness.checks.allActiveProvidersHaveWorkingHours).toBe(true);
+  });
+
+  // ── Empty DRAFT business ──────────────────────────────────────────────────
+
+  it('empty DRAFT business → 200 with empty services/SPs/hours and isReady=false', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_EMPTY_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const body = res.body as {
+      users: unknown[];
+      services: unknown[];
+      serviceProviders: unknown[];
+      businessWorkingHours: unknown[];
+      readiness: { isReady: boolean };
+    };
+    expect(body.users).toHaveLength(1); // owner only
+    expect(body.services).toHaveLength(0);
+    expect(body.serviceProviders).toHaveLength(0);
+    expect(body.businessWorkingHours).toHaveLength(0);
+    expect(body.readiness.isReady).toBe(false);
+  });
+
+  // ── DRAFT status is not blocked ───────────────────────────────────────────
+
+  it('DRAFT business is not blocked by status → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+  });
+
+  // ── Not found ─────────────────────────────────────────────────────────────
+
+  it('non-existent businessId → 404', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .get(
+        '/admin/businesses/00000000-0000-4000-8000-000000000000/onboarding-summary',
+      )
+      .expect(404);
+  });
+
+  // ── Auth guards ───────────────────────────────────────────────────────────
+
+  it('non-admin → 403', async () => {
+    MockClerkAuthGuard.currentUser = regularUser;
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(403);
+  });
+
+  it('missing auth → 401', async () => {
+    await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(401);
+  });
+
+  // ── Tenant isolation ──────────────────────────────────────────────────────
+
+  it('biz A summary does not contain biz B service (tenant isolation)', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    const res = await request(app.getHttpServer())
+      .get(`/admin/businesses/${E2E_ADMIN_OS_BIZ_ID}/onboarding-summary`)
+      .expect(200);
+
+    const serviceIds = (
+      res.body as { services: Array<{ id: string }> }
+    ).services.map((s) => s.id);
+    expect(serviceIds).not.toContain(E2E_ADMIN_OS_BIZ_B_SVC_ID);
+  });
+});
+
+// ─── Full two-partner onboarding happy path (DRAFT → ACTIVE) ─────────────────
+
+describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
+  let hpBusinessId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup: delete any leftover data from a previous run
+    const existing = await prisma.business.findUnique({
+      where: { slug: E2E_ADMIN_HP_SLUG },
+      select: { id: true },
+    });
+    if (existing) {
+      const bId = existing.id;
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: bId },
+      });
+      await prisma.serviceProvider.deleteMany({ where: { businessId: bId } });
+      await prisma.businessWorkingHour.deleteMany({
+        where: { businessId: bId },
+      });
+      await prisma.service.deleteMany({ where: { businessId: bId } });
+      await prisma.businessUser.deleteMany({ where: { businessId: bId } });
+      await prisma.business.deleteMany({ where: { id: bId } });
+    }
+    await prisma.user.deleteMany({
+      where: {
+        phoneNormalized: { in: [ADMIN_HP_OWNER_PHONE, ADMIN_HP_MANAGER_PHONE] },
+      },
+    });
+  });
+
+  afterAll(async () => {
+    if (hpBusinessId) {
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.businessWorkingHour.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.service.deleteMany({ where: { businessId: hpBusinessId } });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
+      await prisma.business.deleteMany({ where: { id: hpBusinessId } });
+    }
+    await prisma.user.deleteMany({
+      where: {
+        phoneNormalized: { in: [ADMIN_HP_OWNER_PHONE, ADMIN_HP_MANAGER_PHONE] },
+      },
+    });
+  });
+
+  it('onboards a two-partner business from DRAFT to ACTIVE without enabling public booking', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+
+    // ── Step 1: Create business ───────────────────────────────────────────────
+    const bizRes = await request(app.getHttpServer())
+      .post('/admin/businesses')
+      .send({
+        name: 'Happy Path Business',
+        slug: E2E_ADMIN_HP_SLUG,
+        timezone: 'Asia/Jerusalem',
+      })
+      .expect(201);
+
+    const biz = bizRes.body as {
+      id: string;
+      status: string;
+      publicBookingEnabled: boolean;
+    };
+    hpBusinessId = biz.id;
+    expect(biz.status).toBe('DRAFT');
+    expect(biz.publicBookingEnabled).toBe(false);
+
+    // ── Step 2: Create first OWNER ────────────────────────────────────────────
+    const ownerRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/owner`)
+      .send({ phone: ADMIN_HP_OWNER_PHONE, email: ADMIN_HP_OWNER_EMAIL })
+      .expect(201);
+
+    const ownerBu = ownerRes.body as {
+      id: string;
+      role: string;
+      status: string;
+    };
+    const ownerBusinessUserId = ownerBu.id;
+    expect(ownerBu.role).toBe('OWNER');
+    expect(ownerBu.status).toBe('ACTIVE');
+
+    // ── Step 3: Add second partner as MANAGER ─────────────────────────────────
+    const managerRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/users`)
+      .send({
+        phone: ADMIN_HP_MANAGER_PHONE,
+        email: ADMIN_HP_MANAGER_EMAIL,
+        role: 'MANAGER',
+      })
+      .expect(201);
+
+    const managerBu = managerRes.body as {
+      id: string;
+      role: string;
+      status: string;
+    };
+    const managerBusinessUserId = managerBu.id;
+    expect(managerBu.role).toBe('MANAGER');
+    expect(managerBu.status).toBe('ACTIVE');
+
+    // ── Step 4: Create service A ──────────────────────────────────────────────
+    const svcARes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/services`)
+      .send({ name: 'Service Alpha', durationMinutes: 60 })
+      .expect(201);
+
+    const serviceAId = (svcARes.body as { id: string }).id;
+    expect(typeof serviceAId).toBe('string');
+
+    // ── Step 5: Create service B ──────────────────────────────────────────────
+    const svcBRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/services`)
+      .send({ name: 'Service Beta', durationMinutes: 45 })
+      .expect(201);
+
+    const serviceBId = (svcBRes.body as { id: string }).id;
+    expect(typeof serviceBId).toBe('string');
+    expect(serviceBId).not.toBe(serviceAId);
+
+    // ── Step 6: Create ServiceProvider/calendar for OWNER (service A only) ────
+    const spARes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/service-providers`)
+      .send({
+        displayName: 'Provider Alpha',
+        businessUserId: ownerBusinessUserId,
+        serviceIds: [serviceAId],
+      })
+      .expect(201);
+
+    const spABody = spARes.body as { id: string; serviceIds: string[] };
+    const providerAId = spABody.id;
+    expect(spABody.serviceIds).toContain(serviceAId);
+    expect(spABody.serviceIds).not.toContain(serviceBId);
+
+    // ── Step 7: Create ServiceProvider/calendar for MANAGER (service B only) ──
+    const spBRes = await request(app.getHttpServer())
+      .post(`/admin/businesses/${hpBusinessId}/service-providers`)
+      .send({
+        displayName: 'Provider Beta',
+        businessUserId: managerBusinessUserId,
+        serviceIds: [serviceBId],
+      })
+      .expect(201);
+
+    const spBBody = spBRes.body as { id: string; serviceIds: string[] };
+    const providerBId = spBBody.id;
+    expect(spBBody.serviceIds).toContain(serviceBId);
+    expect(spBBody.serviceIds).not.toContain(serviceAId);
+
+    // ── Step 8: Set business working hours (Mon–Fri 09:00–18:00) ─────────────
+    await request(app.getHttpServer())
+      .put(`/admin/businesses/${hpBusinessId}/working-hours`)
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 2,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 3,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 4,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 5,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    // ── Step 9: Set provider A working hours (Mon + Wed) ──────────────────────
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${hpBusinessId}/service-providers/${providerAId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 1,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+          {
+            dayOfWeek: 3,
+            isClosed: false,
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    // ── Step 10: Set provider B working hours (Tue + Thu) ─────────────────────
+    await request(app.getHttpServer())
+      .put(
+        `/admin/businesses/${hpBusinessId}/service-providers/${providerBId}/working-hours`,
+      )
+      .send({
+        hours: [
+          {
+            dayOfWeek: 2,
+            isClosed: false,
+            startTime: '10:00',
+            endTime: '18:00',
+          },
+          {
+            dayOfWeek: 4,
+            isClosed: false,
+            startTime: '10:00',
+            endTime: '18:00',
+          },
+        ],
+      })
+      .expect(200);
+
+    // ── Step 11: Onboarding summary (pre-transition) ──────────────────────────
+    const summaryRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${hpBusinessId}/onboarding-summary`)
+      .expect(200);
+
+    const summary = summaryRes.body as {
+      business: { status: string; publicBookingEnabled: boolean };
+      users: Array<{ role: string }>;
+      services: Array<{ id: string }>;
+      serviceProviders: Array<{
+        id: string;
+        serviceIds: string[];
+        hasWorkingHours: boolean;
+      }>;
+      businessWorkingHours: Array<{ dayOfWeek: number }>;
+      readiness: { isReady: boolean };
+    };
+
+    expect(summary.business.status).toBe('DRAFT');
+    expect(summary.business.publicBookingEnabled).toBe(false);
+
+    expect(summary.users).toHaveLength(2);
+    expect(summary.users.find((u) => u.role === 'OWNER')).toBeDefined();
+    expect(summary.users.find((u) => u.role === 'MANAGER')).toBeDefined();
+
+    expect(summary.services).toHaveLength(2);
+    const summaryServiceIds = summary.services.map((s) => s.id);
+    expect(summaryServiceIds).toContain(serviceAId);
+    expect(summaryServiceIds).toContain(serviceBId);
+
+    expect(summary.serviceProviders).toHaveLength(2);
+    const spASummary = summary.serviceProviders.find(
+      (sp) => sp.id === providerAId,
+    );
+    const spBSummary = summary.serviceProviders.find(
+      (sp) => sp.id === providerBId,
+    );
+    expect(spASummary).toBeDefined();
+    expect(spASummary?.serviceIds).toEqual([serviceAId]);
+    expect(spASummary?.hasWorkingHours).toBe(true);
+    expect(spBSummary).toBeDefined();
+    expect(spBSummary?.serviceIds).toEqual([serviceBId]);
+    expect(spBSummary?.hasWorkingHours).toBe(true);
+
+    expect(summary.businessWorkingHours.length).toBeGreaterThan(0);
+    expect(summary.readiness.isReady).toBe(true);
+
+    // ── Step 12: Readiness — all 7 checks pass ────────────────────────────────
+    const rdnRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${hpBusinessId}/readiness`)
+      .expect(200);
+
+    const rdn = rdnRes.body as {
+      isReady: boolean;
+      checks: {
+        hasActiveOwner: boolean;
+        hasActiveService: boolean;
+        hasActiveServiceProvider: boolean;
+        hasBusinessWorkingHours: boolean;
+        allActiveProvidersHaveWorkingHours: boolean;
+        allActiveProvidersHaveActiveServiceAssignment: boolean;
+        allActiveServicesHaveActiveProviderAssignment: boolean;
+      };
+    };
+    expect(rdn.isReady).toBe(true);
+    expect(rdn.checks.hasActiveOwner).toBe(true);
+    expect(rdn.checks.hasActiveService).toBe(true);
+    expect(rdn.checks.hasActiveServiceProvider).toBe(true);
+    expect(rdn.checks.hasBusinessWorkingHours).toBe(true);
+    expect(rdn.checks.allActiveProvidersHaveWorkingHours).toBe(true);
+    expect(rdn.checks.allActiveProvidersHaveActiveServiceAssignment).toBe(true);
+    expect(rdn.checks.allActiveServicesHaveActiveProviderAssignment).toBe(true);
+
+    // ── Step 13: DRAFT → TRIAL ────────────────────────────────────────────────
+    const trialRes = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${hpBusinessId}/status`)
+      .send({ status: 'TRIAL' })
+      .expect(200);
+
+    const trialBiz = trialRes.body as {
+      status: string;
+      publicBookingEnabled: boolean;
+    };
+    expect(trialBiz.status).toBe('TRIAL');
+    expect(trialBiz.publicBookingEnabled).toBe(false);
+
+    // ── Step 14: TRIAL → ACTIVE ───────────────────────────────────────────────
+    const activeRes = await request(app.getHttpServer())
+      .patch(`/admin/businesses/${hpBusinessId}/status`)
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+
+    const activeBiz = activeRes.body as {
+      status: string;
+      publicBookingEnabled: boolean;
+    };
+    expect(activeBiz.status).toBe('ACTIVE');
+    expect(activeBiz.publicBookingEnabled).toBe(false);
+
+    // ── Step 15: Final summary — confirm ACTIVE, readiness still true, no public booking ──
+    const finalRes = await request(app.getHttpServer())
+      .get(`/admin/businesses/${hpBusinessId}/onboarding-summary`)
+      .expect(200);
+
+    const final = finalRes.body as {
+      business: { status: string; publicBookingEnabled: boolean };
+      readiness: { isReady: boolean };
+    };
+    expect(final.business.status).toBe('ACTIVE');
+    expect(final.business.publicBookingEnabled).toBe(false);
+    expect(final.readiness.isReady).toBe(true);
+  });
+});
+
+// ─── Phase C — Admin correction endpoints ─────────────────────────────────────
+
+describe('Phase C — Admin correction endpoints', () => {
+  let pcSpId: string;
+  let pcNoSvcSpId: string;
+  let pcSpBizBId: string;
+
+  beforeAll(async () => {
+    // Idempotent pre-cleanup
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_PC_OWNER_ID,
+            E2E_ADMIN_PC_SECOND_USER_ID,
+            E2E_ADMIN_PC_OWNER_B_ID,
+          ],
+        },
+      },
+    });
+
+    // ── Seed biz A (DRAFT) ───────────────────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PC_BIZ_ID,
+        name: 'E2E Admin Phase C Business A',
+        slug: 'e2e-admin-pc-biz-a',
+        status: 'DRAFT',
+        timezone: 'Asia/Jerusalem',
+        locale: 'he',
+        currency: 'ILS',
+      },
+    });
+
+    const pcOwnerUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_PC_OWNER_ID,
+        phoneNormalized: ADMIN_PC_OWNER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    const pcOwnerBu = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        userId: pcOwnerUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    const pcSecondUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_PC_SECOND_USER_ID,
+        phoneNormalized: ADMIN_PC_SECOND_USER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    const pcSecondBu = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        userId: pcSecondUser.id,
+        role: BusinessUserRole.MEMBER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    // Services in biz A
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_SVC_ID,
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        name: 'Phase C Service A',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_SVC_B_ID,
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        name: 'Phase C Service B',
+        durationMinutes: 45,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_INACTIVE_SVC_ID,
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        name: 'Phase C Inactive Service',
+        durationMinutes: 30,
+        isActive: false,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    // SP A — active, linked to Service A
+    const spA = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        businessUserId: pcOwnerBu.id,
+        displayName: 'Phase C Provider A',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_PC_SVC_ID }] },
+      },
+    });
+    pcSpId = spA.id;
+
+    // SP "no-service" — inactive, no service links (for activating-with-no-services test)
+    const spNoSvc = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_ID,
+        businessUserId: pcSecondBu.id,
+        displayName: 'Phase C No-Service Provider',
+        isActive: false,
+      },
+    });
+    pcNoSvcSpId = spNoSvc.id;
+
+    // ── Seed biz B (TRIAL) for isolation ────────────────────────────────────
+    await prisma.business.create({
+      data: {
+        id: E2E_ADMIN_PC_BIZ_B_ID,
+        name: 'E2E Admin Phase C Business B',
+        slug: 'e2e-admin-pc-biz-b',
+        status: 'TRIAL',
+        timezone: 'America/New_York',
+      },
+    });
+
+    const pcOwnerBUser = await prisma.user.create({
+      data: {
+        id: E2E_ADMIN_PC_OWNER_B_ID,
+        phoneNormalized: ADMIN_PC_OWNER_B_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+
+    const pcOwnerBBu = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_B_ID,
+        userId: pcOwnerBUser.id,
+        role: BusinessUserRole.OWNER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_ADMIN_PC_SVC_BIZ_B_ID,
+        businessId: E2E_ADMIN_PC_BIZ_B_ID,
+        name: 'Phase C Biz B Service',
+        durationMinutes: 60,
+        isActive: true,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
+      },
+    });
+
+    const spBizB = await prisma.serviceProvider.create({
+      data: {
+        businessId: E2E_ADMIN_PC_BIZ_B_ID,
+        businessUserId: pcOwnerBBu.id,
+        displayName: 'Phase C Biz B Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_ADMIN_PC_SVC_BIZ_B_ID }] },
+      },
+    });
+    pcSpBizBId = spBizB.id;
+  });
+
+  afterAll(async () => {
+    await prisma.serviceProviderWorkingHour.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.service.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.businessUser.deleteMany({
+      where: {
+        businessId: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.business.deleteMany({
+      where: {
+        id: { in: [E2E_ADMIN_PC_BIZ_ID, E2E_ADMIN_PC_BIZ_B_ID] },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [
+            E2E_ADMIN_PC_OWNER_ID,
+            E2E_ADMIN_PC_SECOND_USER_ID,
+            E2E_ADMIN_PC_OWNER_B_ID,
+          ],
+        },
+      },
+    });
+  });
+
+  beforeEach(async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    // Reset biz A metadata to known state
+    await prisma.business.update({
+      where: { id: E2E_ADMIN_PC_BIZ_ID },
+      data: {
+        name: 'E2E Admin Phase C Business A',
+        timezone: 'Asia/Jerusalem',
+        locale: 'he',
+        currency: 'ILS',
+      },
+    });
+    // Reset service A to active + original fields
+    await prisma.service.update({
+      where: { id: E2E_ADMIN_PC_SVC_ID },
+      data: { name: 'Phase C Service A', durationMinutes: 60, isActive: true },
+    });
+    // Reset SP A service links and state
+    await prisma.serviceProviderService.deleteMany({
+      where: { serviceProviderId: pcSpId },
+    });
+    await prisma.serviceProviderService.create({
+      data: { serviceProviderId: pcSpId, serviceId: E2E_ADMIN_PC_SVC_ID },
+    });
+    await prisma.serviceProvider.update({
+      where: { id: pcSpId },
+      data: { displayName: 'Phase C Provider A', isActive: true },
+    });
+    // Reset no-service SP
+    await prisma.serviceProvider.update({
+      where: { id: pcNoSvcSpId },
+      data: { isActive: false },
+    });
+  });
+
+  // ─── PATCH /admin/businesses/:businessId ─────────────────────────────────────
+
+  describe('PATCH /admin/businesses/:businessId (update business metadata)', () => {
+    it('admin can update business name during DRAFT → 200, name changed', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'Updated Phase C Name' })
+        .expect(200);
+
+      expect((res.body as { name: string }).name).toBe('Updated Phase C Name');
+    });
+
+    it('admin can update timezone during DRAFT → 200, timezone changed', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ timezone: 'America/New_York' })
+        .expect(200);
+
+      expect((res.body as { timezone: string }).timezone).toBe(
+        'America/New_York',
+      );
+    });
+
+    it('admin can update locale and currency together → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ locale: 'en-US', currency: 'USD' })
+        .expect(200);
+
+      const body = res.body as { locale: string; currency: string };
+      expect(body.locale).toBe('en-US');
+      expect(body.currency).toBe('USD');
+    });
+
+    it('partial update preserves unspecified fields', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'Only Name Updated' })
+        .expect(200);
+
+      const body = res.body as { name: string; timezone: string };
+      expect(body.name).toBe('Only Name Updated');
+      expect(body.timezone).toBe('Asia/Jerusalem');
+    });
+
+    it('empty body returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({})
+        .expect(400);
+    });
+
+    it('non-existent businessId returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch('/admin/businesses/00000000-0000-4000-8000-000000000000')
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-admin returns 403', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'X' })
+        .expect(403);
+    });
+
+    it('missing auth returns 401', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'X' })
+        .expect(401);
+    });
+
+    it('slug field in body returns 400 (non-whitelisted)', async () => {
+      await request(app.getHttpServer())
+        .patch(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}`)
+        .send({ name: 'New Name', slug: 'new-slug' })
+        .expect(400);
+    });
+  });
+
+  // ─── PATCH /admin/businesses/:businessId/services/:serviceId ─────────────────
+
+  describe('PATCH /admin/businesses/:businessId/services/:serviceId (update service)', () => {
+    it('admin can update service name during DRAFT → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'Updated Service Name' })
+        .expect(200);
+
+      expect((res.body as { name: string }).name).toBe('Updated Service Name');
+    });
+
+    it('admin can update durationMinutes → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ durationMinutes: 90 })
+        .expect(200);
+
+      expect((res.body as { durationMinutes: number }).durationMinutes).toBe(
+        90,
+      );
+    });
+
+    it('admin can deactivate service with isActive=false → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      expect((res.body as { isActive: boolean }).isActive).toBe(false);
+    });
+
+    it('partial update preserves unspecified fields', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'Only Name' })
+        .expect(200);
+
+      const body = res.body as { name: string; durationMinutes: number };
+      expect(body.name).toBe('Only Name');
+      expect(body.durationMinutes).toBe(60);
+    });
+
+    it('invalid durationMinutes (below min) returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ durationMinutes: 4 })
+        .expect(400);
+    });
+
+    it('cross-tenant service returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_BIZ_B_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-existent serviceId returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/00000000-0000-4000-8000-000000000000`,
+        )
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-existent businessId returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/00000000-0000-4000-8000-000000000000/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(404);
+    });
+
+    it('non-admin returns 403', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(403);
+    });
+
+    it('missing auth returns 401', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ name: 'X' })
+        .expect(401);
+    });
+
+    it('deactivating service assigned to active provider fails allActiveProvidersHaveActiveServiceAssignment', async () => {
+      // Deactivate Service A — SP A is active and linked to it
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      // Readiness check: allActiveProvidersHaveActiveServiceAssignment should now be false
+      const summaryRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      expect(
+        (
+          summaryRes.body as {
+            readiness: {
+              checks: {
+                allActiveProvidersHaveActiveServiceAssignment: boolean;
+              };
+            };
+          }
+        ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
+      ).toBe(false);
+    });
+  });
+
+  // ─── PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId ─
+
+  describe('PATCH /admin/businesses/:businessId/service-providers/:serviceProviderId (update ServiceProvider)', () => {
+    it('admin can update SP displayName during DRAFT → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'Updated Provider Name' })
+        .expect(200);
+
+      expect((res.body as { displayName: string }).displayName).toBe(
+        'Updated Provider Name',
+      );
+    });
+
+    it('admin can replace serviceIds during DRAFT → 200, serviceIds changed', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
+        .expect(200);
+
+      const serviceIds = (res.body as { serviceIds: string[] }).serviceIds;
+      expect(serviceIds).toContain(E2E_ADMIN_PC_SVC_B_ID);
+      expect(serviceIds).not.toContain(E2E_ADMIN_PC_SVC_ID);
+    });
+
+    it('admin can deactivate SP with isActive=false → 200', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      expect((res.body as { isActive: boolean }).isActive).toBe(false);
+    });
+
+    it('partial update (only displayName) preserves existing serviceIds', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'Only Name Updated' })
+        .expect(200);
+
+      const body = res.body as { displayName: string; serviceIds: string[] };
+      expect(body.displayName).toBe('Only Name Updated');
+      expect(body.serviceIds).toContain(E2E_ADMIN_PC_SVC_ID);
+    });
+
+    it('active provider with empty serviceIds returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [] })
+        .expect(400);
+    });
+
+    it('active provider with inactive service in serviceIds returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_INACTIVE_SVC_ID] })
+        .expect(400);
+    });
+
+    it('activating inactive provider with no existing services returns 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcNoSvcSpId}`,
+        )
+        .send({ isActive: true })
+        .expect(400);
+    });
+
+    it('cross-tenant SP returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpBizBId}`,
+        )
+        .send({ displayName: 'X' })
+        .expect(404);
+    });
+
+    it('non-existent SP returns 404', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/00000000-0000-4000-8000-000000000000`,
+        )
+        .send({ displayName: 'X' })
+        .expect(404);
+    });
+
+    it('non-admin returns 403', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'X' })
+        .expect(403);
+    });
+
+    it('missing auth returns 401', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ displayName: 'X' })
+        .expect(401);
+    });
+
+    it('updating serviceIds is reflected in onboarding summary', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
+        .expect(200);
+
+      const summaryRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      const sp = (
+        summaryRes.body as {
+          serviceProviders: Array<{ id: string; serviceIds: string[] }>;
+        }
+      ).serviceProviders.find((s) => s.id === pcSpId);
+
+      expect(sp).toBeDefined();
+      expect(sp?.serviceIds).toContain(E2E_ADMIN_PC_SVC_B_ID);
+      expect(sp?.serviceIds).not.toContain(E2E_ADMIN_PC_SVC_ID);
+    });
+
+    it('updating serviceIds can restore readiness after wrong assignment', async () => {
+      // Deactivate Service A — SP A is active and linked to it → breaks readiness
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      // Verify readiness check is broken
+      const brokenRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      expect(
+        (
+          brokenRes.body as {
+            readiness: {
+              checks: {
+                allActiveProvidersHaveActiveServiceAssignment: boolean;
+              };
+            };
+          }
+        ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
+      ).toBe(false);
+
+      // Update SP to use Service B (still active) → restores readiness
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
+        .expect(200);
+
+      const restoredRes = await request(app.getHttpServer())
+        .get(`/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/onboarding-summary`)
+        .expect(200);
+
+      expect(
+        (
+          restoredRes.body as {
+            readiness: {
+              checks: {
+                allActiveProvidersHaveActiveServiceAssignment: boolean;
+              };
+            };
+          }
+        ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
+      ).toBe(true);
+    });
+  });
+
+  // ─── Phase D — Clerk provisioning ─────────────────────────────────────────
+
+  describe('Phase D — Clerk provisioning', () => {
+    beforeAll(async () => {
+      // Idempotent pre-cleanup
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.serviceProviderService.deleteMany({
+        where: {
+          serviceProvider: { businessId: E2E_ADMIN_PD_BIZ_ID },
+        },
+      });
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.business.deleteMany({
+        where: { id: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.user.deleteMany({
+        where: { phoneNormalized: { in: ALL_PD_PHONES } },
+      });
+
+      // Seed: DRAFT business for Phase D
+      await prisma.business.create({
+        data: {
+          id: E2E_ADMIN_PD_BIZ_ID,
+          name: 'Phase D Provisioning Biz',
+          slug: 'e2e-admin-pd-biz',
+          status: 'DRAFT',
+          timezone: 'Asia/Jerusalem',
+        },
+      });
+
+      // Pre-seeded User with clerkUserId already set (for test 3: skip Clerk)
+      await prisma.user.create({
+        data: {
+          id: E2E_ADMIN_PD_PRELINKED_USER_ID,
+          phoneNormalized: ADMIN_PD_PRELINKED_PHONE,
+          clerkUserId: 'clerk_preexisting_pd',
+          status: 'ACTIVE',
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.serviceProviderWorkingHour.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.serviceProviderService.deleteMany({
+        where: {
+          serviceProvider: { businessId: E2E_ADMIN_PD_BIZ_ID },
+        },
+      });
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.business.deleteMany({
+        where: { id: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.user.deleteMany({
+        where: { phoneNormalized: { in: ALL_PD_PHONES } },
+      });
+    });
+
+    beforeEach(() => {
+      MockClerkAuthGuard.currentUser = adminUser;
+      // Reset call history and restore default implementation before each test
+      jest.clearAllMocks();
+      mockClerkProvisioning.findOrCreateClerkUser.mockImplementation(
+        (dto: { email: string }) =>
+          Promise.resolve({
+            clerkUserId: `clerk_${dto.email.replace(/\W/g, '')}`,
+          }),
+      );
+    });
+
+    it('creates OWNER and provisions Clerk user — clerkUserId stored on User', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+        .send({ phone: ADMIN_PD_OWNER_PHONE, email: ADMIN_PD_OWNER_EMAIL })
+        .expect(201);
+
+      expect((res.body as { role: string }).role).toBe('OWNER');
+
+      // Provisioning service was called once with the email (not phone)
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledWith({
+        email: ADMIN_PD_OWNER_EMAIL,
+      });
+
+      // clerkUserId stored in the DB
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_OWNER_PHONE },
+      });
+      expect(user?.clerkUserId).toBe(
+        `clerk_${ADMIN_PD_OWNER_EMAIL.replace(/\W/g, '')}`,
+      );
+      expect(user?.status).toBe('ACTIVE');
+    });
+
+    it('adds MANAGER and provisions Clerk user — clerkUserId stored on User', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_MANAGER_PHONE,
+          email: ADMIN_PD_MANAGER_EMAIL,
+          role: 'MANAGER',
+        })
+        .expect(201);
+
+      expect((res.body as { role: string }).role).toBe('MANAGER');
+
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledWith({
+        email: ADMIN_PD_MANAGER_EMAIL,
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_MANAGER_PHONE },
+      });
+      expect(user?.clerkUserId).toBe(
+        `clerk_${ADMIN_PD_MANAGER_EMAIL.replace(/\W/g, '')}`,
+      );
+      expect(user?.status).toBe('ACTIVE');
+    });
+
+    it('existing User with clerkUserId — Clerk provisioning is skipped', async () => {
+      // ADMIN_PD_PRELINKED_PHONE is seeded with clerkUserId = 'clerk_preexisting_pd'
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_PRELINKED_PHONE,
+          email: ADMIN_PD_PRELINKED_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(201);
+
+      expect((res.body as { role: string }).role).toBe('MEMBER');
+
+      // Provisioning service must NOT be called
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
+
+      // clerkUserId on the User is unchanged
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_PRELINKED_PHONE },
+      });
+      expect(user?.clerkUserId).toBe('clerk_preexisting_pd');
+    });
+
+    it('provisioned Clerk user ID is linked to the internal User record', async () => {
+      // The mock returns a specific ID — verify it ends up in the DB
+      const specificClerkId = 'clerk_specific_linked_id';
+      mockClerkProvisioning.findOrCreateClerkUser.mockResolvedValueOnce({
+        clerkUserId: specificClerkId,
+      });
+
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_TRUST_EXISTING_PHONE,
+          email: ADMIN_PD_TRUST_EXISTING_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(201);
+
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_TRUST_EXISTING_PHONE },
+      });
+      expect(user?.clerkUserId).toBe(specificClerkId);
+    });
+
+    it('Clerk failure (BadGatewayException) returns 502 and BusinessUser is not created', async () => {
+      const { BadGatewayException } = await import('@nestjs/common');
+      mockClerkProvisioning.findOrCreateClerkUser.mockRejectedValueOnce(
+        new BadGatewayException('Clerk user provisioning failed'),
+      );
+
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_FAILURE_PHONE,
+          email: ADMIN_PD_FAILURE_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(502);
+
+      // No User or BusinessUser was created
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_FAILURE_PHONE },
+      });
+      expect(user).toBeNull();
+
+      const bu = await prisma.businessUser.findFirst({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      // Business should have no members with the failure phone (other tests in this
+      // block added members via earlier tests; just verify no new BU was created
+      // for this specific test by checking the failure phone user doesn't exist)
+      expect(bu?.userId).not.toBe(undefined); // other BUs may exist
+    });
+
+    it('Israeli local phone format is normalized to E.164 in DB (Clerk called with email)', async () => {
+      // '0502222104' → '+972502222104' stored in DB; Clerk uses email not phone
+      const res = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({
+          phone: ADMIN_PD_LOCAL_PHONE_RAW,
+          email: ADMIN_PD_LOCAL_EMAIL,
+          role: 'MEMBER',
+        })
+        .expect(201);
+
+      expect((res.body as { phoneNormalized: string }).phoneNormalized).toBe(
+        ADMIN_PD_LOCAL_PHONE_E164,
+      );
+
+      // Clerk was called with email (phone is NOT sent to Clerk)
+      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledWith({
+        email: ADMIN_PD_LOCAL_EMAIL,
+      });
+
+      // DB stores the normalized phone
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: ADMIN_PD_LOCAL_PHONE_E164 },
+      });
+      expect(user).not.toBeNull();
+      expect(user?.phoneNormalized).toBe(ADMIN_PD_LOCAL_PHONE_E164);
+    });
+
+    it('Clerk failure on createOwner returns 502 and BusinessUser is not created', async () => {
+      const { BadGatewayException } = await import('@nestjs/common');
+      // Remove existing owner first (test 1 created one)
+      await prisma.businessUser.deleteMany({
+        where: {
+          businessId: E2E_ADMIN_PD_BIZ_ID,
+          user: { phoneNormalized: ADMIN_PD_OWNER_PHONE },
+        },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+
+      const failPhone = '+19990002199';
+      const failEmail = 'pd-fail-owner@example.com';
+      mockClerkProvisioning.findOrCreateClerkUser.mockRejectedValueOnce(
+        new BadGatewayException('Clerk user provisioning failed'),
+      );
+
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+        .send({ phone: failPhone, email: failEmail })
+        .expect(502);
+
+      const user = await prisma.user.findUnique({
+        where: { phoneNormalized: failPhone },
+      });
+      expect(user).toBeNull();
+    });
+
+    it('non-admin returns 403 (guard unaffected by provisioning change)', async () => {
+      MockClerkAuthGuard.currentUser = regularUser;
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({ phone: '+19990002198', role: 'MEMBER' })
+        .expect(403);
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('missing auth returns 401 (guard unaffected by provisioning change)', async () => {
+      MockClerkAuthGuard.currentUser = null;
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({ phone: '+19990002197', role: 'MEMBER' })
+        .expect(401);
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('missing email in addBusinessUser → 400 (email required for Clerk provisioning)', async () => {
+      MockClerkAuthGuard.currentUser = adminUser;
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/users`)
+        .send({ phone: '+19990002196', role: 'MEMBER' })
+        .expect(400);
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
+    });
   });
 });

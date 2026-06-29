@@ -34,6 +34,9 @@ const nextConfig: NextConfig = {
       { source: '/mobile/customers',  destination: '/app/customers',               permanent: true },
       { source: '/mobile/services',   destination: '/app/services',                permanent: true },
       { source: '/mobile/team',       destination: '/app/settings/team',           permanent: true },
+
+      // --- admin root → admin businesses ---
+      { source: '/admin',             destination: '/admin/businesses',            permanent: false },
     ];
   },
 };
