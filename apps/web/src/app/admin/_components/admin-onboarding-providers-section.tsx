@@ -35,7 +35,11 @@ export function ProvidersSection({
   // Users who already have a linked ServiceProvider (by businessUserId = BusinessUser.id)
   const usedUserIds = new Set(serviceProviders.map((sp) => sp.businessUserId));
   const eligibleUsers = users.filter((u) => u.status === 'ACTIVE' && !usedUserIds.has(u.id));
-  const activeServices = services.filter((s) => s.isActive);
+  // Inactive services can be assigned to a provider too (assignment is
+  // configuration, independent of activation) — requiring an *active*
+  // service here would deadlock onboarding, since a new service is always
+  // created inactive and can only activate once it has an active provider.
+  const availableServices = services;
 
   const [displayName, setDisplayName] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -102,8 +106,8 @@ export function ProvidersSection({
       hasError ? 'border-red-400' : 'border-border'
     }`;
 
-  // Prerequisites check: need active services AND eligible users
-  const noServices = activeServices.length === 0;
+  // Prerequisites check: need at least one service (active or inactive) AND eligible users
+  const noServices = availableServices.length === 0;
   const noEligibleUsers = eligibleUsers.length === 0;
   const canCreate = !noServices && !noEligibleUsers;
 
@@ -221,7 +225,7 @@ export function ProvidersSection({
                   formErrors.services ? 'border-red-400' : 'border-border'
                 }`}
               >
-                {activeServices.map((s) => (
+                {availableServices.map((s) => (
                   <label
                     key={s.id}
                     className="flex cursor-pointer items-center gap-2.5"
@@ -236,6 +240,9 @@ export function ProvidersSection({
                     <span className="text-sm text-foreground">
                       {s.name}
                       <span className="text-muted-foreground"> · {s.durationMinutes} דקות</span>
+                      {!s.isActive && (
+                        <span className="text-muted-foreground"> · לא פעיל</span>
+                      )}
                     </span>
                   </label>
                 ))}

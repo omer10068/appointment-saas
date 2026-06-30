@@ -220,7 +220,10 @@ export function MobileServicesShell() {
 
   function invalidateServices() {
     if (!businessId) return;
+    // Activating/deactivating a service can affect a provider's eligibility
+    // checks (chip list, activation guard), so invalidate both caches.
     void queryClient.invalidateQueries({ queryKey: appKeys.services(businessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.serviceProviders(businessId) });
   }
 
   // ── Services fetch ────────────────────────────────────────────────────────────

@@ -252,13 +252,16 @@ beforeEach(() => {
 // ─── POST /dashboard/businesses/:businessId/services ──────────────────────────
 
 describe('POST /dashboard/businesses/:businessId/services', () => {
+  // A new service can never have a provider assignment yet, so it can never
+  // satisfy the active-service invariant at creation time — isActive must be
+  // false (or omitted) here.
   const VALID_BODY = {
     name: 'New Service',
     durationMinutes: 30,
     priceCents: 5000,
     bufferBeforeMin: 5,
     bufferAfterMin: 10,
-    isActive: true,
+    isActive: false,
   };
 
   it('owner → 201 with correct ServiceDto shape', async () => {
@@ -274,7 +277,7 @@ describe('POST /dashboard/businesses/:businessId/services', () => {
       description: null,
       durationMinutes: 30,
       priceCents: 5000,
-      isActive: true,
+      isActive: false,
       bufferBeforeMin: 5,
       bufferAfterMin: 10,
     });
@@ -290,11 +293,20 @@ describe('POST /dashboard/businesses/:businessId/services', () => {
     const body = res.body as ServiceDto;
     expect(body.name).toBe('Manager Service');
     expect(body.durationMinutes).toBe(45);
-    // isActive defaults to true when not provided
-    expect(body.isActive).toBe(true);
+    // isActive defaults to false when not provided — a new service has no
+    // provider assignment yet, so it can never start ACTIVE.
+    expect(body.isActive).toBe(false);
     // buffers default to 0 when not provided
     expect(body.bufferBeforeMin).toBe(0);
     expect(body.bufferAfterMin).toBe(0);
+  });
+
+  it('isActive: true at creation → 400 (no provider can be assigned yet)', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .post(`/dashboard/businesses/${E2E_SVC_MUT_BIZ_ID}/services`)
+      .send({ name: 'Eager Service', durationMinutes: 30, isActive: true })
+      .expect(400);
   });
 
   it('member → 403', async () => {
@@ -526,18 +538,19 @@ describe('PATCH /dashboard/businesses/:businessId/services/:serviceId/status', (
     expect(body.isActive).toBe(false);
   });
 
-  it('manager → 200 sets isActive true', async () => {
-    // Restore isActive after the owner test set it to false
+  it('manager → 400 reactivating a service with no active provider assigned', async () => {
+    // E2E_SVC_MUT_EXISTING_SVC_ID has no ServiceProvider linked in this
+    // suite's fixtures, so it can never satisfy the active-service
+    // invariant here. The positive "activation succeeds with an active
+    // provider" case is covered in dashboard-service-providers-mutations.e2e-spec.ts,
+    // which owns the service+provider assignment fixtures.
     MockClerkAuthGuard.currentUser = managerUser;
-    const res = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .patch(
         `/dashboard/businesses/${E2E_SVC_MUT_BIZ_ID}/services/${E2E_SVC_MUT_EXISTING_SVC_ID}/status`,
       )
       .send({ isActive: true })
-      .expect(200);
-
-    const body = res.body as ServiceDto;
-    expect(body.isActive).toBe(true);
+      .expect(400);
   });
 
   it('member → 403', async () => {

@@ -146,6 +146,11 @@ const E2E_ADMIN_PC_SVC_BIZ_B_ID = 'e2e20000-0000-4000-8000-000000000064';
 const ADMIN_PC_OWNER_PHONE = '+19990002092';
 const ADMIN_PC_SECOND_USER_PHONE = '+19990002093';
 const ADMIN_PC_OWNER_B_PHONE = '+19990002094';
+// Phase C — last-active-provider invariant (isolated fixture)
+const E2E_ADMIN_LAP_BIZ_ID = 'e2e20000-0000-4000-8000-000000000070';
+const E2E_ADMIN_LAP_OWNER_ID = 'e2e20000-0000-4000-8000-000000000071';
+const E2E_ADMIN_LAP_SVC_ID = 'e2e20000-0000-4000-8000-000000000072';
+const ADMIN_LAP_OWNER_PHONE = '+19990002200';
 // Phase D — Clerk provisioning
 const E2E_ADMIN_PD_BIZ_ID = 'e2e20000-0000-4000-8000-000000000065';
 const E2E_ADMIN_PD_PRELINKED_USER_ID = 'e2e20000-0000-4000-8000-000000000066';
@@ -1036,9 +1041,9 @@ describe('POST /admin/businesses/:businessId/service-providers', () => {
       .expect(409);
   });
 
-  it('linking inactive service to active ServiceProvider → 400', async () => {
+  it('linking inactive service to active ServiceProvider → 201 (assignment is configuration)', async () => {
     MockClerkAuthGuard.currentUser = adminUser;
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_SP_BIZ_ID}/service-providers`)
       .send({
         displayName: 'Provider',
@@ -1046,7 +1051,12 @@ describe('POST /admin/businesses/:businessId/service-providers', () => {
         serviceIds: [E2E_ADMIN_SP_INACTIVE_SVC_ID],
         isActive: true,
       })
-      .expect(400);
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      isActive: true,
+      serviceIds: [E2E_ADMIN_SP_INACTIVE_SVC_ID],
+    });
   });
 });
 
@@ -1916,7 +1926,7 @@ describe('POST /admin/businesses/:businessId/services', () => {
       id: expect.any(String) as string,
       name: 'Haircut',
       durationMinutes: 30,
-      isActive: true,
+      isActive: false,
       bufferBeforeMin: 0,
       bufferAfterMin: 0,
       description: null,
@@ -2032,10 +2042,21 @@ describe('POST /admin/businesses/:businessId/services', () => {
 
   it('admin-created active service contributes to readiness hasActiveService=true', async () => {
     MockClerkAuthGuard.currentUser = adminUser;
-    await request(app.getHttpServer())
+    const createRes = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/services`)
-      .send({ name: 'Readiness Service', durationMinutes: 60, isActive: true })
+      .send({ name: 'Readiness Service', durationMinutes: 60 })
       .expect(201);
+
+    // New services always start isActive: false (a brand-new service has no
+    // provider assignment yet, so it cannot satisfy the active-service
+    // invariant at creation time). Activate it directly via Prisma here
+    // because this test's purpose is proving hasActiveService readiness
+    // wiring, not exercising the activation invariant (which has its own
+    // dedicated coverage in the Phase C correction-endpoint tests).
+    await prisma.service.update({
+      where: { id: (createRes.body as { id: string }).id },
+      data: { isActive: true },
+    });
 
     const rdnRes = await request(app.getHttpServer())
       .get(`/admin/businesses/${E2E_ADMIN_CSVC_BIZ_ID}/readiness`)
@@ -4188,6 +4209,18 @@ describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
     expect(spBBody.serviceIds).toContain(serviceBId);
     expect(spBBody.serviceIds).not.toContain(serviceAId);
 
+    // ── Step 7.5: Activate both services now that each has an active
+    // provider assignment (new services always start isActive: false; they
+    // can only be activated once a provider is linked) ───────────────────────
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${hpBusinessId}/services/${serviceAId}`)
+      .send({ isActive: true })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/admin/businesses/${hpBusinessId}/services/${serviceBId}`)
+      .send({ isActive: true })
+      .expect(200);
+
     // ── Step 8: Set business working hours (Mon–Fri 09:00–18:00) ─────────────
     await request(app.getHttpServer())
       .put(`/admin/businesses/${hpBusinessId}/working-hours`)
@@ -4662,7 +4695,12 @@ describe('Phase C — Admin correction endpoints', () => {
       where: { id: pcSpId },
       data: { displayName: 'Phase C Provider A', isActive: true },
     });
-    // Reset no-service SP
+    // Reset no-service SP — clear any service links picked up by tests that
+    // redirected here to avoid orphaning Service A's last active provider
+    // (e.g. the serviceIds-replace tests below), then reset to inactive.
+    await prisma.serviceProviderService.deleteMany({
+      where: { serviceProviderId: pcNoSvcSpId },
+    });
     await prisma.serviceProvider.update({
       where: { id: pcNoSvcSpId },
       data: { isActive: false },
@@ -4904,9 +4942,12 @@ describe('Phase C — Admin correction endpoints', () => {
     });
 
     it('admin can replace serviceIds during DRAFT → 200, serviceIds changed', async () => {
+      // pcSpId starts as Service A's only active provider. Use the
+      // "no-service" provider (pcNoSvcSpId) to prove plain replace semantics
+      // without tripping the last-active-provider invariant on Service A.
       const res = await request(app.getHttpServer())
         .patch(
-          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcNoSvcSpId}`,
         )
         .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
         .expect(200);
@@ -4917,6 +4958,16 @@ describe('Phase C — Admin correction endpoints', () => {
     });
 
     it('admin can deactivate SP with isActive=false → 200', async () => {
+      // pcSpId is Service A's only active provider, so deactivate Service A
+      // first — otherwise this would trip the (separately tested) last-
+      // active-provider invariant instead of exercising plain deactivation.
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/services/${E2E_ADMIN_PC_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
       const res = await request(app.getHttpServer())
         .patch(
           `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
@@ -4949,13 +5000,23 @@ describe('Phase C — Admin correction endpoints', () => {
         .expect(400);
     });
 
-    it('active provider with inactive service in serviceIds returns 400', async () => {
-      await request(app.getHttpServer())
+    it('active provider with inactive service in serviceIds returns 200 (assignment is configuration)', async () => {
+      // pcSpId is Service A's only active provider, so the inactive service
+      // must be ADDED alongside Service A here rather than replacing it —
+      // replacing it would drop Service A's last active provider and trip
+      // the (unrelated) last-active-provider invariant tested elsewhere.
+      const res = await request(app.getHttpServer())
         .patch(
           `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
         )
-        .send({ serviceIds: [E2E_ADMIN_PC_INACTIVE_SVC_ID] })
-        .expect(400);
+        .send({
+          serviceIds: [E2E_ADMIN_PC_SVC_ID, E2E_ADMIN_PC_INACTIVE_SVC_ID],
+        })
+        .expect(200);
+
+      expect((res.body as { serviceIds: string[] }).serviceIds).toContain(
+        E2E_ADMIN_PC_INACTIVE_SVC_ID,
+      );
     });
 
     it('activating inactive provider with no existing services returns 400', async () => {
@@ -5006,9 +5067,12 @@ describe('Phase C — Admin correction endpoints', () => {
     });
 
     it('updating serviceIds is reflected in onboarding summary', async () => {
+      // Use pcNoSvcSpId (no existing active links) rather than pcSpId here —
+      // pcSpId is Service A's only active provider, so replacing its
+      // serviceIds would trip the last-active-provider invariant.
       await request(app.getHttpServer())
         .patch(
-          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcSpId}`,
+          `/admin/businesses/${E2E_ADMIN_PC_BIZ_ID}/service-providers/${pcNoSvcSpId}`,
         )
         .send({ serviceIds: [E2E_ADMIN_PC_SVC_B_ID] })
         .expect(200);
@@ -5021,7 +5085,7 @@ describe('Phase C — Admin correction endpoints', () => {
         summaryRes.body as {
           serviceProviders: Array<{ id: string; serviceIds: string[] }>;
         }
-      ).serviceProviders.find((s) => s.id === pcSpId);
+      ).serviceProviders.find((s) => s.id === pcNoSvcSpId);
 
       expect(sp).toBeDefined();
       expect(sp?.serviceIds).toContain(E2E_ADMIN_PC_SVC_B_ID);
@@ -5077,6 +5141,196 @@ describe('Phase C — Admin correction endpoints', () => {
           }
         ).readiness.checks.allActiveProvidersHaveActiveServiceAssignment,
       ).toBe(true);
+    });
+  });
+
+  // ─── Last-active-provider invariant (isolated fixture) ───────────────────────
+
+  describe('Last-active-provider invariant on Service <-> ServiceProvider', () => {
+    let lapSpId: string;
+
+    beforeAll(async () => {
+      // Idempotent pre-cleanup
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: E2E_ADMIN_LAP_BIZ_ID },
+      });
+      await prisma.service.deleteMany({
+        where: { id: E2E_ADMIN_LAP_SVC_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_LAP_BIZ_ID },
+      });
+      await prisma.business.deleteMany({
+        where: { id: E2E_ADMIN_LAP_BIZ_ID },
+      });
+      await prisma.user.deleteMany({
+        where: { id: E2E_ADMIN_LAP_OWNER_ID },
+      });
+
+      await prisma.business.create({
+        data: {
+          id: E2E_ADMIN_LAP_BIZ_ID,
+          name: 'E2E Admin Last-Active-Provider Business',
+          slug: 'e2e-admin-lap-biz',
+          status: 'DRAFT',
+          timezone: 'Asia/Jerusalem',
+        },
+      });
+
+      const lapOwner = await prisma.user.create({
+        data: {
+          id: E2E_ADMIN_LAP_OWNER_ID,
+          phoneNormalized: ADMIN_LAP_OWNER_PHONE,
+          status: 'ACTIVE',
+          platformRole: 'USER',
+        },
+      });
+
+      const lapOwnerBu = await prisma.businessUser.create({
+        data: {
+          businessId: E2E_ADMIN_LAP_BIZ_ID,
+          userId: lapOwner.id,
+          role: BusinessUserRole.OWNER,
+          status: BusinessUserStatus.ACTIVE,
+        },
+      });
+
+      // Active service with no provider yet — created inactive via the
+      // create-service invariant, then activated directly via Prisma once
+      // the fixture's sole active provider exists below.
+      await prisma.service.create({
+        data: {
+          id: E2E_ADMIN_LAP_SVC_ID,
+          businessId: E2E_ADMIN_LAP_BIZ_ID,
+          name: 'LAP Test Service',
+          durationMinutes: 60,
+          isActive: false,
+          bufferBeforeMin: 0,
+          bufferAfterMin: 0,
+        },
+      });
+
+      const lapSp = await prisma.serviceProvider.create({
+        data: {
+          businessId: E2E_ADMIN_LAP_BIZ_ID,
+          businessUserId: lapOwnerBu.id,
+          displayName: 'LAP Test Provider',
+          isActive: true,
+          services: { create: [{ serviceId: E2E_ADMIN_LAP_SVC_ID }] },
+        },
+      });
+      lapSpId = lapSp.id;
+
+      // Now that the service has an active provider, activate it.
+      await prisma.service.update({
+        where: { id: E2E_ADMIN_LAP_SVC_ID },
+        data: { isActive: true },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.serviceProvider.deleteMany({
+        where: { businessId: E2E_ADMIN_LAP_BIZ_ID },
+      });
+      await prisma.service.deleteMany({
+        where: { id: E2E_ADMIN_LAP_SVC_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_LAP_BIZ_ID },
+      });
+      await prisma.business.deleteMany({
+        where: { id: E2E_ADMIN_LAP_BIZ_ID },
+      });
+      await prisma.user.deleteMany({
+        where: { id: E2E_ADMIN_LAP_OWNER_ID },
+      });
+    });
+
+    beforeEach(async () => {
+      MockClerkAuthGuard.currentUser = adminUser;
+      // Reset to known state: service active, SP active and linked to it.
+      await prisma.serviceProviderService.deleteMany({
+        where: { serviceProviderId: lapSpId },
+      });
+      await prisma.serviceProviderService.create({
+        data: { serviceProviderId: lapSpId, serviceId: E2E_ADMIN_LAP_SVC_ID },
+      });
+      await prisma.serviceProvider.update({
+        where: { id: lapSpId },
+        data: { isActive: true },
+      });
+      await prisma.service.update({
+        where: { id: E2E_ADMIN_LAP_SVC_ID },
+        data: { isActive: true },
+      });
+    });
+
+    it('removing the last active-provider assignment from an active service → 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_LAP_BIZ_ID}/service-providers/${lapSpId}`,
+        )
+        .send({ serviceIds: [] })
+        .expect(400);
+    });
+
+    it('deactivating the sole active provider of an active service → 400', async () => {
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_LAP_BIZ_ID}/service-providers/${lapSpId}`,
+        )
+        .send({ isActive: false })
+        .expect(400);
+    });
+
+    it('activating a service with zero active providers → 400', async () => {
+      // Detach the service from its only active provider first (by
+      // dropping the link from the provider side), leaving the service
+      // with zero active providers while it is still active.
+      await prisma.serviceProviderService.deleteMany({
+        where: { serviceProviderId: lapSpId },
+      });
+
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_LAP_BIZ_ID}/services/${E2E_ADMIN_LAP_SVC_ID}`,
+        )
+        .send({ isActive: false })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_LAP_BIZ_ID}/services/${E2E_ADMIN_LAP_SVC_ID}`,
+        )
+        .send({ isActive: true })
+        .expect(400);
+    });
+
+    it('activating that service after assigning it to an active provider → 200', async () => {
+      await prisma.serviceProviderService.deleteMany({
+        where: { serviceProviderId: lapSpId },
+      });
+      await prisma.service.update({
+        where: { id: E2E_ADMIN_LAP_SVC_ID },
+        data: { isActive: false },
+      });
+
+      // Re-link the service to the active provider via the HTTP API.
+      await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_LAP_BIZ_ID}/service-providers/${lapSpId}`,
+        )
+        .send({ serviceIds: [E2E_ADMIN_LAP_SVC_ID] })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .patch(
+          `/admin/businesses/${E2E_ADMIN_LAP_BIZ_ID}/services/${E2E_ADMIN_LAP_SVC_ID}`,
+        )
+        .send({ isActive: true })
+        .expect(200);
+
+      expect((res.body as { isActive: boolean }).isActive).toBe(true);
     });
   });
 

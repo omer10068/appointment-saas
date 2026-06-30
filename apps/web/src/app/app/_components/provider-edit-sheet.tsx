@@ -90,10 +90,12 @@ export function ProviderEditSheet({
     });
   }
 
-  const activeServices   = services.filter((s) => s.isActive);
-  const inactiveAssigned = services.filter(
-    (s) => !s.isActive && provider?.serviceIds.includes(s.id),
-  );
+  const activeServices = services.filter((s) => s.isActive);
+  // Inactive services can still be assigned to an active provider — this is
+  // configuration, independent of the service's own activation state. Showing
+  // all inactive services (not just already-assigned ones) lets a manager
+  // assign a freshly created (inactive) service to an existing provider.
+  const inactiveServices = services.filter((s) => !s.isActive);
 
   const isValid = displayName.trim().length > 0 && selectedIds.size > 0;
 
@@ -125,13 +127,17 @@ export function ProviderEditSheet({
       onSaved();
       triggerClose();
     } catch (err) {
-      setError(
-        err instanceof ApiError &&
-          err.status === 400 &&
-          err.message.includes('BusinessUser')
-          ? 'לא ניתן להפעיל — המשתמש המקושר אינו פעיל'
-          : 'שגיאה בשמירה, נסה שוב',
-      );
+      let message = 'שגיאה בשמירה, נסה שוב';
+      if (err instanceof ApiError && err.status === 400) {
+        if (err.message.includes('BusinessUser')) {
+          message = 'לא ניתן להפעיל — המשתמש המקושר אינו פעיל';
+        } else if (err.message.includes('last active service provider')) {
+          message =
+            'לא ניתן להסיר את השיוך כי זהו נותן השירות הפעיל האחרון של שירות פעיל. ' +
+            'יש לשייך נותן שירות פעיל נוסף או להשבית את השירות קודם.';
+        }
+      }
+      setError(message);
       setSubmitting(false);
     }
   }
@@ -216,10 +222,10 @@ export function ProviderEditSheet({
                   )}
                 </FormField>
 
-                {inactiveAssigned.length > 0 && (
-                  <FormField label="שירותים לא פעילים (מוקצים כרגע)">
+                {inactiveServices.length > 0 && (
+                  <FormField label="שירותים לא פעילים" hint="ניתן לשייך שירות לא פעיל כהכנה לפני הפעלתו">
                     <div className="flex flex-wrap gap-2">
-                      {inactiveAssigned.map((s) => {
+                      {inactiveServices.map((s) => {
                         const selected = selectedIds.has(s.id);
                         return (
                           <button

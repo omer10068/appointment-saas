@@ -25,6 +25,15 @@ const E2E_SP_MUT_SP_USER_ID = 'e2ed0000-0000-4000-8000-000000000006';
 // SP seeded with only an inactive service (for activation-invariant tests)
 const E2E_SP_MUT_INACT_SVC_SP_USER_ID = 'e2ed0000-0000-4000-8000-000000000007';
 const E2E_SP_MUT_INACT_SVC_SP_ID = 'e2ed0000-0000-4000-8000-000000000020';
+// Backup active provider also linked to E2E_SP_MUT_ACTIVE_SVC_ID, so the
+// status-endpoint RBAC tests can freely toggle existingSpId without tripping
+// the "last active provider of an active service" guard.
+const E2E_SP_MUT_BACKUP_SP_USER_ID = 'e2ed0000-0000-4000-8000-000000000008';
+// Dedicated single-active-provider/single-active-service pair used only by
+// the orphan-protection tests, kept isolated from the rest of the suite.
+const E2E_SP_MUT_ORPHAN_SP_USER_ID = 'e2ed0000-0000-4000-8000-000000000009';
+const E2E_SP_MUT_ORPHAN_SP_ID = 'e2ed0000-0000-4000-8000-000000000021';
+const E2E_SP_MUT_ORPHAN_SVC_ID = 'e2ed0000-0000-4000-8000-000000000012';
 // Services
 const E2E_SP_MUT_ACTIVE_SVC_ID = 'e2ed0000-0000-4000-8000-000000000010';
 const E2E_SP_MUT_INACTIVE_SVC_ID = 'e2ed0000-0000-4000-8000-000000000011';
@@ -89,6 +98,7 @@ beforeAll(async () => {
         in: [
           E2E_SP_MUT_ACTIVE_SVC_ID,
           E2E_SP_MUT_INACTIVE_SVC_ID,
+          E2E_SP_MUT_ORPHAN_SVC_ID,
           E2E_SP_MUT_OTHER_SVC_ID,
         ],
       },
@@ -112,6 +122,8 @@ beforeAll(async () => {
           E2E_SP_MUT_OUT_USER_ID,
           E2E_SP_MUT_SP_USER_ID,
           E2E_SP_MUT_INACT_SVC_SP_USER_ID,
+          E2E_SP_MUT_BACKUP_SP_USER_ID,
+          E2E_SP_MUT_ORPHAN_SP_USER_ID,
           E2E_SP_MUT_OTHER_USER_ID,
         ],
       },
@@ -274,6 +286,81 @@ beforeAll(async () => {
     },
   });
 
+  // Backup active provider, also linked to E2E_SP_MUT_ACTIVE_SVC_ID, so the
+  // RBAC tests on the status endpoint can toggle existingSpId freely without
+  // ever leaving E2E_SP_MUT_ACTIVE_SVC_ID without an active provider.
+  const backupSpUser = await prisma.user.create({
+    data: {
+      id: E2E_SP_MUT_BACKUP_SP_USER_ID,
+      phoneNormalized: '+19990009007',
+      status: 'ACTIVE',
+      platformRole: 'USER',
+    },
+  });
+  const backupSpBU = await prisma.businessUser.create({
+    data: {
+      businessId: E2E_SP_MUT_BIZ_ID,
+      userId: backupSpUser.id,
+      role: 'MEMBER',
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.serviceProvider.create({
+    data: {
+      businessId: E2E_SP_MUT_BIZ_ID,
+      businessUserId: backupSpBU.id,
+      displayName: 'Backup Provider',
+      isActive: true,
+      services: { create: [{ serviceId: E2E_SP_MUT_ACTIVE_SVC_ID }] },
+    },
+  });
+
+  // Dedicated active service + its sole active provider, isolated from the
+  // rest of the suite — used only by the orphan-protection tests, which
+  // deliberately trip the "last active provider" guard.
+  await prisma.service.create({
+    data: {
+      id: E2E_SP_MUT_ORPHAN_SVC_ID,
+      businessId: E2E_SP_MUT_BIZ_ID,
+      name: 'Orphan-Guard Service',
+      durationMinutes: 30,
+      isActive: true,
+      bufferBeforeMin: 0,
+      bufferAfterMin: 0,
+    },
+  });
+  const orphanSpUser = await prisma.user.create({
+    data: {
+      id: E2E_SP_MUT_ORPHAN_SP_USER_ID,
+      phoneNormalized: '+19990009008',
+      status: 'ACTIVE',
+      platformRole: 'USER',
+    },
+  });
+  const orphanSpBU = await prisma.businessUser.create({
+    data: {
+      businessId: E2E_SP_MUT_BIZ_ID,
+      userId: orphanSpUser.id,
+      role: 'MEMBER',
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.serviceProvider.create({
+    data: {
+      id: E2E_SP_MUT_ORPHAN_SP_ID,
+      businessId: E2E_SP_MUT_BIZ_ID,
+      businessUserId: orphanSpBU.id,
+      displayName: 'Orphan-Guard Provider',
+      isActive: true,
+      services: {
+        create: [
+          { serviceId: E2E_SP_MUT_ORPHAN_SVC_ID },
+          { serviceId: E2E_SP_MUT_ACTIVE_SVC_ID },
+        ],
+      },
+    },
+  });
+
   // ── Cross-tenant fixture ───────────────────────────────────────────────────
   await prisma.business.create({
     data: {
@@ -335,6 +422,7 @@ afterAll(async () => {
         in: [
           E2E_SP_MUT_ACTIVE_SVC_ID,
           E2E_SP_MUT_INACTIVE_SVC_ID,
+          E2E_SP_MUT_ORPHAN_SVC_ID,
           E2E_SP_MUT_OTHER_SVC_ID,
         ],
       },
@@ -358,6 +446,8 @@ afterAll(async () => {
           E2E_SP_MUT_OUT_USER_ID,
           E2E_SP_MUT_SP_USER_ID,
           E2E_SP_MUT_INACT_SVC_SP_USER_ID,
+          E2E_SP_MUT_BACKUP_SP_USER_ID,
+          E2E_SP_MUT_ORPHAN_SP_USER_ID,
           E2E_SP_MUT_OTHER_USER_ID,
         ],
       },
@@ -696,14 +786,18 @@ describe('PATCH /dashboard/businesses/:businessId/service-providers/:serviceProv
       .expect(400);
   });
 
-  it('isActive: true with no serviceIds when existing services are all inactive → 400', async () => {
+  it('isActive: true with no serviceIds when existing services are all inactive → 200 (assignment is configuration, independent of activation)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .patch(
         `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${E2E_SP_MUT_INACT_SVC_SP_ID}`,
       )
       .send({ isActive: true })
-      .expect(400);
+      .expect(200);
+
+    const body = res.body as ServiceProviderDto;
+    expect(body.isActive).toBe(true);
+    expect(body.serviceIds).toContain(E2E_SP_MUT_INACTIVE_SVC_ID);
   });
 });
 
@@ -816,13 +910,103 @@ describe('PATCH /dashboard/businesses/:businessId/service-providers/:serviceProv
       .expect(400);
   });
 
-  it('activating when all assigned services are inactive → 400', async () => {
+  it('activating when all assigned services are inactive → 200 (assignment is configuration, independent of activation)', async () => {
     MockClerkAuthGuard.currentUser = ownerUser;
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .patch(
         `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${E2E_SP_MUT_INACT_SVC_SP_ID}/status`,
       )
       .send({ isActive: true })
+      .expect(200);
+
+    expect((res.body as ServiceProviderDto).isActive).toBe(true);
+  });
+});
+
+// ─── Service ↔ ServiceProvider activation policy ───────────────────────────────
+// Assignment is configuration, independent of either side's activation
+// state. A Service may only activate while it has at least one active
+// ServiceProvider; removing/deactivating the last such provider is rejected.
+
+describe('Service ↔ ServiceProvider activation policy', () => {
+  it('assigning an inactive service to an already-active ServiceProvider → 200', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${existingSpId}`,
+      )
+      .send({
+        serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID, E2E_SP_MUT_INACTIVE_SVC_ID],
+      })
+      .expect(200);
+
+    const body = res.body as ServiceProviderDto;
+    expect(body.isActive).toBe(true);
+    expect(body.serviceIds).toEqual(
+      expect.arrayContaining([
+        E2E_SP_MUT_ACTIVE_SVC_ID,
+        E2E_SP_MUT_INACTIVE_SVC_ID,
+      ]),
+    );
+  });
+
+  it('removing the last active-provider assignment from an active service → 400', async () => {
+    // E2E_SP_MUT_ORPHAN_SP_ID is the sole active provider of
+    // E2E_SP_MUT_ORPHAN_SVC_ID. Dropping that link would leave the service
+    // with zero active providers.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${E2E_SP_MUT_ORPHAN_SP_ID}`,
+      )
+      .send({ serviceIds: [E2E_SP_MUT_ACTIVE_SVC_ID] })
       .expect(400);
+  });
+
+  it('removing a service link that still has another active provider → 200', async () => {
+    // E2E_SP_MUT_ACTIVE_SVC_ID also has existingSpId/backup providers, so
+    // dropping it from the orphan-guard provider does not orphan it.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${E2E_SP_MUT_ORPHAN_SP_ID}`,
+      )
+      .send({ serviceIds: [E2E_SP_MUT_ORPHAN_SVC_ID] })
+      .expect(200);
+
+    expect((res.body as ServiceProviderDto).serviceIds).toEqual([
+      E2E_SP_MUT_ORPHAN_SVC_ID,
+    ]);
+  });
+
+  it('deactivating the only active provider of an active service → 400', async () => {
+    // After the previous test, E2E_SP_MUT_ORPHAN_SP_ID is linked solely to
+    // E2E_SP_MUT_ORPHAN_SVC_ID, and is still its only active provider.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/service-providers/${E2E_SP_MUT_ORPHAN_SP_ID}/status`,
+      )
+      .send({ isActive: false })
+      .expect(400);
+  });
+
+  it('service activation succeeds when at least one active provider is assigned', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/services/${E2E_SP_MUT_ACTIVE_SVC_ID}/status`,
+      )
+      .send({ isActive: false })
+      .expect(200);
+
+    const res = await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_SP_MUT_BIZ_ID}/services/${E2E_SP_MUT_ACTIVE_SVC_ID}/status`,
+      )
+      .send({ isActive: true })
+      .expect(200);
+
+    expect((res.body as { isActive: boolean }).isActive).toBe(true);
   });
 });

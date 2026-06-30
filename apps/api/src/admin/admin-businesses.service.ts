@@ -34,6 +34,11 @@ import { normalizePhone } from '../dashboard/phone.util';
 import { computeBusinessReadiness } from '../dashboard/readiness.utils';
 import type { BusinessReadinessDto } from '../dashboard/readiness.utils';
 import { ClerkProvisioningService } from '../auth/clerk-provisioning.service';
+import {
+  assertServiceHasActiveProviderAssignment,
+  assertNoActiveServiceLosesLastActiveProvider,
+  SERVICE_NEEDS_ACTIVE_PROVIDER_MESSAGE,
+} from '../dashboard/service-provider-activation.utils';
 
 @Injectable()
 export class AdminBusinessesService {
@@ -148,18 +153,17 @@ export class AdminBusinessesService {
 
     const services = await this.prisma.service.findMany({
       where: { id: { in: dto.serviceIds }, businessId },
-      select: { id: true, isActive: true },
+      select: { id: true },
     });
     if (services.length !== dto.serviceIds.length) {
       throw new BadRequestException(
         'One or more services do not belong to this business',
       );
     }
-    if (isActive && services.some((s) => !s.isActive)) {
-      throw new BadRequestException(
-        'Active ServiceProvider cannot be linked to inactive services',
-      );
-    }
+    // Linking inactive services to an active ServiceProvider is allowed —
+    // assignment is configuration and is independent of the service's own
+    // activation state. The reverse invariant (a service must have an active
+    // provider before it can activate) is enforced on the service side.
 
     return this.prisma.$transaction(async (tx) => {
       const sp = await tx.serviceProvider.create({
@@ -198,6 +202,14 @@ export class AdminBusinessesService {
     });
     if (!business) throw new NotFoundException('Business not found');
 
+    // A new service cannot have a provider assignment yet (service creation
+    // is decoupled from provider assignment), so it can never satisfy the
+    // active-service invariant at creation time.
+    const isActive = dto.isActive ?? false;
+    if (isActive) {
+      throw new BadRequestException(SERVICE_NEEDS_ACTIVE_PROVIDER_MESSAGE);
+    }
+
     return this.prisma.service.create({
       data: {
         businessId,
@@ -207,7 +219,7 @@ export class AdminBusinessesService {
         priceCents: dto.priceCents ?? null,
         bufferBeforeMin: dto.bufferBeforeMin ?? 0,
         bufferAfterMin: dto.bufferAfterMin ?? 0,
-        isActive: dto.isActive ?? true,
+        isActive,
       },
       select: {
         id: true,
@@ -609,33 +621,40 @@ export class AdminBusinessesService {
     });
     if (!service) throw new NotFoundException('Service not found');
 
-    return this.prisma.service.update({
-      where: { id: serviceId },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.durationMinutes !== undefined && {
-          durationMinutes: dto.durationMinutes,
-        }),
-        ...(dto.priceCents !== undefined && { priceCents: dto.priceCents }),
-        ...(dto.bufferBeforeMin !== undefined && {
-          bufferBeforeMin: dto.bufferBeforeMin,
-        }),
-        ...(dto.bufferAfterMin !== undefined && {
-          bufferAfterMin: dto.bufferAfterMin,
-        }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        durationMinutes: true,
-        priceCents: true,
-        isActive: true,
-        bufferBeforeMin: true,
-        bufferAfterMin: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isActive === true) {
+        await assertServiceHasActiveProviderAssignment(tx, serviceId);
+      }
+      return tx.service.update({
+        where: { id: serviceId },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
+          ...(dto.durationMinutes !== undefined && {
+            durationMinutes: dto.durationMinutes,
+          }),
+          ...(dto.priceCents !== undefined && { priceCents: dto.priceCents }),
+          ...(dto.bufferBeforeMin !== undefined && {
+            bufferBeforeMin: dto.bufferBeforeMin,
+          }),
+          ...(dto.bufferAfterMin !== undefined && {
+            bufferAfterMin: dto.bufferAfterMin,
+          }),
+          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          durationMinutes: true,
+          priceCents: true,
+          isActive: true,
+          bufferBeforeMin: true,
+          bufferAfterMin: true,
+        },
+      });
     });
   }
 
@@ -657,14 +676,17 @@ export class AdminBusinessesService {
         displayName: true,
         isActive: true,
         businessUserId: true,
-        services: {
-          select: { serviceId: true, service: { select: { isActive: true } } },
-        },
+        services: { select: { serviceId: true } },
       },
     });
     if (!existing) throw new NotFoundException('Service provider not found');
 
     const effectiveIsActive = dto.isActive ?? existing.isActive;
+    const removedServiceIds = dto.serviceIds
+      ? existing.services
+          .map((s) => s.serviceId)
+          .filter((id) => !dto.serviceIds!.includes(id))
+      : [];
 
     if (dto.serviceIds !== undefined) {
       if (effectiveIsActive && dto.serviceIds.length === 0) {
@@ -674,32 +696,41 @@ export class AdminBusinessesService {
       }
       const services = await this.prisma.service.findMany({
         where: { id: { in: dto.serviceIds }, businessId },
-        select: { id: true, isActive: true },
+        select: { id: true },
       });
       if (services.length !== dto.serviceIds.length) {
         throw new BadRequestException(
           'One or more services do not belong to this business',
         );
       }
-      if (effectiveIsActive && services.some((s) => !s.isActive)) {
-        throw new BadRequestException(
-          'Active ServiceProvider cannot be linked to inactive services',
-        );
-      }
-    } else if (effectiveIsActive) {
-      if (existing.services.length === 0) {
-        throw new BadRequestException(
-          'Cannot activate ServiceProvider with no services',
-        );
-      }
-      if (existing.services.some((s) => !s.service.isActive)) {
-        throw new BadRequestException(
-          'Active ServiceProvider cannot be linked to inactive services',
-        );
-      }
+      // Linking inactive services to an active ServiceProvider is allowed —
+      // see createServiceProvider for the rationale.
+    } else if (effectiveIsActive && existing.services.length === 0) {
+      throw new BadRequestException(
+        'Cannot activate ServiceProvider with no services',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const wasActive = existing.isActive;
+      const becomingInactive = wasActive && dto.isActive === false;
+
+      if (becomingInactive) {
+        await assertNoActiveServiceLosesLastActiveProvider(
+          tx,
+          businessId,
+          serviceProviderId,
+          'all-linked',
+        );
+      } else if (wasActive && removedServiceIds.length > 0) {
+        await assertNoActiveServiceLosesLastActiveProvider(
+          tx,
+          businessId,
+          serviceProviderId,
+          removedServiceIds,
+        );
+      }
+
       if (dto.serviceIds !== undefined) {
         await tx.serviceProviderService.deleteMany({
           where: { serviceProviderId },
