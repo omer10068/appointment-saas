@@ -1,7 +1,17 @@
 import { ClerkProvider } from '@clerk/nextjs';
+import { heIL } from '@clerk/localizations';
 import { Heebo, Rubik } from 'next/font/google';
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+
+// Clerk's localization strings for the two email fields, worded to match
+// the product's existing Hebrew tone ("אימייל") rather than the package's
+// more formal default ("דוא"ל").
+const clerkLocalization = {
+  ...heIL,
+  formFieldLabel__emailAddress: 'כתובת אימייל',
+  formFieldInputPlaceholder__emailAddress: 'הזן את כתובת האימייל שלך',
+};
 
 const heebo = Heebo({
   subsets: ['hebrew', 'latin'],
@@ -37,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider localization={clerkLocalization}>
       <html lang="en" className={`${heebo.variable} ${rubik.variable}`}>
         <body>{children}</body>
       </html>
