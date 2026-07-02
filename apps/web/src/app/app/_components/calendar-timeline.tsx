@@ -219,7 +219,7 @@ export function CalendarTimeline({
       {/* Provider column headers — outside scroll container to avoid sticky jitter */}
       {laneProviders && (
         <div
-          className="flex-none flex bg-card"
+          className="flex-none flex bg-muted/30"
           style={{ paddingRight: TIME_LABEL_WIDTH }}
         >
           {laneProviders.map((sp, i) => (

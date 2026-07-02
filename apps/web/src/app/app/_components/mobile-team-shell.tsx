@@ -226,7 +226,11 @@ export function MobileTeamShell() {
 
   function invalidateAfterProviderEdit() {
     if (!businessId) return;
+    // A provider's serviceIds/isActive change can affect whether a linked
+    // service still satisfies the "has an active provider" invariant, so the
+    // services tab cache must be invalidated alongside the providers cache.
     void queryClient.invalidateQueries({ queryKey: appKeys.serviceProviders(businessId) });
+    void queryClient.invalidateQueries({ queryKey: appKeys.services(businessId) });
   }
 
   function retry() {

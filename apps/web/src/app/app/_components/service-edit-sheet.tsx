@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
 import type { DashboardServiceDto } from '@appointment/contracts';
 import {
+  ApiError,
   updateDashboardService,
   updateDashboardServiceStatus,
 } from '@/lib/api';
+import { useAppServiceProviders } from '../_hooks/useAppServiceProviders';
 import { BottomSheet } from './primitives/bottom-sheet';
 
 // ─── Form primitives ──────────────────────────────────────────────────────────
@@ -67,6 +69,15 @@ export function ServiceEditSheet({
   const [isActive, setIsActive]       = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [submitting, setSubmitting]   = useState(false);
+
+  const { providers } = useAppServiceProviders(businessId);
+  const hasActiveProvider = !!service && providers.some(
+    (p) => p.isActive && p.serviceIds.includes(service.id),
+  );
+  // Activation is only blocked client-side when we know for sure (providers
+  // already loaded) that no active provider is assigned. If providers
+  // haven't loaded yet, fall back to letting the backend validate.
+  const canActivate = hasActiveProvider || (service?.isActive ?? false);
 
   useEffect(() => {
     if (!service) return;
@@ -135,8 +146,14 @@ export function ServiceEditSheet({
       await Promise.all(calls);
       onSaved();
       triggerClose();
-    } catch {
-      setError('שגיאה בשמירה, נסה שוב');
+    } catch (err) {
+      setError(
+        err instanceof ApiError &&
+          err.status === 400 &&
+          err.message.includes('active service provider assigned')
+          ? 'לא ניתן להפעיל שירות ללא נותן שירות פעיל משויך. יש לשייך את השירות לנותן שירות פעיל לפני ההפעלה.'
+          : 'שגיאה בשמירה, נסה שוב',
+      );
       setSubmitting(false);
     }
   }
@@ -229,9 +246,10 @@ export function ServiceEditSheet({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsActive(true)}
+                      onClick={() => canActivate && setIsActive(true)}
+                      disabled={!canActivate}
                       className={[
-                        'flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition active:scale-[0.98]',
+                        'flex-1 rounded-2xl border py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50',
                         isActive ? STATUS_ACTIVE_SELECTED : STATUS_UNSELECTED,
                       ].join(' ')}
                     >
@@ -248,6 +266,11 @@ export function ServiceEditSheet({
                       לא פעיל
                     </button>
                   </div>
+                  {!canActivate && (
+                    <p className="mt-2 text-[13px] leading-snug text-muted-foreground">
+                      לא ניתן להפעיל שירות ללא נותן שירות פעיל משויך. יש לשייך את השירות לנותן שירות פעיל לפני ההפעלה.
+                    </p>
+                  )}
                 </FormField>
 
               </div>

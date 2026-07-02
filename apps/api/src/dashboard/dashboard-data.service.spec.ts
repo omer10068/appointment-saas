@@ -244,6 +244,10 @@ const mockPrisma = {
   serviceProviderService: {
     createMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>(),
     deleteMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>(),
+    findFirst:
+      jest.fn<
+        (...args: unknown[]) => Promise<{ serviceProviderId: string } | null>
+      >(),
   },
   $transaction: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
 };
@@ -514,7 +518,7 @@ describe('DashboardDataService', () => {
       expect(mockPrisma.service.create).not.toHaveBeenCalled();
     });
 
-    it('defaults isActive to true when not provided', async () => {
+    it('defaults isActive to false when not provided', async () => {
       mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
       mockPrisma.service.create.mockResolvedValue(mockService);
 
@@ -525,9 +529,23 @@ describe('DashboardDataService', () => {
 
       expect(mockPrisma.service.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ isActive: true }),
+          data: expect.objectContaining({ isActive: false }),
         }),
       );
+    });
+
+    it('rejects isActive: true at creation (no provider can be assigned yet)', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+
+      await expect(
+        service.createService(USER_ID, BUSINESS_ID, {
+          name: 'Eager Service',
+          durationMinutes: 30,
+          isActive: true,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.service.create).not.toHaveBeenCalled();
     });
   });
 
@@ -628,6 +646,39 @@ describe('DashboardDataService', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('cannot activate a service with no active provider assigned', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.findFirst.mockResolvedValue(mockService);
+      mockPrisma.serviceProviderService.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setServiceStatus(USER_ID, BUSINESS_ID, 'svc-1', true),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.service.update).not.toHaveBeenCalled();
+    });
+
+    it('can activate a service that has an active provider assigned', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.service.findFirst.mockResolvedValue(mockService);
+      mockPrisma.serviceProviderService.findFirst.mockResolvedValue({
+        serviceProviderId: 'sm-1',
+      });
+      mockPrisma.service.update.mockResolvedValue({
+        ...mockService,
+        isActive: true,
+      });
+
+      const result = await service.setServiceStatus(
+        USER_ID,
+        BUSINESS_ID,
+        'svc-1',
+        true,
+      );
+
+      expect(result).toMatchObject({ isActive: true });
     });
   });
 
@@ -1083,6 +1134,8 @@ describe('DashboardDataService', () => {
       mockPrisma.serviceProvider.findFirst.mockResolvedValue(
         existingStaffRow as unknown as ServiceProvider,
       );
+      // No active service would be left without an active provider.
+      mockPrisma.service.findFirst.mockResolvedValue(null);
       mockPrisma.serviceProvider.update.mockResolvedValue({
         ...mockServiceProviderRow,
         isActive: false,
@@ -1102,6 +1155,21 @@ describe('DashboardDataService', () => {
         }),
       );
       expect(result).toMatchObject({ isActive: false });
+    });
+
+    it('cannot deactivate the last active provider of an active service', async () => {
+      mockPrisma.businessUser.findUnique.mockResolvedValue(mockMembership);
+      mockPrisma.serviceProvider.findFirst.mockResolvedValue(
+        existingStaffRow as unknown as ServiceProvider,
+      );
+      // An active service would be left without any active provider.
+      mockPrisma.service.findFirst.mockResolvedValue(mockService);
+
+      await expect(
+        service.setServiceProviderStatus(USER_ID, BUSINESS_ID, 'sm-1', false),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.serviceProvider.update).not.toHaveBeenCalled();
     });
 
     it('cannot activate a service provider with no services', async () => {

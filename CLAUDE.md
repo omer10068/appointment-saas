@@ -144,10 +144,9 @@ All backend mutation phases are complete. Do not treat any mutation domain as pe
 - Available-slots engine (dashboard + public) is complete and covered by E2E tests.
 - Public booking read endpoints (`/public/businesses/:slug/…`) are complete.
 - Backend hardening (applied after mutation E2E phases):
-  - `createServiceProvider` rejects `isActive: true` when any linked service is inactive.
-  - `updateServiceProvider` enforces the inactive-service invariant even when `serviceIds` are absent from the payload (checks existing links before activation).
   - `createAppointment` rejects a non-ACTIVE `BusinessCustomer` with `BadRequestException('Customer is not active')`.
-  - E2E coverage added for SP inactive-service activation/update paths and customer-activity check on appointment creation.
+  - E2E coverage added for customer-activity check on appointment creation.
+  - **Superseded:** the original "active ServiceProvider cannot link inactive services" rule from this phase was replaced — see "Service ↔ ServiceProvider activation policy" below.
 - Admin/Ops business lifecycle (Step 1 — Phase A):
   - `BusinessStatus.DRAFT` added to the enum. Schema default remains `TRIAL` to avoid breaking test seeds; service layer enforces `DRAFT` explicitly.
   - `publicBookingEnabled Boolean @default(false)` added to the `Business` table.
@@ -327,7 +326,8 @@ Team tab specifics:
 - ServiceProvider creation is admin/ops-only. No FAB or create sheet exists in the business app. The team tab is read/edit-only for all roles.
 - OWNER and MANAGER see `ProviderEditSheet` when tapping a provider row. MEMBER sees read-only `ProviderDetailSheet`.
 - `GET /dashboard/businesses/:businessId/users` is OWNER-only. The `useAppBusinessUsers` hook has been removed from the team tab (was only used by the now-removed create flow). No 403 is triggered for MANAGER.
-- `ProviderEditSheet` saves `displayName`/`serviceIds` first, then `isActive` in a second sequential call to avoid a race where the status validation (which checks service links in the DB) fires before the new `serviceIds` are committed.
+- `ProviderEditSheet` saves `displayName`/`serviceIds`/`isActive` together in a single `PATCH` call (not sequential — this doc previously said otherwise).
+- `ProviderEditSheet` service chips show all active services plus all inactive services (not just already-assigned ones), since an inactive service may be assigned to an active provider as configuration.
 
 Customers tab specifics:
 
@@ -348,6 +348,18 @@ Customer appointment history:
 ServiceProvider assignment policy (locked — do not change without explicit instruction):
 
 Removing a `serviceId` from a `ServiceProvider` does **not** block or cancel existing future appointments for that `(serviceProviderId, serviceId)` pair. Existing appointments remain valid and manageable. The change applies only to new bookings. Do not add blocking confirmation or cascade cancellation without an explicit product decision.
+
+Service ↔ ServiceProvider activation policy (locked — do not change without explicit instruction):
+
+- A newly created `Service` always defaults to `isActive: false`, regardless of payload (`createService` ignores/rejects `isActive: true` since no provider can be assigned yet). This applies to both the dashboard and admin create-service paths.
+- A `Service` may only transition to `isActive: true` (via `updateService` or `setServiceStatus`, dashboard or admin) when it already has at least one `isActive: true` `ServiceProvider` assigned. Enforced by `assertServiceHasActiveProviderAssignment` in `apps/api/src/dashboard/service-provider-activation.utils.ts`.
+- Service-provider assignment is configuration, independent of either side's activation state: an inactive `Service` may be linked to an active `ServiceProvider`, and an active `ServiceProvider` may be linked to inactive `Service`s. The old "active ServiceProvider cannot link inactive services" rule was removed — keeping it would have created a circular dependency with the service-side rule above (a new service can never have an active provider assigned before it activates, since assignment can't happen during creation).
+- A `ServiceProvider` activating (create or update) still requires at least one linked service (any status) — that invariant is unchanged.
+- Removing the last active-provider link from an active `Service` (`updateServiceProvider` dropping a `serviceId`), or deactivating a `ServiceProvider` that is the only active provider of an active `Service`, is rejected with 400. The user must assign another active provider first or deactivate the service first — no silent/automatic deactivation. Enforced by `assertNoActiveServiceLosesLastActiveProvider`, same util file, called from both `updateServiceProvider` and `setServiceProviderStatus` (dashboard) and `updateServiceProvider` (admin).
+- All of the above checks run inside the same Prisma `$transaction` as the corresponding write.
+- Provider working hours are NOT required for service activation — that stays a separate readiness/availability concern.
+- Existing appointments are never touched by any of the above (service deactivation, provider deactivation, or assignment removal) — confirmed by `Appointment`'s FK relations to `Service`/`ServiceProvider` having no cascade (default `Restrict`).
+- Admin onboarding's `ProvidersSection` (`admin-onboarding-providers-section.tsx`) gates provider creation on "at least one service exists" (any status), not "at least one active service" — using the active-only gate would deadlock onboarding under this policy.
 
 Next focus areas: public booking flow, notifications UI, billing UI.
 
@@ -451,7 +463,7 @@ Key domain facts locked in E.3:
 
 - Each `BusinessUser` can only have one `ServiceProvider` (1:1, enforced by backend 409). The UI hides already-linked users from the SP creation dropdown.
 - `businessUserId` is **required** for SP creation — must link to an existing OWNER or MANAGER.
-- Services must exist (and be active) before a SP can be created (prerequisite gate shown in UI).
+- Services must exist (any status — active or inactive) before a SP can be created (prerequisite gate shown in UI). See "Service ↔ ServiceProvider activation policy" for why the gate is not active-only.
 - Manager email is required at service level even though the DTO marks it optional (Clerk provisioning requires it).
 - `ServiceProvider` and `BusinessUser` are separate concepts — manager creation never auto-creates a SP.
 - Only the Admin creates ServiceProviders; no dashboard path exists.

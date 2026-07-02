@@ -46,7 +46,7 @@ const TERMINAL_OPACITY: Partial<Record<AppointmentStatus, string>> = {
 
 // ─── Shared class fragments ───────────────────────────────────────────────────
 
-const CARD_BASE = 'rounded-l-xl rounded-r-sm w-full h-full relative overflow-hidden shadow-sm shadow-black/[0.07] ring-1 ring-inset ring-black/[0.07] transition-all duration-150';
+const CARD_BASE = 'rounded-l-xl rounded-r-sm w-full h-full relative overflow-hidden border border-border shadow-lg shadow-foreground/15 transition-all duration-150';
 const CARD_INTERACTIVE = 'cursor-pointer active:scale-[0.98] active:brightness-95';
 
 // ─── Component ────────────────────────────────────────────────────────────────

@@ -57,6 +57,15 @@ const E2E_APT_FOR_STATUS_MGR_ID = 'e2e10000-0000-4000-8000-000000000049';
 const E2E_APT_FOR_AVAIL_UPDATE_ID = 'e2e10000-0000-4000-8000-000000000050';
 const E2E_APT_AVAIL_EXCEPTION_ID = 'e2e10000-0000-4000-8000-000000000070';
 
+// Persistence-after-deactivation regression fixture (isolated from shared fixtures)
+const E2E_APT_PERSIST_USER_ID = 'e2e10000-0000-4000-8000-000000000080';
+const E2E_APT_PERSIST_SVC_ID = 'e2e10000-0000-4000-8000-000000000081';
+const E2E_APT_PERSIST_SP_ID = 'e2e10000-0000-4000-8000-000000000082';
+const E2E_APT_PERSIST_APPT_ID = 'e2e10000-0000-4000-8000-000000000083';
+const PERSIST_SP_USER_PHONE = '+19990001030';
+const PERSIST_STARTS_AT = '2030-08-01T09:00:00.000Z';
+const PERSIST_ENDS_AT = '2030-08-01T10:00:00.000Z';
+
 // Cross-tenant fixture
 const E2E_APT_OTHER_BIZ_ID = 'e2e10000-0000-4000-8000-000000000060';
 const E2E_APT_OTHER_USER_ID = 'e2e10000-0000-4000-8000-000000000061';
@@ -1413,5 +1422,192 @@ describe('Availability validation (POST/PATCH)', () => {
       )
       .send({ startsAt: AVAIL_PATCH_OUTSIDE_STARTS_AT })
       .expect(400);
+  });
+});
+
+// ─── Appointment persistence after service/provider deactivation ──────────────
+//
+// Regression coverage for the Service <-> ServiceProvider activation policy:
+// deactivating/unlinking a service or provider must never touch existing
+// appointment rows (no cascade, no soft-delete — enforced today via Prisma FK
+// Restrict). This isolated fixture has its own service+provider+appointment
+// so these mutations can't collide with the shared fixtures used elsewhere
+// in this file.
+
+describe('Appointment persistence after service/provider deactivation', () => {
+  beforeAll(async () => {
+    // Idempotent pre-cleanup (FK-safe order)
+    await prisma.appointment.deleteMany({
+      where: { id: E2E_APT_PERSIST_APPT_ID },
+    });
+    await prisma.serviceProviderService.deleteMany({
+      where: { serviceProviderId: E2E_APT_PERSIST_SP_ID },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: { id: E2E_APT_PERSIST_SP_ID },
+    });
+    await prisma.service.deleteMany({
+      where: { id: E2E_APT_PERSIST_SVC_ID },
+    });
+    await prisma.businessUser.deleteMany({
+      where: { userId: E2E_APT_PERSIST_USER_ID },
+    });
+    await prisma.user.deleteMany({
+      where: { id: E2E_APT_PERSIST_USER_ID },
+    });
+
+    const persistUser = await prisma.user.create({
+      data: {
+        id: E2E_APT_PERSIST_USER_ID,
+        phoneNormalized: PERSIST_SP_USER_PHONE,
+        status: 'ACTIVE',
+        platformRole: 'USER',
+      },
+    });
+    const persistBU = await prisma.businessUser.create({
+      data: {
+        businessId: E2E_APT_BIZ_ID,
+        userId: persistUser.id,
+        role: BusinessUserRole.MEMBER,
+        status: BusinessUserStatus.ACTIVE,
+      },
+    });
+
+    await prisma.service.create({
+      data: {
+        id: E2E_APT_PERSIST_SVC_ID,
+        businessId: E2E_APT_BIZ_ID,
+        name: 'Persistence Test Service',
+        durationMinutes: 60,
+        isActive: true,
+      },
+    });
+
+    await prisma.serviceProvider.create({
+      data: {
+        id: E2E_APT_PERSIST_SP_ID,
+        businessId: E2E_APT_BIZ_ID,
+        businessUserId: persistBU.id,
+        displayName: 'Persistence Test Provider',
+        isActive: true,
+        services: { create: [{ serviceId: E2E_APT_PERSIST_SVC_ID }] },
+      },
+    });
+
+    await prisma.appointment.create({
+      data: {
+        id: E2E_APT_PERSIST_APPT_ID,
+        businessId: E2E_APT_BIZ_ID,
+        businessCustomerId: E2E_APT_BC_ID,
+        serviceId: E2E_APT_PERSIST_SVC_ID,
+        serviceProviderId: E2E_APT_PERSIST_SP_ID,
+        startsAt: new Date(PERSIST_STARTS_AT),
+        endsAt: new Date(PERSIST_ENDS_AT),
+        status: AppointmentStatus.SCHEDULED,
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.appointment.deleteMany({
+      where: { id: E2E_APT_PERSIST_APPT_ID },
+    });
+    await prisma.serviceProviderService.deleteMany({
+      where: { serviceProviderId: E2E_APT_PERSIST_SP_ID },
+    });
+    await prisma.serviceProvider.deleteMany({
+      where: { id: E2E_APT_PERSIST_SP_ID },
+    });
+    await prisma.service.deleteMany({
+      where: { id: E2E_APT_PERSIST_SVC_ID },
+    });
+    await prisma.businessUser.deleteMany({
+      where: { userId: E2E_APT_PERSIST_USER_ID },
+    });
+    await prisma.user.deleteMany({
+      where: { id: E2E_APT_PERSIST_USER_ID },
+    });
+  });
+
+  async function fetchPersistAppointment(): Promise<AppointmentDto> {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    const res = await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_APT_BIZ_ID}/appointments`)
+      .query({ businessCustomerId: E2E_APT_BC_ID })
+      .expect(200);
+    const body = res.body as AppointmentDto[];
+    const found = body.find((a) => a.id === E2E_APT_PERSIST_APPT_ID);
+    if (!found) {
+      throw new Error('Persistence test appointment unexpectedly missing');
+    }
+    return found;
+  }
+
+  it('deactivating the service leaves the existing appointment untouched', async () => {
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_APT_BIZ_ID}/services/${E2E_APT_PERSIST_SVC_ID}/status`,
+      )
+      .send({ isActive: false })
+      .expect(200);
+
+    const found = await fetchPersistAppointment();
+    expect(found).toMatchObject({
+      id: E2E_APT_PERSIST_APPT_ID,
+      serviceId: E2E_APT_PERSIST_SVC_ID,
+      serviceProviderId: E2E_APT_PERSIST_SP_ID,
+      status: 'SCHEDULED',
+    });
+
+    // Restore for subsequent tests in this block.
+    await prisma.service.update({
+      where: { id: E2E_APT_PERSIST_SVC_ID },
+      data: { isActive: true },
+    });
+  });
+
+  it('deactivating the service provider is rejected (sole active provider of an active service) and the appointment remains untouched', async () => {
+    // E2E_APT_PERSIST_SP_ID is the service's only active provider, so the
+    // new last-active-provider invariant correctly rejects this with 400.
+    // The point of this test is that the appointment is never touched
+    // either way — whether the mutation is accepted or rejected.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_APT_BIZ_ID}/service-providers/${E2E_APT_PERSIST_SP_ID}/status`,
+      )
+      .send({ isActive: false })
+      .expect(400);
+
+    const found = await fetchPersistAppointment();
+    expect(found).toMatchObject({
+      id: E2E_APT_PERSIST_APPT_ID,
+      serviceId: E2E_APT_PERSIST_SVC_ID,
+      serviceProviderId: E2E_APT_PERSIST_SP_ID,
+      status: 'SCHEDULED',
+    });
+  });
+
+  it('removing the provider link to the service is rejected (last active link) and the appointment remains untouched', async () => {
+    // Same reasoning as above: dropping the only active service link is
+    // correctly rejected by the last-active-provider invariant. Proves the
+    // appointment (which references this exact serviceId/serviceProviderId
+    // pair) is unaffected by the rejected mutation attempt.
+    MockClerkAuthGuard.currentUser = ownerUser;
+    await request(app.getHttpServer())
+      .patch(
+        `/dashboard/businesses/${E2E_APT_BIZ_ID}/service-providers/${E2E_APT_PERSIST_SP_ID}`,
+      )
+      .send({ serviceIds: [] })
+      .expect(400);
+
+    const found = await fetchPersistAppointment();
+    expect(found).toMatchObject({
+      id: E2E_APT_PERSIST_APPT_ID,
+      serviceId: E2E_APT_PERSIST_SVC_ID,
+      serviceProviderId: E2E_APT_PERSIST_SP_ID,
+      status: 'SCHEDULED',
+    });
   });
 });
