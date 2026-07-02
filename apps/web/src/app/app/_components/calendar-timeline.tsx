@@ -208,7 +208,7 @@ export function CalendarTimeline({
 
   if (dayAppointments.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto flex flex-col bg-card scrollbar-none [&::-webkit-scrollbar]:hidden">
+      <div className="flex-1 overflow-y-auto flex flex-col bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden">
         <CalendarEmptyState />
       </div>
     );
@@ -219,7 +219,7 @@ export function CalendarTimeline({
       {/* Provider column headers — outside scroll container to avoid sticky jitter */}
       {laneProviders && (
         <div
-          className="flex-none flex bg-card"
+          className="flex-none flex bg-muted/30"
           style={{ paddingRight: TIME_LABEL_WIDTH }}
         >
           {laneProviders.map((sp, i) => (
@@ -240,7 +240,7 @@ export function CalendarTimeline({
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto bg-card scrollbar-none [&::-webkit-scrollbar]:hidden"
+        className="flex-1 overflow-y-auto bg-muted/30 scrollbar-none [&::-webkit-scrollbar]:hidden"
         style={{ paddingBottom: LAYOUT.bottomNavHeightPx + 104 }}
       >
         <div className="relative mt-2" style={{ height: totalHeightPx }}>
