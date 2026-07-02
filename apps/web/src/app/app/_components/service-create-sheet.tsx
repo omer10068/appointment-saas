@@ -194,7 +194,7 @@ export function ServiceCreateSheet({
                         min={5}
                         max={480}
                         dir="ltr"
-                        className={`${INPUT_CLASS} text-left`}
+                        className={`${INPUT_CLASS} text-right`}
                       />
                     </FormField>
 
@@ -207,7 +207,7 @@ export function ServiceCreateSheet({
                         placeholder="ללא מחיר"
                         min={0}
                         dir="ltr"
-                        className={`${INPUT_CLASS} text-left`}
+                        className={`${INPUT_CLASS} text-right`}
                       />
                     </FormField>
                   </div>
