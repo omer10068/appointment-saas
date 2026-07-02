@@ -18,6 +18,7 @@
 - All dashboard routes require `ClerkAuthGuard`.
 - `GET /businesses/me` — returns the business(es) the authenticated user belongs to.
 - E2E tests use `MockClerkAuthGuard` (static `currentUser` property, reset in `beforeEach`).
+- `ClerkAuthGuard.resolveUser`'s first-login slow path also claims pending `BusinessInvitation` rows (OWNER invitations) via `publicMetadata.businessInvitationId` — see `CLAUDE.md` → "OWNER invitation via Clerk Application Invitations" for the full mechanism, its concurrency handling, and known limitations. Only runs on a Clerk identity's first resolution; the fast path (`clerkUserId` already linked) never re-checks metadata.
 
 ## Completed — Dashboard Read Endpoints
 
@@ -253,7 +254,7 @@ Endpoints covered:
 
 Verified: OWNER/MANAGER allowed; MEMBER/outsider 403; missing auth 401; validation; isClosed=false with missing times 400; cross-tenant Pattern A; foreign exceptionId Pattern B; 204 on DELETE.
 
-#### 7. Admin — done
+#### 7. Admin — done, updated for OWNER invitation flow
 
 Endpoints covered:
 
@@ -261,9 +262,11 @@ Endpoints covered:
 
 Guards: `ClerkAuthGuard` + `PlatformAdminGuard` (platformRole ADMIN or SUPER_ADMIN required).
 
-Verified: admin → 201; non-admin 403; missing auth 401; missing phone 400; invalid email 400; non-existent businessId 404; business already has owner 409.
+**Current behavior (supersedes the original "eager Clerk provisioning" description below the fold in this doc's history):** this endpoint no longer creates a Clerk user directly. It persists `User` (`INVITED`), `BusinessUser` (`OWNER`, `INVITED`), and a `BusinessInvitation` (`PENDING`) row inside one Serializable transaction, commits, and only then calls Clerk's Application Invitations API (`ClerkInvitationsService.createOwnerInvitation`) using the already-committed `businessInvitationId`. The response body still returns the `BusinessUser` shape, but `status` is now `INVITED`, not `ACTIVE` — `BusinessUser` only becomes `ACTIVE` once `ClerkAuthGuard` claims the invitation on the invitee's first successful login. See `CLAUDE.md` → "OWNER invitation via Clerk Application Invitations" for full detail (ordering guarantee, concurrency handling, already-linked-user fail-closed behavior, residual gaps, and TODOs).
 
-Unit coverage added: `AdminBusinessesService` (delegation + error propagation), `AdminBusinessesController` (delegation with guard overrides).
+Verified: admin → 201 (`BusinessUser.status: INVITED`, `BusinessInvitation.status: PENDING`, `clerkInvitationId` set); non-admin 403; missing auth 401; missing phone 400; invalid email 400; non-existent businessId 404; business already has an ACTIVE owner 409; a still-valid pending invitation already exists 409; target already has a linked Clerk account 409 (fails closed before calling Clerk); Clerk failure 502 (leaves a deterministic retryable `PENDING` row, does not activate anything, retry reuses the same `businessInvitationId`); concurrent owner-invite attempts against the same business 409 the loser (Serializable isolation), never producing two OWNER rows.
+
+Unit coverage: `AdminBusinessesService` (delegation + error propagation), `AdminBusinessesController` (delegation with guard overrides + `invitedByUserId` threading), `BusinessUsersService.createOwnerForBusiness` (17 tests), `ClerkInvitationsService` (4 tests), `ClerkAuthGuard` claim path (7 tests within the 28-test suite).
 
 #### 8. Appointments mutations — done
 

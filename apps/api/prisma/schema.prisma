@@ -42,6 +42,13 @@ enum BusinessUserStatus {
   BLOCKED
 }
 
+enum BusinessInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 enum CustomerStatus {
   ACTIVE
   BLOCKED
@@ -71,8 +78,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  businessUsers    BusinessUser[]
-  customerProfiles CustomerProfile[]
+  businessUsers               BusinessUser[]
+  customerProfiles            CustomerProfile[]
+  invitedBusinessInvitations  BusinessInvitation[] @relation("BusinessInvitationInvitedBy")
 }
 
 model Business {
@@ -98,6 +106,7 @@ model Business {
   businessWorkingHours        BusinessWorkingHour[]
   serviceProviderWorkingHours ServiceProviderWorkingHour[]
   availabilityExceptions      AvailabilityException[]
+  businessInvitations         BusinessInvitation[]
 }
 
 model BusinessUser {
@@ -111,13 +120,51 @@ model BusinessUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  business        Business         @relation(fields: [businessId], references: [id])
-  user            User             @relation(fields: [userId], references: [id])
-  serviceProvider ServiceProvider?
+  business           Business             @relation(fields: [businessId], references: [id])
+  user               User                 @relation(fields: [userId], references: [id])
+  serviceProvider    ServiceProvider?
+  businessInvitation BusinessInvitation?
 
   @@unique([businessId, userId])
   @@index([businessId])
   @@index([userId])
+}
+
+model BusinessInvitation {
+  id             String @id @default(uuid())
+  businessId     String
+  businessUserId String @unique
+
+  email             String
+  status            BusinessInvitationStatus @default(PENDING)
+  clerkInvitationId String?                  @unique
+
+  invitedByUserId String?
+
+  // Null until the Clerk invitation is confirmed created — persist-first
+  // ordering means this row exists before Clerk is ever called, so this
+  // field can genuinely be unknown for a short window (or indefinitely, if
+  // the Clerk call or its confirmation write fails).
+  expiresAt DateTime?
+
+  // Set immediately before the Clerk API call (not after) so a crash or
+  // failure between that call and the confirmation write below leaves a
+  // distinguishable "attempted, unconfirmed" state rather than looking
+  // identical to "never attempted".
+  clerkSendAttemptedAt DateTime?
+
+  acceptedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business     Business     @relation(fields: [businessId], references: [id])
+  businessUser BusinessUser @relation(fields: [businessUserId], references: [id])
+  invitedBy    User?        @relation("BusinessInvitationInvitedBy", fields: [invitedByUserId], references: [id])
+
+  @@index([businessId])
+  @@index([email])
+  @@index([status])
 }
 
 model CustomerProfile {

@@ -6,10 +6,12 @@ import {
   Patch,
   Post,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
+import type { AuthenticatedRequest } from '../auth/types/authenticated-request';
 import { AdminBusinessesService } from './admin-businesses.service';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
@@ -44,8 +46,13 @@ export class AdminBusinessesController {
   createOwner(
     @Param('businessId') businessId: string,
     @Body() dto: CreateBusinessOwnerDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.adminBusinessesService.createOwner(businessId, dto);
+    return this.adminBusinessesService.createOwner(
+      businessId,
+      dto,
+      req.user.id,
+    );
   }
 
   @Patch(':businessId/status')

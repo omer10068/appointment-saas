@@ -102,11 +102,11 @@ describe('AdminBusinessesService', () => {
         mockBusinessUser,
       );
 
-      const result = await service.createOwner('biz-1', dto);
+      const result = await service.createOwner('biz-1', dto, 'admin-1');
 
       expect(
         mockBusinessUsersService.createOwnerForBusiness,
-      ).toHaveBeenCalledWith('biz-1', dto);
+      ).toHaveBeenCalledWith('biz-1', dto, 'admin-1');
       expect(result).toEqual(mockBusinessUser);
     });
 
@@ -115,9 +115,9 @@ describe('AdminBusinessesService', () => {
         new NotFoundException(),
       );
 
-      await expect(service.createOwner('missing-biz', dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.createOwner('missing-biz', dto, 'admin-1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('propagates ConflictException when business already has an owner', async () => {
@@ -125,9 +125,9 @@ describe('AdminBusinessesService', () => {
         new ConflictException(),
       );
 
-      await expect(service.createOwner('biz-1', dto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.createOwner('biz-1', dto, 'admin-1'),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

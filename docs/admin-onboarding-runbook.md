@@ -112,7 +112,7 @@ POST /admin/businesses
 
 ---
 
-### Step 2 — Create First OWNER
+### Step 2 — Create First OWNER (sends a Clerk invitation — does not grant access yet)
 
 ```http
 POST /admin/businesses/{{businessId}}/owner
@@ -127,21 +127,25 @@ POST /admin/businesses/{{businessId}}/owner
 }
 ```
 
+**This step invites the owner — it does not create a working login by itself.** Clerk sends a real invitation email to `email`. The owner cannot access the dashboard until they open that email, complete account creation via the linked Clerk sign-up flow, and the backend claims the invitation on their first successful login. Until then, the owner's `BusinessUser` stays `INVITED`, not `ACTIVE`, and any dashboard access attempt is rejected.
+
 **Key fields to capture from response:**
 
 | Field | Variable | Notes |
 | --- | --- | --- |
 | `id` | `{{ownerBusinessUserId}}` | This is the `BusinessUser.id`, NOT the `User.id` |
 | `role` | — | Must be `"OWNER"` |
-| `status` | — | Must be `"ACTIVE"` |
+| `status` | — | Will be `"INVITED"` — this is expected and correct. It only becomes `"ACTIVE"` after the owner accepts the Clerk invitation and logs in for the first time. |
 
 **Pitfalls:**
 
-- Only one OWNER per business. A second call to this endpoint → 409.
-- The `id` in the response is the `BusinessUser.id`. Save it as `{{ownerBusinessUserId}}`. You will need it in Step 6 to create the provider.
-- `email` is **required**. Missing or invalid email → 400. The email is used to create or locate the user's Clerk account (the login credential).
-- Phone is normalized to E.164 internally. If a user with that phone already exists in the system, they will be linked rather than duplicated.
-- Clerk authentication is email-based. The user logs in with their email address — not their phone number.
+- Only one OWNER per business. A second call while a valid pending invitation already exists → 409 ("An invitation has already been sent to this business owner"). A second call after the ACTIVE owner is set → 409 ("Business already has an owner").
+- The `id` in the response is the `BusinessUser.id`. Save it as `{{ownerBusinessUserId}}`. You will need it in Step 6 to create the provider — this works immediately, it does not require the owner to have accepted their invitation yet.
+- `email` is **required**. Missing or invalid email → 400. The email is where the Clerk invitation is sent.
+- Phone is normalized to E.164 internally. If a user with that phone already exists in the system, they will be linked rather than duplicated — **unless that existing user is already linked to a Clerk account (`clerkUserId` set)**, in which case this call fails with 409 rather than sending an unusable invitation. This happens if you accidentally reuse the phone/email of someone who already has access to a different business — invite that person to a second business is not supported yet.
+- If Clerk itself fails to send the invitation (502), the internal `BusinessUser`/`BusinessInvitation` rows are still created in a safe, retryable `INVITED`/`PENDING` state — simply retry the same request; it reuses the same invitation record rather than creating a duplicate.
+- Clerk authentication is email-based. The owner logs in with their email address — not their phone number.
+- If the owner never receives or clicks the invitation email, there is currently no "resend" button — retry Step 2 with the same phone/email, which safely reuses the same invitation and asks Clerk to send it again.
 
 ---
 
@@ -462,7 +466,7 @@ PATCH /admin/businesses/{{businessId}}/status
 **What this does:**
 
 - Unlocks dashboard access for all ACTIVE BusinessUsers (OWNER, MANAGER).
-- The owner and manager can now log in to the Business App.
+- The manager (created directly `ACTIVE` in Step 3) can log in immediately. The owner can only log in once they've accepted their Clerk invitation from Step 2 and their `BusinessUser` has become `ACTIVE` — moving to TRIAL does not itself activate the owner. If the owner hasn't accepted yet, they will see a clear pending-access state in the Business App (not a broken dashboard) once they do complete sign-in, regardless of business status.
 - Does **not** enable public booking.
 - Does **not** check readiness — TRIAL is the onboarding state, not the live state. You can move to TRIAL before the business is fully ready and complete setup through the dashboard.
 
@@ -525,6 +529,8 @@ POST /admin/businesses
 ```
 
 ### Create Owner
+
+Sends a Clerk invitation email; response `status` is `INVITED`, not `ACTIVE` — see Step 2 above for full behavior.
 
 ```json
 POST /admin/businesses/{{businessId}}/owner
@@ -644,6 +650,14 @@ Do not call `PATCH /admin/businesses/:id/public-booking`. Leave it alone.
 ### Relying on dashboard endpoints while business is still DRAFT
 
 All dashboard endpoints (`/dashboard/businesses/:id/...`) require the business to be `ACTIVE` or `TRIAL`. They return `403` for DRAFT businesses. Use admin endpoints (`/admin/businesses/:id/...`) for all configuration during DRAFT.
+
+### Assuming the owner has access right after Step 2
+
+`POST .../owner` sends an invitation — it does not grant access. `BusinessUser.status` is `INVITED` until the owner accepts the Clerk invitation and logs in for the first time. Check the onboarding summary's owner row: an amber "invitation sent" state means still pending; green "active" means they've logged in. Do not tell the owner to log in until the invitation email has actually arrived (Clerk send failures return `502` and are visible in the response, not silent).
+
+### Trying to invite the same person as OWNER of a second business
+
+If the phone/email in Step 2 already belongs to an internal user who is already linked to a Clerk account (i.e., they already have working access to another business), this call fails with `409` rather than sending an invitation. This is intentional — an invitation to an already-linked Clerk identity cannot currently be claimed through normal login (see `CLAUDE.md` TODO: "multi-business / multiple-pending-invitation claim support"). There is currently no supported way to make one person an OWNER of two businesses.
 
 ---
 

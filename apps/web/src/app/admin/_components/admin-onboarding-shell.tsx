@@ -80,7 +80,7 @@ function buildSummaryRows(summary: AdminOnboardingSummaryDto) {
   const { users, services, serviceProviders, businessWorkingHours, readiness } = summary;
   const { checks } = readiness;
 
-  const activeOwner = users.find((u) => u.role === 'OWNER' && u.status === 'ACTIVE');
+  const owner = users.find((u) => u.role === 'OWNER');
   const managers = users.filter((u) => u.role === 'MANAGER' && u.status === 'ACTIVE');
   const activeServices = services.filter((s) => s.isActive);
   const activeProviders = serviceProviders.filter((p) => p.isActive);
@@ -89,7 +89,11 @@ function buildSummaryRows(summary: AdminOnboardingSummaryDto) {
     {
       title: 'בעלים',
       done: checks.hasActiveOwner,
-      details: activeOwner ? (activeOwner.user.email ?? activeOwner.user.phone) : '—',
+      details: !owner
+        ? '—'
+        : owner.status === 'ACTIVE'
+          ? (owner.user.email ?? owner.user.phone)
+          : 'הזמנה ממתינה',
     },
     {
       title: 'מנהלים',
@@ -172,7 +176,7 @@ function SectionDivider({ title }: { title: string }) {
 // ─── Owner section (read-only) ────────────────────────────────────────────────
 
 function OwnerSection({ users }: { users: AdminOnboardingSummaryDto['users'] }) {
-  const owner = users.find((u) => u.role === 'OWNER' && u.status === 'ACTIVE');
+  const owner = users.find((u) => u.role === 'OWNER');
   if (!owner) {
     return (
       <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
@@ -180,6 +184,7 @@ function OwnerSection({ users }: { users: AdminOnboardingSummaryDto['users'] }) 
       </div>
     );
   }
+  const isActive = owner.status === 'ACTIVE';
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -191,10 +196,17 @@ function OwnerSection({ users }: { users: AdminOnboardingSummaryDto['users'] }) 
             <p className="mt-0.5 text-xs text-muted-foreground">{owner.user.phone}</p>
           )}
         </div>
-        <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-600">
-          בעלים
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            isActive ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+          }`}
+        >
+          {isActive ? 'בעלים · פעיל' : 'בעלים · הזמנה נשלחה'}
         </span>
       </div>
+      {!isActive && (
+        <p className="mt-1.5 text-xs text-amber-600">ממתין לאישור ההזמנה על ידי הבעלים</p>
+      )}
       <p className="mt-1.5 text-xs text-muted-foreground">
         כניסה: {owner.user.email ?? '—'} (Clerk)
       </p>

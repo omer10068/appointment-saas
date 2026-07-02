@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { type Business, type BusinessUser } from '../generated/prisma/client';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
+import type { AuthenticatedRequest } from '../auth/types/authenticated-request';
 import { CreateBusinessDto } from '../businesses/dto/create-business.dto';
 import { CreateBusinessOwnerDto } from './dto/create-business-owner.dto';
 import { AdminBusinessesService } from './admin-businesses.service';
@@ -101,12 +102,16 @@ describe('AdminBusinessesController', () => {
       mockAdminBusinessesService.createOwner.mockResolvedValue(
         mockBusinessUser,
       );
+      const req = {
+        user: { id: 'admin-1' },
+      } as unknown as AuthenticatedRequest;
 
-      const result = await controller.createOwner('biz-1', dto);
+      const result = await controller.createOwner('biz-1', dto, req);
 
       expect(mockAdminBusinessesService.createOwner).toHaveBeenCalledWith(
         'biz-1',
         dto,
+        'admin-1',
       );
       expect(result).toEqual(mockBusinessUser);
     });

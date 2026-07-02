@@ -1,4 +1,5 @@
 export const BusinessStatus = {
+  DRAFT: 'DRAFT',
   ACTIVE: 'ACTIVE',
   TRIAL: 'TRIAL',
   SUSPENDED: 'SUSPENDED',

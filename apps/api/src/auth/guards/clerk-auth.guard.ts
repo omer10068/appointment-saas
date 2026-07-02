@@ -7,7 +7,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClerkClient, verifyToken } from '@clerk/backend';
-import { PlatformRole, User, UserStatus } from '../../generated/prisma/client';
+import {
+  BusinessInvitationStatus,
+  BusinessUserStatus,
+  PlatformRole,
+  User,
+  UserStatus,
+} from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../types/authenticated-request';
 import { normalizePhone } from '../../dashboard/phone.util';
@@ -75,6 +81,29 @@ export class ClerkAuthGuard implements CanActivate {
     );
 
     const email = clerkData.email?.toLowerCase() ?? null;
+
+    // Invitation claim path — highest priority whenever Clerk carries our
+    // metadata. This is how a Clerk-invited business OWNER (see
+    // BusinessUsersService.createOwnerForBusiness / ClerkInvitationsService)
+    // gets their pre-created BusinessUser flipped from INVITED to ACTIVE on
+    // their first successful login, with no webhook involved: Clerk copies the
+    // invitation's publicMetadata onto the user it creates when the invitee
+    // accepts, and we read it back here.
+    //
+    // Deliberately does NOT fall through to the legacy phone/email matching
+    // below on any failure — a present-but-invalid businessInvitationId is
+    // itself a signal something is wrong, and falling through would risk
+    // silently linking via a phone/email match using an already-suspect token.
+    const businessInvitationId = this.extractBusinessInvitationId(
+      clerkData.publicMetadata,
+    );
+    if (businessInvitationId) {
+      return this.claimBusinessInvitation({
+        businessInvitationId,
+        clerkUserId,
+        email,
+      });
+    }
 
     // Normalize phone only if Clerk provides one (legacy path for older accounts /
     // platform admins that may still have a Clerk phone on file).
@@ -169,6 +198,105 @@ export class ClerkAuthGuard implements CanActivate {
     throw new UnauthorizedException();
   }
 
+  private extractBusinessInvitationId(
+    publicMetadata: Record<string, unknown> | null,
+  ): string | null {
+    const raw = publicMetadata?.['businessInvitationId'];
+    return typeof raw === 'string' && raw.length > 0 ? raw : null;
+  }
+
+  /**
+   * Atomically claims a pending BusinessInvitation on the invitee's first
+   * successful Clerk login: verifies the invitation is still pending, not
+   * expired, and that the resolved Clerk email matches the invited email
+   * (defense in depth beyond trusting publicMetadata), then activates the
+   * linked BusinessUser and links clerkUserId onto the internal User.
+   */
+  private async claimBusinessInvitation(params: {
+    businessInvitationId: string;
+    clerkUserId: string;
+    email: string | null;
+  }): Promise<User> {
+    const { businessInvitationId, clerkUserId, email } = params;
+
+    return this.prisma.$transaction(async (tx) => {
+      const invitation = await tx.businessInvitation.findUnique({
+        where: { id: businessInvitationId },
+      });
+
+      if (!invitation) {
+        this.logger.warn(
+          `businessInvitationId=${businessInvitationId} not found`,
+        );
+        throw new UnauthorizedException();
+      }
+      if (invitation.status !== BusinessInvitationStatus.PENDING) {
+        this.logger.warn(
+          `businessInvitationId=${businessInvitationId} status=${invitation.status} — not claimable`,
+        );
+        throw new UnauthorizedException();
+      }
+      if (!invitation.clerkInvitationId || !invitation.expiresAt) {
+        // Persisted but never confirmed as actually sent by Clerk (see
+        // BusinessUsersService.createOwnerForBusiness's persist-first
+        // ordering) — no legitimate Clerk ticket could exist for this row
+        // yet, so a claim attempt against it is either a race or bogus.
+        this.logger.warn(
+          `businessInvitationId=${businessInvitationId} has no confirmed Clerk invitation — rejecting claim`,
+        );
+        throw new UnauthorizedException();
+      }
+      if (invitation.expiresAt <= new Date()) {
+        this.logger.warn(
+          `businessInvitationId=${businessInvitationId} expired at ${invitation.expiresAt.toISOString()}`,
+        );
+        throw new UnauthorizedException();
+      }
+      if (!email || email !== invitation.email) {
+        this.logger.warn(
+          `businessInvitationId=${businessInvitationId} email mismatch resolved=${email ?? 'none'} invitation=${invitation.email}`,
+        );
+        throw new UnauthorizedException();
+      }
+
+      await tx.businessInvitation.update({
+        where: { id: businessInvitationId },
+        data: {
+          status: BusinessInvitationStatus.ACCEPTED,
+          acceptedAt: new Date(),
+        },
+      });
+
+      const businessUser = await tx.businessUser.update({
+        where: { id: invitation.businessUserId },
+        data: { status: BusinessUserStatus.ACTIVE },
+      });
+
+      const user = await tx.user.findUnique({
+        where: { id: businessUser.userId },
+      });
+      if (!user) {
+        // Unreachable given the FK relation — defensive only.
+        throw new UnauthorizedException();
+      }
+      if (user.clerkUserId && user.clerkUserId !== clerkUserId) {
+        this.logger.warn(
+          `user ${user.id} already linked to a different clerkUserId — refusing to reassign via invitation claim`,
+        );
+        throw new UnauthorizedException();
+      }
+
+      this.logger.debug(
+        `claimed businessInvitationId=${businessInvitationId} → user=${user.id} clerkUserId=${clerkUserId}`,
+      );
+
+      return tx.user.update({
+        where: { id: user.id },
+        data: { clerkUserId, status: UserStatus.ACTIVE },
+      });
+    });
+  }
+
   protected verifyClerkToken(
     token: string,
     secretKey: string,
@@ -179,7 +307,11 @@ export class ClerkAuthGuard implements CanActivate {
   protected async getClerkUserData(
     clerkUserId: string,
     secretKey: string,
-  ): Promise<{ email: string | null; phone: string | null }> {
+  ): Promise<{
+    email: string | null;
+    phone: string | null;
+    publicMetadata: Record<string, unknown> | null;
+  }> {
     const clerk = createClerkClient({ secretKey });
     const clerkUser = await clerk.users.getUser(clerkUserId);
 
@@ -197,6 +329,10 @@ export class ClerkAuthGuard implements CanActivate {
       clerkUser.phoneNumbers[0]?.phoneNumber ??
       null;
 
-    return { email: primaryEmail, phone: primaryPhone };
+    return {
+      email: primaryEmail,
+      phone: primaryPhone,
+      publicMetadata: clerkUser.publicMetadata ?? null,
+    };
   }
 }

@@ -60,8 +60,13 @@ export class AdminBusinessesService {
   createOwner(
     businessId: string,
     dto: CreateBusinessOwnerDto,
+    invitedByUserId: string,
   ): Promise<BusinessUser> {
-    return this.businessUsersService.createOwnerForBusiness(businessId, dto);
+    return this.businessUsersService.createOwnerForBusiness(
+      businessId,
+      dto,
+      invitedByUserId,
+    );
   }
 
   async setBusinessStatus(

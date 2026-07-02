@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -13,6 +14,7 @@ export class CreateBusinessUserDto {
 
   @IsEmail()
   @IsOptional()
+  @Transform(({ value }: { value?: string }) => value?.trim().toLowerCase())
   email?: string | null;
 
   @IsEnum(['MEMBER', 'MANAGER'], {

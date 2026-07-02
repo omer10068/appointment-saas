@@ -5,6 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { ClerkAuthGuard } from '../../src/auth/guards/clerk-auth.guard';
 import { ClerkProvisioningService } from '../../src/auth/clerk-provisioning.service';
+import { ClerkInvitationsService } from '../../src/auth/clerk-invitations.service';
 import { AdminModule } from '../../src/admin/admin.module';
 import { DashboardModule } from '../../src/dashboard/dashboard.module';
 import { PublicModule } from '../../src/public/public.module';
@@ -217,6 +218,47 @@ const mockClerkProvisioning = {
     ),
 };
 
+// ClerkInvitationsService mock — used by createOwnerForBusiness (Admin creates
+// OWNER). Default implementation returns a deterministic clerkInvitationId
+// derived from the email, mirroring mockClerkProvisioning's convention.
+const mockClerkInvitations = {
+  createOwnerInvitation: jest
+    .fn<
+      (dto: {
+        email: string;
+        businessInvitationId: string;
+      }) => Promise<{ clerkInvitationId: string; expiresAt: Date }>
+    >()
+    .mockImplementation((dto: { email: string }) =>
+      Promise.resolve({
+        clerkInvitationId: `clerk_inv_${dto.email.replace(/\W/g, '')}`,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      }),
+    ),
+};
+
+// Admin-created OWNERs now start INVITED and only become ACTIVE once the
+// invitee claims the Clerk invitation (ClerkAuthGuard.claimBusinessInvitation).
+// e2e tests replace ClerkAuthGuard entirely via MockClerkAuthGuard, so the
+// real claim path can't be exercised over HTTP here — this helper simulates
+// its end state directly so fixtures that need an active owner can proceed.
+async function simulateOwnerInvitationAccepted(
+  businessId: string,
+): Promise<void> {
+  const bu = await prisma.businessUser.findFirst({
+    where: { businessId, role: BusinessUserRole.OWNER },
+  });
+  if (!bu) return;
+  await prisma.businessUser.update({
+    where: { id: bu.id },
+    data: { status: BusinessUserStatus.ACTIVE },
+  });
+  await prisma.businessInvitation.updateMany({
+    where: { businessUserId: bu.id },
+    data: { status: 'ACCEPTED', acceptedAt: new Date() },
+  });
+}
+
 beforeAll(async () => {
   const module: TestingModule = await Test.createTestingModule({
     imports: [
@@ -231,12 +273,27 @@ beforeAll(async () => {
     .useClass(MockClerkAuthGuard)
     .overrideProvider(ClerkProvisioningService)
     .useValue(mockClerkProvisioning)
+    .overrideProvider(ClerkInvitationsService)
+    .useValue(mockClerkInvitations)
     .compile();
 
   app = await createTestApp(module);
   prisma = module.get(PrismaService);
 
   // ── Idempotent pre-cleanup ─────────────────────────────────────────────────
+  // BusinessInvitation must be deleted before BusinessUser (FK restrict).
+  await prisma.businessInvitation.deleteMany({
+    where: {
+      businessId: {
+        in: [
+          E2E_ADMIN_BIZ_ID,
+          E2E_ADMIN_OWNED_BIZ_ID,
+          E2E_ADMIN_REGRESSION_BIZ_ID,
+          E2E_ADMIN_DRAFT_BIZ_ID,
+        ],
+      },
+    },
+  });
   await prisma.businessUser.deleteMany({
     where: {
       businessId: {
@@ -375,6 +432,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await prisma.businessInvitation.deleteMany({
+    where: {
+      businessId: {
+        in: [
+          E2E_ADMIN_BIZ_ID,
+          E2E_ADMIN_OWNED_BIZ_ID,
+          E2E_ADMIN_REGRESSION_BIZ_ID,
+          E2E_ADMIN_DRAFT_BIZ_ID,
+        ],
+      },
+    },
+  });
   await prisma.businessUser.deleteMany({
     where: {
       businessId: {
@@ -437,7 +506,17 @@ describe('POST /admin/businesses/:businessId/owner', () => {
       id: expect.any(String) as string,
       businessId: E2E_ADMIN_BIZ_ID,
       role: BusinessUserRole.OWNER,
-      status: BusinessUserStatus.ACTIVE,
+      status: BusinessUserStatus.INVITED,
+    });
+
+    const invitation = await prisma.businessInvitation.findUnique({
+      where: { businessUserId: (res.body as { id: string }).id },
+    });
+    expect(invitation).toMatchObject({
+      businessId: E2E_ADMIN_BIZ_ID,
+      email: 'newowner@example.com',
+      status: 'PENDING',
+      clerkInvitationId: expect.any(String) as string,
     });
   });
 
@@ -694,6 +773,9 @@ describe('PATCH /admin/businesses/:businessId/status', () => {
 
 describe('admin-created owner status and dashboard access', () => {
   beforeEach(async () => {
+    await prisma.businessInvitation.deleteMany({
+      where: { businessId: E2E_ADMIN_REGRESSION_BIZ_ID },
+    });
     await prisma.businessUser.deleteMany({
       where: { businessId: E2E_ADMIN_REGRESSION_BIZ_ID },
     });
@@ -703,6 +785,9 @@ describe('admin-created owner status and dashboard access', () => {
   });
 
   afterEach(async () => {
+    await prisma.businessInvitation.deleteMany({
+      where: { businessId: E2E_ADMIN_REGRESSION_BIZ_ID },
+    });
     await prisma.businessUser.deleteMany({
       where: { businessId: E2E_ADMIN_REGRESSION_BIZ_ID },
     });
@@ -711,7 +796,7 @@ describe('admin-created owner status and dashboard access', () => {
     });
   });
 
-  it('admin-created owner has role OWNER and status ACTIVE', async () => {
+  it('admin-created owner has role OWNER and status INVITED, with a PENDING invitation', async () => {
     MockClerkAuthGuard.currentUser = adminUser;
     const res = await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/owner`)
@@ -724,11 +809,16 @@ describe('admin-created owner status and dashboard access', () => {
     expect(res.body).toMatchObject({
       businessId: E2E_ADMIN_REGRESSION_BIZ_ID,
       role: BusinessUserRole.OWNER,
-      status: BusinessUserStatus.ACTIVE,
+      status: BusinessUserStatus.INVITED,
     });
+
+    const ownerUser = await prisma.user.findUnique({
+      where: { phoneNormalized: REGRESSION_OWNER_PHONE },
+    });
+    expect(ownerUser?.clerkUserId).toBeNull();
   });
 
-  it('admin-created owner can access dashboard → 200', async () => {
+  it('admin-created owner cannot access dashboard before the invitation is claimed → 403', async () => {
     MockClerkAuthGuard.currentUser = adminUser;
     await request(app.getHttpServer())
       .post(`/admin/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/owner`)
@@ -737,6 +827,29 @@ describe('admin-created owner status and dashboard access', () => {
         email: 'regression-owner@example.com',
       })
       .expect(201);
+
+    const ownerUser = await prisma.user.findUnique({
+      where: { phoneNormalized: REGRESSION_OWNER_PHONE },
+    });
+    expect(ownerUser).not.toBeNull();
+
+    MockClerkAuthGuard.currentUser = ownerUser!;
+    await request(app.getHttpServer())
+      .get(`/dashboard/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/services`)
+      .expect(403);
+  });
+
+  it('admin-created owner can access dashboard once the invitation is claimed → 200', async () => {
+    MockClerkAuthGuard.currentUser = adminUser;
+    await request(app.getHttpServer())
+      .post(`/admin/businesses/${E2E_ADMIN_REGRESSION_BIZ_ID}/owner`)
+      .send({
+        phone: REGRESSION_OWNER_PHONE,
+        email: 'regression-owner@example.com',
+      })
+      .expect(201);
+
+    await simulateOwnerInvitationAccepted(E2E_ADMIN_REGRESSION_BIZ_ID);
 
     const ownerUser = await prisma.user.findUnique({
       where: { phoneNormalized: REGRESSION_OWNER_PHONE },
@@ -4070,6 +4183,9 @@ describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
         where: { businessId: bId },
       });
       await prisma.service.deleteMany({ where: { businessId: bId } });
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: bId },
+      });
       await prisma.businessUser.deleteMany({ where: { businessId: bId } });
       await prisma.business.deleteMany({ where: { id: bId } });
     }
@@ -4092,6 +4208,9 @@ describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
         where: { businessId: hpBusinessId },
       });
       await prisma.service.deleteMany({ where: { businessId: hpBusinessId } });
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: hpBusinessId },
+      });
       await prisma.businessUser.deleteMany({
         where: { businessId: hpBusinessId },
       });
@@ -4139,7 +4258,15 @@ describe('Full two-partner onboarding happy path (DRAFT → ACTIVE)', () => {
     };
     const ownerBusinessUserId = ownerBu.id;
     expect(ownerBu.role).toBe('OWNER');
-    expect(ownerBu.status).toBe('ACTIVE');
+    expect(ownerBu.status).toBe('INVITED');
+
+    // Simulate the owner claiming their Clerk invitation (see
+    // ClerkAuthGuard.claimBusinessInvitation) — e2e tests replace
+    // ClerkAuthGuard entirely via MockClerkAuthGuard, so the real claim path
+    // can't be exercised over HTTP; this brings the fixture to the same end
+    // state so the rest of this onboarding walkthrough (readiness, TRIAL →
+    // ACTIVE) behaves as it would once a real owner accepts.
+    await simulateOwnerInvitationAccepted(hpBusinessId);
 
     // ── Step 3: Add second partner as MANAGER ─────────────────────────────────
     const managerRes = await request(app.getHttpServer())
@@ -5350,6 +5477,9 @@ describe('Phase C — Admin correction endpoints', () => {
       await prisma.serviceProvider.deleteMany({
         where: { businessId: E2E_ADMIN_PD_BIZ_ID },
       });
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
       await prisma.businessUser.deleteMany({
         where: { businessId: E2E_ADMIN_PD_BIZ_ID },
       });
@@ -5394,6 +5524,9 @@ describe('Phase C — Admin correction endpoints', () => {
       await prisma.serviceProvider.deleteMany({
         where: { businessId: E2E_ADMIN_PD_BIZ_ID },
       });
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
       await prisma.businessUser.deleteMany({
         where: { businessId: E2E_ADMIN_PD_BIZ_ID },
       });
@@ -5415,32 +5548,56 @@ describe('Phase C — Admin correction endpoints', () => {
             clerkUserId: `clerk_${dto.email.replace(/\W/g, '')}`,
           }),
       );
+      mockClerkInvitations.createOwnerInvitation.mockImplementation(
+        (dto: { email: string }) =>
+          Promise.resolve({
+            clerkInvitationId: `clerk_inv_${dto.email.replace(/\W/g, '')}`,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          }),
+      );
     });
 
-    it('creates OWNER and provisions Clerk user — clerkUserId stored on User', async () => {
+    it('creates OWNER as an invitation — no Clerk user provisioned yet, clerkUserId stays unset', async () => {
       const res = await request(app.getHttpServer())
         .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
         .send({ phone: ADMIN_PD_OWNER_PHONE, email: ADMIN_PD_OWNER_EMAIL })
         .expect(201);
 
-      expect((res.body as { role: string }).role).toBe('OWNER');
+      expect((res.body as { role: string; status: string }).role).toBe('OWNER');
+      expect((res.body as { role: string; status: string }).status).toBe(
+        'INVITED',
+      );
 
-      // Provisioning service was called once with the email (not phone)
-      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledTimes(
+      // The Clerk Invitations API was called with the email — NOT
+      // ClerkProvisioningService.findOrCreateClerkUser (no eager Clerk user).
+      expect(mockClerkInvitations.createOwnerInvitation).toHaveBeenCalledTimes(
         1,
       );
-      expect(mockClerkProvisioning.findOrCreateClerkUser).toHaveBeenCalledWith({
+      expect(mockClerkInvitations.createOwnerInvitation).toHaveBeenCalledWith({
         email: ADMIN_PD_OWNER_EMAIL,
+        businessInvitationId: expect.any(String) as string,
       });
+      expect(
+        mockClerkProvisioning.findOrCreateClerkUser,
+      ).not.toHaveBeenCalled();
 
-      // clerkUserId stored in the DB
+      // No Clerk user is linked yet — that only happens when the invitee
+      // claims the invitation via ClerkAuthGuard on their first login.
       const user = await prisma.user.findUnique({
         where: { phoneNormalized: ADMIN_PD_OWNER_PHONE },
       });
-      expect(user?.clerkUserId).toBe(
-        `clerk_${ADMIN_PD_OWNER_EMAIL.replace(/\W/g, '')}`,
-      );
-      expect(user?.status).toBe('ACTIVE');
+      expect(user?.clerkUserId).toBeNull();
+      expect(user?.status).toBe('INVITED');
+
+      const invitation = await prisma.businessInvitation.findUnique({
+        where: { businessUserId: (res.body as { id: string }).id },
+      });
+      expect(invitation).toMatchObject({
+        businessId: E2E_ADMIN_PD_BIZ_ID,
+        email: ADMIN_PD_OWNER_EMAIL,
+        status: 'PENDING',
+        clerkInvitationId: `clerk_inv_${ADMIN_PD_OWNER_EMAIL.replace(/\W/g, '')}`,
+      });
     });
 
     it('adds MANAGER and provisions Clerk user — clerkUserId stored on User', async () => {
@@ -5576,9 +5733,12 @@ describe('Phase C — Admin correction endpoints', () => {
       expect(user?.phoneNormalized).toBe(ADMIN_PD_LOCAL_PHONE_E164);
     });
 
-    it('Clerk failure on createOwner returns 502 and BusinessUser is not created', async () => {
+    it('Clerk failure on createOwner returns 502, leaves a deterministic retryable PENDING invitation, and does not activate anything', async () => {
       const { BadGatewayException } = await import('@nestjs/common');
       // Remove existing owner first (test 1 created one)
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
       await prisma.businessUser.deleteMany({
         where: {
           businessId: E2E_ADMIN_PD_BIZ_ID,
@@ -5591,8 +5751,8 @@ describe('Phase C — Admin correction endpoints', () => {
 
       const failPhone = '+19990002199';
       const failEmail = 'pd-fail-owner@example.com';
-      mockClerkProvisioning.findOrCreateClerkUser.mockRejectedValueOnce(
-        new BadGatewayException('Clerk user provisioning failed'),
+      mockClerkInvitations.createOwnerInvitation.mockRejectedValueOnce(
+        new BadGatewayException('Clerk invitation creation failed'),
       );
 
       await request(app.getHttpServer())
@@ -5600,10 +5760,127 @@ describe('Phase C — Admin correction endpoints', () => {
         .send({ phone: failPhone, email: failEmail })
         .expect(502);
 
+      // Persist-first ordering: the internal User/BusinessUser/BusinessInvitation
+      // rows ARE created before Clerk is ever called, so they exist even though
+      // the Clerk call itself failed — this is the point of the reordering
+      // (a Clerk email can never reference an id that doesn't exist in
+      // Postgres). Nothing is activated: User stays INVITED, clerkUserId stays
+      // null, BusinessUser stays INVITED, and the invitation stays PENDING with
+      // clerkInvitationId null but clerkSendAttemptedAt set, marking it as a
+      // deterministic, retryable "attempted but unconfirmed" state.
       const user = await prisma.user.findUnique({
         where: { phoneNormalized: failPhone },
       });
-      expect(user).toBeNull();
+      expect(user).toMatchObject({ status: 'INVITED', clerkUserId: null });
+
+      const businessUser = await prisma.businessUser.findFirst({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+      expect(businessUser).toMatchObject({ status: 'INVITED' });
+
+      const invitation = await prisma.businessInvitation.findUnique({
+        where: { businessUserId: businessUser!.id },
+      });
+      expect(invitation).toMatchObject({
+        status: 'PENDING',
+        clerkInvitationId: null,
+        expiresAt: null,
+      });
+      expect(invitation!.clerkSendAttemptedAt).not.toBeNull();
+
+      // Retry reuses the same BusinessInvitation id rather than minting a new
+      // one, and — once Clerk succeeds — confirms it.
+      mockClerkInvitations.createOwnerInvitation.mockResolvedValueOnce({
+        clerkInvitationId: 'clerk_inv_retry_success',
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+      const retryRes = await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+        .send({ phone: failPhone, email: failEmail })
+        .expect(201);
+      expect((retryRes.body as { id: string }).id).toBe(businessUser!.id);
+
+      const confirmedInvitation = await prisma.businessInvitation.findUnique({
+        where: { businessUserId: businessUser!.id },
+      });
+      expect(confirmedInvitation).toMatchObject({
+        id: invitation!.id,
+        status: 'PENDING',
+        clerkInvitationId: 'clerk_inv_retry_success',
+      });
+
+      // Cleanup — this phone is not part of ALL_PD_PHONES.
+      await prisma.businessInvitation.deleteMany({
+        where: { businessUserId: businessUser!.id },
+      });
+      await prisma.businessUser.deleteMany({ where: { id: businessUser!.id } });
+      await prisma.user.deleteMany({ where: { phoneNormalized: failPhone } });
+    });
+
+    it('fails closed with Conflict when the target person already has a linked Clerk account — no unclaimable invitation sent', async () => {
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+
+      // ADMIN_PD_PRELINKED_PHONE/EMAIL was seeded in beforeAll with
+      // clerkUserId already set to 'clerk_preexisting_pd'.
+      await request(app.getHttpServer())
+        .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+        .send({
+          phone: ADMIN_PD_PRELINKED_PHONE,
+          email: ADMIN_PD_PRELINKED_EMAIL,
+        })
+        .expect(409);
+
+      expect(mockClerkInvitations.createOwnerInvitation).not.toHaveBeenCalled();
+
+      const businessUser = await prisma.businessUser.findFirst({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+      expect(businessUser).toBeNull();
+    });
+
+    it('concurrent owner-invite attempts do not create duplicate active OWNER memberships', async () => {
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+      const raceAPhone = '+19990002210';
+      const raceBPhone = '+19990002211';
+      await prisma.user.deleteMany({
+        where: { phoneNormalized: { in: [raceAPhone, raceBPhone] } },
+      });
+
+      const [resA, resB] = await Promise.all([
+        request(app.getHttpServer())
+          .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+          .send({ phone: raceAPhone, email: 'pd-race-a@example.com' }),
+        request(app.getHttpServer())
+          .post(`/admin/businesses/${E2E_ADMIN_PD_BIZ_ID}/owner`)
+          .send({ phone: raceBPhone, email: 'pd-race-b@example.com' }),
+      ]);
+
+      expect([resA.status, resB.status].sort()).toEqual([201, 409]);
+
+      const owners = await prisma.businessUser.findMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+      expect(owners).toHaveLength(1);
+
+      await prisma.businessInvitation.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID },
+      });
+      await prisma.businessUser.deleteMany({
+        where: { businessId: E2E_ADMIN_PD_BIZ_ID, role: 'OWNER' },
+      });
+      await prisma.user.deleteMany({
+        where: { phoneNormalized: { in: [raceAPhone, raceBPhone] } },
+      });
     });
 
     it('non-admin returns 403 (guard unaffected by provisioning change)', async () => {

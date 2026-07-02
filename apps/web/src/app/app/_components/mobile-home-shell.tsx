@@ -432,6 +432,9 @@ export function MobileHomeShell() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
+  // No local access-state check here — the shared AppAccessGate (app/layout.tsx)
+  // guarantees this component only ever mounts once the business is TRIAL/ACTIVE
+  // and the current membership is ACTIVE.
 
   return (
     <MobilePhoneFrame dir="rtl">

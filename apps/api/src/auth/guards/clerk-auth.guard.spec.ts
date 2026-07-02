@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { type User } from '../../generated/prisma/client';
+import {
+  type BusinessInvitation,
+  type BusinessUser,
+  type User,
+} from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClerkAuthGuard } from './clerk-auth.guard';
 
@@ -21,13 +25,62 @@ function makeUser(overrides: Partial<User> = {}): User {
   };
 }
 
+const mockTx = {
+  businessInvitation: {
+    findUnique:
+      jest.fn<(...args: unknown[]) => Promise<BusinessInvitation | null>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<BusinessInvitation>>(),
+  },
+  businessUser: {
+    update: jest.fn<(...args: unknown[]) => Promise<BusinessUser>>(),
+  },
+  user: {
+    findUnique: jest.fn<(...args: unknown[]) => Promise<User | null>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<User>>(),
+  },
+};
+
 const mockPrisma = {
   user: {
     findUnique: jest.fn<(...args: unknown[]) => Promise<User | null>>(),
     update: jest.fn<(...args: unknown[]) => Promise<User>>(),
     create: jest.fn<(...args: unknown[]) => Promise<User>>(),
   },
+  $transaction: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
 };
+
+function makeInvitation(
+  overrides: Partial<BusinessInvitation> = {},
+): BusinessInvitation {
+  return {
+    id: 'inv-1',
+    businessId: 'biz-1',
+    businessUserId: 'bu-1',
+    email: 'owner@example.com',
+    status: 'PENDING',
+    clerkInvitationId: 'clerk_inv_1',
+    invitedByUserId: 'admin-1',
+    expiresAt: new Date('2999-01-01'),
+    clerkSendAttemptedAt: new Date('2024-01-01'),
+    acceptedAt: null,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+    ...overrides,
+  };
+}
+
+function makeBusinessUser(overrides: Partial<BusinessUser> = {}): BusinessUser {
+  return {
+    id: 'bu-1',
+    businessId: 'biz-1',
+    userId: 'user-1',
+    role: 'OWNER',
+    status: 'INVITED',
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+    ...overrides,
+  };
+}
 
 const mockConfigService = {
   getOrThrow: jest.fn<() => string>(),
@@ -62,6 +115,10 @@ describe('ClerkAuthGuard', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockConfigService.getOrThrow.mockReturnValue('sk_test_key');
+    mockPrisma.$transaction.mockImplementation((...args: unknown[]) => {
+      const fn = args[0] as (tx: typeof mockTx) => Promise<unknown>;
+      return fn(mockTx);
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -563,6 +620,224 @@ describe('ClerkAuthGuard', () => {
       ).rejects.toThrow(UnauthorizedException);
       expect(mockPrisma.user.update).not.toHaveBeenCalled();
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Invitation claim path — first login of a Clerk-invited business OWNER.
+  // Clerk carries the invitation's publicMetadata onto the created user; the
+  // guard reads businessInvitationId back and claims it atomically.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  describe('invitation claim path', () => {
+    it('claims a valid pending invitation, activates the BusinessUser, and links clerkUserId', async () => {
+      const invitation = makeInvitation();
+      const businessUser = makeBusinessUser();
+      const unlinkedUser = makeUser({
+        id: 'user-1',
+        clerkUserId: null,
+        status: 'INVITED',
+        email: 'owner@example.com',
+      });
+      const linkedUser = makeUser({
+        id: 'user-1',
+        clerkUserId: 'new_clerk_id',
+        status: 'ACTIVE',
+        email: 'owner@example.com',
+      });
+
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'new_clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'owner@example.com',
+        publicMetadata: { businessInvitationId: 'inv-1' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null); // fast path miss
+      mockTx.businessInvitation.findUnique.mockResolvedValue(invitation);
+      mockTx.businessInvitation.update.mockResolvedValue({
+        ...invitation,
+        status: 'ACCEPTED',
+      });
+      mockTx.businessUser.update.mockResolvedValue({
+        ...businessUser,
+        status: 'ACTIVE',
+      });
+      mockTx.user.findUnique.mockResolvedValue(unlinkedUser);
+      mockTx.user.update.mockResolvedValue(linkedUser);
+
+      const { ctx, request } = makeContextWithRequest('Bearer valid_token');
+      const result = await guard.canActivate(ctx);
+
+      expect(result).toBe(true);
+      expect(mockTx.businessInvitation.update).toHaveBeenCalledWith({
+        where: { id: 'inv-1' },
+        data: { status: 'ACCEPTED', acceptedAt: expect.any(Date) },
+      });
+      expect(mockTx.businessUser.update).toHaveBeenCalledWith({
+        where: { id: 'bu-1' },
+        data: { status: 'ACTIVE' },
+      });
+      expect(mockTx.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { clerkUserId: 'new_clerk_id', status: 'ACTIVE' },
+      });
+      expect((request as unknown as { user: User }).user).toEqual(linkedUser);
+      // Must not fall through to the legacy phone/email path.
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when the invitation is not found', async () => {
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'new_clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'owner@example.com',
+        publicMetadata: { businessInvitationId: 'missing-inv' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      mockTx.businessInvitation.findUnique.mockResolvedValue(null);
+
+      await expect(
+        guard.canActivate(makeContext('Bearer valid_token')),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockTx.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when the invitation is already ACCEPTED (replay)', async () => {
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'new_clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'owner@example.com',
+        publicMetadata: { businessInvitationId: 'inv-1' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      mockTx.businessInvitation.findUnique.mockResolvedValue(
+        makeInvitation({ status: 'ACCEPTED' }),
+      );
+
+      await expect(
+        guard.canActivate(makeContext('Bearer valid_token')),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockTx.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when the invitation has never been confirmed by Clerk (clerkInvitationId null)', async () => {
+      // Persist-first ordering (BusinessUsersService.createOwnerForBusiness)
+      // means a row can exist as PENDING with clerkInvitationId still null —
+      // no legitimate Clerk ticket could exist for it yet, so it must not be
+      // claimable even though its status is PENDING and it isn't expired.
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'new_clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'owner@example.com',
+        publicMetadata: { businessInvitationId: 'inv-1' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      mockTx.businessInvitation.findUnique.mockResolvedValue(
+        makeInvitation({ clerkInvitationId: null, expiresAt: null }),
+      );
+
+      await expect(
+        guard.canActivate(makeContext('Bearer valid_token')),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockTx.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when the invitation has expired', async () => {
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'new_clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'owner@example.com',
+        publicMetadata: { businessInvitationId: 'inv-1' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      mockTx.businessInvitation.findUnique.mockResolvedValue(
+        makeInvitation({ expiresAt: new Date('2000-01-01') }),
+      );
+
+      await expect(
+        guard.canActivate(makeContext('Bearer valid_token')),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockTx.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when the resolved email does not match the invitation email', async () => {
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'new_clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'attacker@example.com',
+        publicMetadata: { businessInvitationId: 'inv-1' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      mockTx.businessInvitation.findUnique.mockResolvedValue(makeInvitation());
+
+      await expect(
+        guard.canActivate(makeContext('Bearer valid_token')),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockTx.businessUser.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException and refuses to reassign when the linked User already has a different clerkUserId', async () => {
+      const hijackedUser = makeUser({
+        id: 'user-1',
+        clerkUserId: 'someone_elses_clerk_id',
+        email: 'owner@example.com',
+      });
+
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'attacker_clerk_id' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'owner@example.com',
+        publicMetadata: { businessInvitationId: 'inv-1' },
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      mockTx.businessInvitation.findUnique.mockResolvedValue(makeInvitation());
+      mockTx.businessInvitation.update.mockResolvedValue(makeInvitation());
+      mockTx.businessUser.update.mockResolvedValue(makeBusinessUser());
+      mockTx.user.findUnique.mockResolvedValue(hijackedUser);
+
+      await expect(
+        guard.canActivate(makeContext('Bearer valid_token')),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockTx.user.update).not.toHaveBeenCalled();
+    });
+
+    it('does not fall through to legacy phone/email matching when businessInvitationId is absent', async () => {
+      const user = makeUser({ clerkUserId: null });
+      jest
+        .spyOn(guard as any, 'verifyClerkToken')
+        .mockResolvedValue({ sub: 'clerk_123' });
+      jest.spyOn(guard as any, 'getClerkUserData').mockResolvedValue({
+        phone: null,
+        email: 'test@example.com',
+        publicMetadata: null,
+      });
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // by clerkUserId
+        .mockResolvedValueOnce(user); // by email — legacy path still runs
+      mockPrisma.user.update.mockResolvedValue({
+        ...user,
+        clerkUserId: 'clerk_123',
+      });
+
+      await guard.canActivate(makeContext('Bearer valid_token'));
+
+      // No claim transaction attempted at all when there's no businessInvitationId.
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 });
